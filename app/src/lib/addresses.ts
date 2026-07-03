@@ -142,3 +142,25 @@ export const DEFAULT_RPC_URL = 'https://arb1.arbitrum.io/rpc'
 
 /** localStorage key holding a user-supplied custom RPC URL. */
 export const RPC_STORAGE_KEY = 'openpendle.rpc'
+
+// ---------------------------------------------------------------------------
+// M1 additions — trust-probe reference addresses (appended per file-ownership
+// rules; nothing above this line changed). Display/comparison only — never
+// used to route transactions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Pendle governance multisig ("governance" in 42161-core.json). Together with
+ * PENDLE_GOVERNANCE (the proxy) it forms the "owner is Pendle" set for the
+ * per-pool trust panel's SY-owner check.
+ */
+export const PENDLE_GOVERNANCE_MULTISIG: Address =
+  '0x7877AdFaDEd756f3248a0EBfe8Ac2E2eF87b75Ac'
+
+/**
+ * Pendle ProxyAdmin — admin of Pendle's TransparentUpgradeableProxies
+ * (syFactory-deployed upgradeable SYs). Trust panel compares the EIP-1967
+ * admin slot against this.
+ */
+export const PENDLE_PROXY_ADMIN: Address =
+  '0xA28c08f165116587D4F3E708743B4dEe155c5E64'

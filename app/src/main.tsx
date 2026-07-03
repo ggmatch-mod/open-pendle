@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { HashRouter } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
@@ -17,7 +18,10 @@ createRoot(document.getElementById('root')!).render(
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme({ accentColor: '#10b981' })}>
-          <App />
+          {/* HashRouter: IPFS/static-host friendly — no server-side rewrites needed. */}
+          <HashRouter>
+            <App />
+          </HashRouter>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

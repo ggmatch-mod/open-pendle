@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-07-03T22:24:38.375Z",
+  "markets": [
+    {
+      "address": "0x8218081576D7F2f2598715F98b8bB452741E8c57",
+      "displayName": "PLP USD₮0 9JUL2026",
+      "expiry": 1783555200
+    },
+    {
+      "address": "0x0f694b91e4247b2dc2d61d2c9A3c3ff6dc5b2959",
+      "displayName": "PLP TEST 30JUL2026",
+      "expiry": 1785369600
+    },
+    {
+      "address": "0x089bb526a424FB18B17e18E62997F4fa40f98543",
+      "displayName": "PLP Bedrock uniETH 27AUG2026",
+      "expiry": 1787788800
+    },
+    {
+      "address": "0xA8a0DEA40174CfC30fEA9e3A77f182aB33f46E25",
+      "displayName": "PLP USDai 15OCT2026",
+      "expiry": 1792022400
+    },
+    {
+      "address": "0xcbF629C8d396b1261F81F55175Afa010E94787d8",
+      "displayName": "PLP Staked USDai 15OCT2026",
+      "expiry": 1792022400
+    },
+    {
+      "address": "0xaC4bBDfcEE5f90E6274243A687889fC4816FC58c",
+      "displayName": "PLP TEST 4FEB2027",
+      "expiry": 1801699200
+    },
+    {
+      "address": "0xf86119a39f8654f38aCBbD5488Bd83F3f51983c8",
+      "displayName": "PLP Staked USDai 25FEB2027",
+      "expiry": 1803513600
+    },
+    {
+      "address": "0x46f545683D8494Ef4c54B7ea40cA762c620846eF",
+      "displayName": "PLP USDai 25FEB2027",
+      "expiry": 1803513600
+    }
+  ]
+}

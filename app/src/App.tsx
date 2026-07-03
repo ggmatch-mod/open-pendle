@@ -1,78 +1,28 @@
 /**
- * OpenPendle M0 shell — dark-themed, fully browsable with no wallet.
- * Market loading (paste → validate → pool page) arrives in M1; for now the
- * paste box only checks address format.
+ * OpenPendle app shell (M1) — header, wrong-network banner, hash-routed pages,
+ * risk-disclaimer footer. Fully browsable with no wallet connected.
+ * HashRouter (set up in main.tsx) keeps the SPA static-host/IPFS-friendly.
  */
 
-import { useState } from 'react'
+import { Link, Route, Routes } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { isAddress } from 'viem'
-import { ProtocolStatus } from './components/ProtocolStatus'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
+import Home from './pages/Home'
+import MarketPage from './pages/MarketPage'
 
-function MarketPasteBox() {
-  const [input, setInput] = useState('')
-  const trimmed = input.trim()
-
-  let feedback: { tone: 'ok' | 'bad'; text: string } | null = null
-  if (trimmed.length > 0) {
-    feedback = isAddress(trimmed, { strict: false })
-      ? { tone: 'ok', text: 'Valid address format — market loading arrives in M1.' }
-      : { tone: 'bad', text: 'That does not look like a valid address (0x + 40 hex characters).' }
-  }
-
+function NotFound() {
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <label htmlFor="market-address" className="sr-only">
-        Market address
-      </label>
-      <input
-        id="market-address"
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Paste a Pendle market (PLP) address — 0x…"
-        spellCheck={false}
-        autoComplete="off"
-        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 font-mono text-sm text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-      />
-      <p
-        aria-live="polite"
-        className={`mt-2 min-h-5 text-sm ${
-          feedback === null
-            ? 'text-transparent'
-            : feedback.tone === 'ok'
-              ? 'text-emerald-400'
-              : 'text-red-400'
-        }`}
+    <div className="py-16 text-center">
+      <h1 className="text-xl font-semibold text-zinc-100">Page not found</h1>
+      <p className="mt-2 text-sm text-zinc-400">Nothing lives at this route.</p>
+      <Link
+        to="/"
+        className="mt-6 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
       >
-        {feedback?.text ?? ' '}
-      </p>
+        ← Back home
+      </Link>
     </div>
-  )
-}
-
-function WhatIsThis() {
-  return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-      <h2 className="text-base font-semibold text-zinc-100">What is this?</h2>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-        OpenPendle is an open-source, backend-free interface for{' '}
-        <span className="text-zinc-200">Pendle V2 community pools</span> on Arbitrum —
-        the permissionless markets the official app doesn't list. Everything reads
-        straight from the chain and every transaction goes through Pendle's canonical
-        contracts, so protocol fees flow to Pendle's treasury exactly as the contracts
-        enforce.
-      </p>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-        <span className="text-zinc-200">Where do I find a market address?</span>{' '}
-        Community pool creators share their market (PLP) address directly — in Discord,
-        on X, or via an Arbiscan link. It's the address of the{' '}
-        <span className="font-mono text-xs">PendleMarket</span> contract itself. Paste
-        it above; loading and validation land in M1.
-      </p>
-    </section>
   )
 }
 
@@ -83,9 +33,9 @@ export default function App() {
 
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3.5">
-          <span className="text-lg font-bold tracking-tight">
+          <Link to="/" className="text-lg font-bold tracking-tight hover:opacity-90">
             <span className="text-emerald-400">Open</span>Pendle
-          </span>
+          </Link>
           <div className="flex items-center gap-2.5">
             <RpcSettings />
             <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
@@ -94,24 +44,11 @@ export default function App() {
       </header>
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-4">
-        <section className="py-14 text-center">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Pendle community pools,{' '}
-            <span className="text-emerald-400">no whitelist</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-400 sm:text-base">
-            Load any Pendle V2 market on Arbitrum by address. No backend, no curation —
-            just the chain.
-          </p>
-          <div className="mt-8">
-            <MarketPasteBox />
-          </div>
-        </section>
-
-        <div className="grid gap-6 pb-14 md:grid-cols-2">
-          <WhatIsThis />
-          <ProtocolStatus />
-        </div>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/market/:address" element={<MarketPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </main>
 
       <footer className="border-t border-zinc-800/80">

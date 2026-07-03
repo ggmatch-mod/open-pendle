@@ -119,7 +119,7 @@ type SavedPool = {
 
 ### 3.4 Security posture
 
-- Validate every pasted address via `isValidMarket` across all 5 factories **before** showing any approve/trade UI (the router itself will happily call a malicious address — F2's flip side).
+- Validate every pasted address via `isValidMarket` across all 5 factories **before** showing any approve/trade UI (the router itself will happily call a malicious address — F2's flip side). The gate applies to **every entry path** — the paste box AND direct `#/market/0x…` links (link-sharing is the product's primary flow, so deep links are the attack surface). The validation verdict travels with the snapshot (`validated` flag); provenance labels (vintage badges) must derive only from our own factory checks, never from the market's self-reported `factory()`. Unvalidated market-shaped contracts render a red warning state, not metrics with a green badge (M1 review finding, 2026-07-04).
 - **Valid market ≠ safe market.** `isValidMarket` proves only that the market shell is canonical factory bytecode. The SY underneath — and its attacker-controlled `tokensIn` list — is permissionless, untrusted code (F1). Treat the SY as adversarial even after the gate: every pool page carries a **trust panel** (SY provenance: deployed via Pendle's `syFactory` templates vs unknown bytecode; SY owner address; paused state; proxy admin / upgradeability), and approvals stay exact-amount so worst-case loss is capped at the amount being traded.
 - Exact-amount approvals by default, with an "infinite approval" opt-in.
 - Simulate every tx pre-signature; decode Pendle custom errors (`MarketExpired` 0xb2094b59, `MarketFactoryMarketExists` 0x4a588866, `MarketFactoryInvalidPt` 0x781eae2d, `YCFactoryYieldContractExisted` 0xa50d9502, `YCFactoryInvalidExpiry` 0x1f687fd0, "Slippage: search range overflow", `MarketZeroNetLPFee`, …) into human-readable messages.
@@ -159,17 +159,17 @@ Each milestone ends with: fork-test/preview verification, a short demo note, and
 
 **Done when:** address book resolves live values ✅; app fully browsable wallet-less ✅; wallet connects on Arbitrum with wrong-network handling ✅; fork tests green (21/21 incl. parity suite) ✅ — CI runs on GitHub once the repo is published.
 
-### M1 — Load pools by address + registry (macro #3)
+### M1 — Load pools by address + registry (macro #3) ✅ complete 2026-07-04
 
-- [ ] Paste-an-address flow: normalize/checksum → `isValidMarket` across 5 factories (the provenance gate, §3.4). Rejection UX distinguishes "not a Pendle market" from "this app build may be outdated" (a future factory generation would fail against a stale list — pair with the M8 drift check).
-- [ ] **Near-miss classifier:** users will paste PT/YT/SY addresses. Probe rejected addresses for PT/YT/SY interface signatures and answer specifically ("this looks like a PT — paste the market (PLP) address instead"), resolving to the market where cheaply possible.
-- [ ] Market reader: `readTokens()` → SY/PT/YT; SY `assetInfo/yieldToken/getTokensIn/getTokensOut/exchangeRate`; `readState(router)` (F10); expiry/isExpired; compose display names for pre-V6 vintages (their `name()` is just "Pendle Market").
-- [ ] Pool overview card: implied APY, PT price (asset & SY terms), YT price, TVL in accounting asset, time to maturity, fee tier, factory vintage badge, **out-of-range indicator** (implied APY pinned at the rate band's edge / 0.96-proportion cap), links to Arbiscan.
-- [ ] **Trust panel** per pool (§3.4): SY provenance (syFactory-template vs unknown bytecode), SY owner, paused state, upgradeability.
-- [ ] **Basic expired-market state machine** (pulled forward from M5 — most loadable markets are expired): `isExpired()` switches the pool page to a Matured layout with trade/mint/LP-add controls disabled and a "redeem support lands in M5" notice; "Matured" badge in the registry list.
-- [ ] Registry: remember/forget checkbox per pool (§3.3), saved-pools home screen with live-state sweep, multi-pool support.
-- [ ] **First-visit home state:** paste box front-and-center, a short "where do I find a PLP address" explainer, and a small static starter list of currently-active community markets, clearly labeled as unvetted examples.
-- [ ] Legacy vintages (v1–V5) load **best-effort**: if any probe fails, degrade to a partial view with a "legacy market — limited support" note instead of erroring (the 9 known hard-stuck markets fall out of this naturally).
+- [x] Paste-an-address flow: normalize/checksum → `isValidMarket` across 5 factories (the provenance gate, §3.4). Rejection UX distinguishes "not a Pendle market" from "this app build may be outdated" (a future factory generation would fail against a stale list — pair with the M8 drift check).
+- [x] **Near-miss classifier:** users will paste PT/YT/SY addresses. Probe rejected addresses for PT/YT/SY interface signatures and answer specifically ("this looks like a PT — paste the market (PLP) address instead"), resolving to the market where cheaply possible.
+- [x] Market reader: `readTokens()` → SY/PT/YT; SY `assetInfo/yieldToken/getTokensIn/getTokensOut/exchangeRate`; `readState(router)` (F10); expiry/isExpired; compose display names for pre-V6 vintages (their `name()` is just "Pendle Market").
+- [x] Pool overview card: implied APY, PT price (asset & SY terms), YT price, TVL in accounting asset, time to maturity, fee tier, factory vintage badge, **out-of-range indicator** (implied APY pinned at the rate band's edge / 0.96-proportion cap), links to Arbiscan.
+- [x] **Trust panel** per pool (§3.4): SY provenance (syFactory-template vs unknown bytecode), SY owner, paused state, upgradeability.
+- [x] **Basic expired-market state machine** (pulled forward from M5 — most loadable markets are expired): `isExpired()` switches the pool page to a Matured layout with trade/mint/LP-add controls disabled and a "redeem support lands in M5" notice; "Matured" badge in the registry list.
+- [x] Registry: remember/forget checkbox per pool (§3.3), saved-pools home screen with live-state sweep, multi-pool support.
+- [x] **First-visit home state:** paste box front-and-center, a short "where do I find a PLP address" explainer, and a small static starter list of currently-active community markets, clearly labeled as unvetted examples.
+- [x] Legacy vintages (v1–V5) load **best-effort**: if any probe fails, degrade to a partial view with a "legacy market — limited support" note instead of erroring (the 9 known hard-stuck markets fall out of this naturally).
 
 **Done when:** a **scripted acceptance sweep** — enumerate every market created through the *active* factory generation (from its `CreateNewMarket` events; archive-grade RPC in CI, not the app default) and run the reader over all of them asserting load-without-error and sane invariants (expiry parses, tokens resolve, TVL ≥ 0) — passes, plus best-effort spot-checks of a few markets per legacy vintage; expired markets render the disabled Matured layout; pools persist across reloads; unticking forgets.
 
