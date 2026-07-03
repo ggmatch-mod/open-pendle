@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* OpenPendle is dark-only for M0. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: #09090b; /* zinc-950 — matches the app shell */
+}

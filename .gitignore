@@ -1,0 +1,17 @@
+# deps & build
+node_modules/
+dist/
+out/
+cache/
+
+# env & local
+.env
+.env.*
+!.env.example
+.DS_Store
+.claude/launch.json
+
+# foundry
+fork-tests/out/
+fork-tests/cache/
+fork-tests/broadcast/

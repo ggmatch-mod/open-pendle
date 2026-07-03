@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  fork-tests:
+    runs-on: ubuntu-latest
+    # Public-RPC fork tests can be flaky; failures here block merge but can be re-run.
+    defaults:
+      run:
+        working-directory: fork-tests
+    env:
+      ARB_RPC_URL: ${{ secrets.ARB_RPC_URL != '' && secrets.ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge test --fork-url "$ARB_RPC_URL" -vv
