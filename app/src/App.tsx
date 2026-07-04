@@ -100,7 +100,7 @@ export default function App() {
               validates market provenance but cannot vouch for the assets or SY contracts underneath.{' '}
               <span className="text-warn">Not affiliated with Pendle Finance.</span>{' '}
               <span className="text-accent-ink">
-                OpenPendle is a gift to Pendle's community and charges no fee.
+                OpenPendle is a gift to Pendle's community and takes no fee of its own.
               </span>
             </p>
           </div>
