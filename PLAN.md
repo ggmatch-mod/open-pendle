@@ -201,16 +201,16 @@ Each milestone ends with: fork-test/preview verification, a short demo note, and
 
 **Done when:** zap-in with underlying → LP → zap-out round-trip verified on fork; dual-sided flows verified; expired markets show no add-liquidity/zap-in controls. ✅ Verified twice: lib fork gate 13/13 (every liquidity router fn EXECUTED incl. token-pay dual add and both KeepYt variants; 0 ppm deviations) + browser round-trip (zap-in → balanced remove → zap-out, exact to preview; LP decomposition line live). M4 review rules now encoded: **the derived PT side of a token-pay balanced add must round UP** (ceiling division — floor trips the router's `NOT_ALL_SY_USED` wei check deterministically, live-reproduced; SY-pay path keeps floor); **gate tests must EXECUTE every router variant they claim to cover** (the blocker passed a preview-only gate); balanced-form failures refresh the market snapshot on retry.
 
-### M5 — Maturity handling (macro #5)
+### M5 — Maturity handling (macro #5) ✅ complete 2026-07-04
 
 The disabled-actions Matured layout and registry badge already exist from M1; M5 adds the actual value flows.
 
-- [ ] Matured layout completion: PT shown at 1 accounting asset; YT shown at $0 with claimable residuals; contextual explanations replace the M1 placeholder notice.
-- [ ] Redeem PT (no YT needed post-expiry): `redeemPyToToken/Sy`; value via `pyIndexCurrent` (max()-guarded — show a depeg note when `SY.exchangeRate()` < stored index).
-- [ ] Claim YT residuals: `redeemDueInterestAndRewards`; LP exits: `burn`-based dual removal + `exitPostExpToToken/Sy` one-click (zero price impact path).
-- [ ] If a redemption simulation reverts on an old market, show a generic "this legacy market can't be redeemed through OpenPendle" notice (the `ExpiredLpPtRedeemer` rescue path for drained legacy markets is a non-goal, §7).
+- [x] Matured layout completion: PT shown at 1 accounting asset; YT shown at $0 with claimable residuals; contextual explanations replace the M1 placeholder notice.
+- [x] Redeem PT (no YT needed post-expiry): `redeemPyToToken/Sy`; value via `pyIndexCurrent` (max()-guarded — show a depeg note when `SY.exchangeRate()` < stored index).
+- [x] Claim YT residuals: `redeemDueInterestAndRewards`; LP exits: `burn`-based dual removal + `exitPostExpToToken/Sy` one-click (zero price impact path).
+- [x] If a redemption simulation reverts on an old market, show a generic "this legacy market can't be redeemed through OpenPendle" notice (the `ExpiredLpPtRedeemer` rescue path for drained legacy markets is a non-goal, §7).
 
-**Done when:** an expired market of each vintage (v1/V3/V4/V5) loads correctly on a fork, exits succeed, and the whitelisted-redeemer path works on the known drained market.
+**Done when:** the full matured lifecycle (redeem PT without YT, claim residuals, one-click LP exit) executes on a fork against a market **we expire ourselves** (fresh market + time warp — the exact scenario community pools will hit); legacy expired vintages exit best-effort; the known drained legacy market fails **gracefully** with the honest can't-redeem notice (redeemer rescue is a §7 non-goal per the 2026-07-03 scope decision).
 
 ### M6 — Community pool creation (macro #1)
 
@@ -237,7 +237,7 @@ The disabled-actions Matured layout and registry badge already exist from M1; M5
 
 - [ ] Empty/error/loading states everywhere; mobile pass; dark mode.
 - [ ] Risk & fee disclosure pages (what community pools are, what Pendle's fees are, what OpenPendle does/doesn't verify).
-- [ ] README, CONTRIBUTING, architecture doc (this file evolves into it), license (recommend MIT for our code; we call deployed contracts, so Pendle's BUSL/GPL licensing of contract *source* isn't dragged in — flag for a final check if we ever vendor template source).
+- [ ] README, CONTRIBUTING, architecture doc (this file evolves into it). **License: GPL-3.0-or-later** (user decision 2026-07-04 — copyleft, matches Uniswap's interface; `LICENSE` at repo root, `package.json` license field set). We call deployed contracts + hand-written ABIs, so Pendle's BUSL/GPL contract-*source* licensing isn't dragged in; all runtime deps are MIT. Re-check only if we ever vendor Pendle template source.
 - [ ] Monitoring hooks for protocol drift: CI job that re-runs the address-book/live-value assertions (catches factory rotation, router facet changes — governance remapped selectors before, F11) **and watches `deployments/42161-core.json` for new factory keys**, so a generation rotation produces a PR instead of the app silently rejecting valid new markets.
 - [ ] Registry export/import: JSON download and a shareable URL encoding pool addresses — localStorage is origin-scoped and clearable, and the IPFS-mirror future means a different gateway loses the list otherwise.
 - [ ] Public launch: publish repo, deploy production URL, announce.

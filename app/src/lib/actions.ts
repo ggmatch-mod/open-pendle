@@ -103,8 +103,10 @@ export async function quoteUnwrap(
 /**
  * pyIndex = max(SY.exchangeRate(), YT.pyIndexStored()) — the same formula
  * YT.pyIndexCurrent() applies on-chain (monotone non-decreasing).
+ * Exported for M5: maturity.ts' previewExitPostExp redeems the PT leg at
+ * exactly this index (one shared multicall implementation, not a duplicate).
  */
-async function readPyIndex(client: PublicClient, snapshot: MarketSnapshot): Promise<bigint> {
+export async function readPyIndex(client: PublicClient, snapshot: MarketSnapshot): Promise<bigint> {
   const [rateR, storedR] = await client.multicall({
     contracts: [
       { address: snapshot.sy.address, abi: syReadAbi, functionName: 'exchangeRate' },

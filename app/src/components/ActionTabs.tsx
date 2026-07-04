@@ -1,7 +1,7 @@
 /**
  * ActionTabs (M2/M3/M4) — the market page actions area. Four live tabs
  * (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, Liquidity). Rendered ONLY on
- * validated, non-expired markets — expired keeps MaturedNotice, unvalidated
+ * validated, non-expired markets — expired gets the M5 MaturedPanel, unvalidated
  * keeps the red state (gating lives in MarketPage). SlippageControl in the
  * header is shared by all panels.
  */

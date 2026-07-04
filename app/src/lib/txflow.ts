@@ -117,7 +117,12 @@ const slippage =
 
 const TRADE_TOO_LARGE_MSG =
   "Trade too large for this pool's current liquidity, or the quote went stale — refresh the quote, reduce the size, or retry."
-const SLIPPAGE_MOVED_MSG =
+/**
+ * Recoverable min-out revert (the router's INSUFFICIENT_*_OUT family). Exported
+ * so the M5 legacy can't-redeem notice can exclude it — a slippage revert is
+ * retryable, not evidence a market is un-redeemable.
+ */
+export const SLIPPAGE_MOVED_MSG =
   'Price moved beyond your slippage tolerance — refresh the quote and retry.'
 
 /**

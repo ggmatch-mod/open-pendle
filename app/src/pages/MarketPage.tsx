@@ -1,10 +1,11 @@
 /**
  * MarketPage — /market/:address. Loads a full market snapshot via
  * useMarketSnapshot: header (name, vintage, matured badge, remember toggle),
- * overview grid, trust panel, the M2 actions area (PositionsCard + ActionTabs
- * on validated live markets; MaturedNotice post-expiry; M1 placeholder on
- * unvalidated markets), and the PT/YT/SY token strip. Legacy probe failures
- * render the DegradedBanner instead of failing the page (PLAN M1).
+ * overview grid, trust panel, the actions area (PositionsCard + ActionTabs on
+ * validated live markets; the M5 MaturedPanel on validated expired markets;
+ * the red no-tx placeholder on unvalidated markets), and the PT/YT/SY token
+ * strip. Legacy probe failures render the DegradedBanner instead of failing
+ * the page (PLAN M1).
  */
 
 import { Link, useParams } from 'react-router-dom'
@@ -16,7 +17,7 @@ import { ActionTabs } from '../components/ActionTabs'
 import { AddressChip } from '../components/AddressChip'
 import { DegradedBanner } from '../components/DegradedBanner'
 import { clampLabel } from '../components/format'
-import { MaturedNotice } from '../components/MaturedNotice'
+import { MaturedPanel } from '../components/MaturedPanel'
 import { OverviewGrid } from '../components/OverviewGrid'
 import { PositionsCard } from '../components/PositionsCard'
 import { RememberToggle } from '../components/RememberToggle'
@@ -271,10 +272,11 @@ function MarketView({ address }: { address: Address }) {
         trust={snapshot.trust}
       />
 
-      {/* M2 actions area: PositionsCard whenever the market is validated and a
+      {/* Actions area: PositionsCard whenever the market is validated and a
           wallet is connected (the card gates on connection itself — claims stay
-          valid on expired markets); live tabs only on validated, non-expired
-          markets. Unvalidated keeps the no-tx red state. */}
+          valid on expired markets); live tabs on validated non-expired markets;
+          the M5 MaturedPanel (redeem PT / exit LP) on validated expired ones.
+          Unvalidated keeps the no-tx red state, expired or not. */}
       {snapshot.validated && (
         <PositionsCard
           snapshot={snapshot}
@@ -284,8 +286,12 @@ function MarketView({ address }: { address: Address }) {
           refetch={refetchPositions}
         />
       )}
-      {snapshot.isExpired ? (
-        <MaturedNotice />
+      {snapshot.validated && snapshot.isExpired ? (
+        <MaturedPanel
+          snapshot={snapshot}
+          positions={positions}
+          refetchPositions={refetchPositions}
+        />
       ) : snapshot.validated ? (
         <ActionTabs
           snapshot={snapshot}

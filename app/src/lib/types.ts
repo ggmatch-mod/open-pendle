@@ -248,6 +248,48 @@ export interface DualRemovePreview {
   shareBurned: number
 }
 
+// ---------------------------------------------------------------------------
+// M5 contracts — matured markets
+// ---------------------------------------------------------------------------
+
+/**
+ * Post-expiry one-click exit preview (exitPostExpToSy/Token): LP burns
+ * pro-rata, the PT leg (from the burn + any loose PT included) redeems at
+ * pyIndex — no swap anywhere, so this is exact math, not an estimate.
+ */
+export interface ExitPostExpPreview {
+  syFromLpBurn: bigint
+  ptFromLpBurn: bigint
+  /** Loose PT the user chose to fold into the exit. */
+  ptIncluded: bigint
+  /** SY from redeeming (ptFromLpBurn + ptIncluded) at pyIndex. */
+  syFromPtRedeem: bigint
+  totalSyOut: bigint
+  /** pyIndex used (max(SY.exchangeRate, YT.pyIndexStored), 1e18). */
+  pyIndex: bigint
+}
+
+/**
+ * Depeg guard for matured markets: pyIndex is max()-guarded and
+ * non-decreasing, so when the SY's live exchangeRate has fallen BELOW the
+ * stored index, each PT still redeems 1 accounting asset's worth of SY *at
+ * the stored index* — but that SY is worth less than 1 asset when unwrapped.
+ */
+export interface DepegInfo {
+  syExchangeRate: bigint
+  pyIndexStored: bigint
+  /** True when syExchangeRate < pyIndexStored (redemption output impaired). */
+  depegged: boolean
+  /**
+   * True only when BOTH sub-reads (SY.exchangeRate + YT.pyIndexStored)
+   * succeeded, so `depegged` reflects a real comparison. When false the depeg
+   * status is UNKNOWN (a probe was unreadable or a multicall leg dropped) and
+   * `depegged` is forced false — the banner distinguishes "not depegged" from
+   * "couldn't check" and never fires on unknown.
+   */
+  rateKnown: boolean
+}
+
 /**
  * approve → simulate → confirm lifecycle (PLAN §3.2). Quotes shown before
  * approval are indicative; the binding number comes from simulation, which

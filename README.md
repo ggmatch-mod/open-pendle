@@ -31,4 +31,4 @@ OpenPendle validates pasted markets against Pendle's factories, simulates every 
 
 ## License
 
-TBD (code will be open source; Pendle contracts are interacted with on-chain, not vendored).
+[GPL-3.0-or-later](LICENSE). OpenPendle is a copyleft public good — forks and hosted derivatives must stay open under the same license (the same license Uniswap's own interface uses). The app only calls Pendle's deployed contracts and hand-written ABIs; it does not vendor Pendle's contract source, so their licensing does not extend here. All runtime dependencies are permissive (MIT).

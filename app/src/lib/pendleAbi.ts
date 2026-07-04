@@ -409,3 +409,38 @@ export const routerStaticLiquidityAbi = parseAbi([
   'function removeLiquiditySingleSyStatic(address market, uint256 netLpToRemove) view returns (uint256 netSyOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyFromBurn, uint256 netPtFromBurn, uint256 netSyFromSwap)',
   'function removeLiquiditySingleTokenStatic(address market, uint256 netLpToRemove, address tokenOut) view returns (uint256 netTokenOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyOut, uint256 netSyFromBurn, uint256 netPtFromBurn, uint256 netSyFromSwap)',
 ])
+
+// ---------------------------------------------------------------------------
+// M5 additions — post-expiry one-click exit surface (IPActionMiscV3 subset).
+// Signatures verified verbatim against the scratchpad IPActionMiscV3.sol AND
+// the ActionMiscV3.sol facet implementation (2026-07-04):
+// - exitPostExpToSy returns ONLY the ExitPostExpReturnParams struct — there
+//   is NO leading totalSyOut word (the research digest's shorthand implied
+//   one; the verified source does not have it). Selector unaffected (returns
+//   don't hash): the digest's fork-captured selectors 0xc2d6d65d (ToSy) /
+//   0xf06a07a0 (ToToken) are asserted against these exact encodings by
+//   scripts/m5-maturity-test.mjs, and the ToSy struct decode is validated
+//   on-fork by simulating and matching params.totalSyOut to the exact
+//   client-side preview.
+// - Because viem decodes a single-struct return as an OBJECT, txflow's
+//   simulateAction yields primaryOut = undefined for exitPostExpToSy (like
+//   claim). That is fine: post-expiry exits do no swap, so the binding
+//   display number is maturity.ts' exact previewExitPostExp math, not the
+//   simulation's return value. exitPostExpToToken returns totalTokenOut
+//   first and decodes primaryOut normally.
+// - NO ApproxParams, NO LimitOrderData on either variant (nothing to search,
+//   no swap happens post-expiry); TokenOutput follows the M2 rule
+//   (SwapType.NONE, pendleSwap = 0, tokenRedeemSy = the token itself).
+// - Facet-verified order of operations: LP is pulled from msg.sender to the
+//   market and burned (PT leg of the burn goes straight to the YT), then any
+//   loose netPtIn is pulled to the YT, then ONE YT.redeemPY covers both —
+//   hence approvals are LP (= market address) always, PT only when included.
+// ---------------------------------------------------------------------------
+
+export const routerExitAbi = parseAbi([
+  'struct SwapData { uint8 swapType; address extRouter; bytes extCalldata; bool needScale; }',
+  'struct TokenOutput { address tokenOut; uint256 minTokenOut; address tokenRedeemSy; address pendleSwap; SwapData swapData; }',
+  'struct ExitPostExpReturnParams { uint256 netPtFromRemove; uint256 netSyFromRemove; uint256 netPtRedeem; uint256 netSyFromRedeem; uint256 totalSyOut; }',
+  'function exitPostExpToSy(address receiver, address market, uint256 netPtIn, uint256 netLpIn, uint256 minSyOut) returns (ExitPostExpReturnParams params)',
+  'function exitPostExpToToken(address receiver, address market, uint256 netPtIn, uint256 netLpIn, TokenOutput output) returns (uint256 totalTokenOut, ExitPostExpReturnParams params)',
+])

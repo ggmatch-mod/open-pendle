@@ -22,6 +22,7 @@ import { ARBITRUM_CHAIN_ID } from './addresses'
 import { loadPositions } from './positions'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
+import { previewExitPostExp, readDepegInfo } from './maturity'
 import { buildApproveCall, checkApprovals, decodePendleError, simulateAction } from './txflow'
 import {
   forgetPool,
@@ -277,6 +278,15 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   txHash?: `0x${string}`
   /** First unmet approval, for button labeling ("Approve USDai"). */
   pendingApproval?: import('./types').ApprovalNeed
+  /**
+   * True only when a 'failed' phase came from a genuine on-chain revert — the
+   * binding simulation returned ok:false, or a signed tx's receipt reverted.
+   * False for transport/RPC errors caught by the pipeline (which are transient
+   * and retryable). Callers (e.g. the M5 legacy can't-redeem notice) use this
+   * to avoid asserting un-redeemability on a mere network hiccup. Additive:
+   * M2/M3/M4 panels ignore it.
+   */
+  reverted: boolean
   approve: () => void
   execute: () => void
   reset: () => void
@@ -295,6 +305,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   const [simulatedOut, setSimulatedOut] = useState<bigint | undefined>(undefined)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined)
   const [pendingApproval, setPendingApproval] = useState<ApprovalNeed | undefined>(undefined)
+  // True only for a genuine on-chain revert (sim ok:false / receipt reverted),
+  // never for a thrown transport/RPC error. Cleared on every (re)arm below.
+  const [reverted, setReverted] = useState(false)
   const [resetNonce, setResetNonce] = useState(0)
 
   // Monotonic run id: any state transition source bumps it; async continuations
@@ -353,6 +366,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       setSimulatedOut(sim.primaryOut)
       setPhase('ready')
     } else {
+      // Binding simulation reverted — a genuine on-chain revert (decoded).
+      setReverted(true)
       setError(sim.reason)
       setPhase('failed')
     }
@@ -371,6 +386,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setSimulatedOut(undefined)
     setTxHash(undefined)
     setPendingApproval(undefined)
+    setReverted(false)
     const activePlan = planRef.current
     if (!activePlan) {
       setPhase('idle')
@@ -487,6 +503,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           void queryClient.invalidateQueries({ queryKey: ['swap-quote'] })
         } else {
           latchRef.current = null
+          // Signed tx mined but reverted — a genuine on-chain revert.
+          setReverted(true)
           setError('Transaction reverted on-chain — no tokens moved (gas was spent).')
           setPhase('failed')
         }
@@ -520,12 +538,13 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setSimulatedOut(undefined)
     setTxHash(undefined)
     setPendingApproval(undefined)
+    setReverted(false)
     // Re-arm the pipeline: with a plan still set, the effect immediately
     // moves idle → checking again (fresh allowance check + simulation).
     setResetNonce((n) => n + 1)
   }, [])
 
-  return { phase, error, simulatedOut, txHash, pendingApproval, approve, execute, reset }
+  return { phase, error, simulatedOut, txHash, pendingApproval, reverted, approve, execute, reset }
 }
 
 // ---------------------------------------------------------------------------
@@ -760,4 +779,113 @@ export function useZapQuote(
   }
   if (query.status === 'success') return { status: 'success', quote: query.data, refetch }
   return { status: 'loading', refetch }
+}
+
+// ---------------------------------------------------------------------------
+// M5 hook contracts — STUB bodies below are replaced by the data-layer work;
+// signatures are the contract the UI codes against.
+// ---------------------------------------------------------------------------
+
+/**
+ * Exact post-expiry exit preview (LP burn pro-rata + PT redemption at
+ * pyIndex — no swap, so this is math, not an estimate). Undefined inputs or
+ * a non-expired market → 'idle'.
+ */
+export function useExitPreview(
+  snapshot: MarketSnapshot | undefined,
+  lpIn: bigint | undefined,
+  ptIncluded: bigint,
+): {
+  status: QueryStatus
+  preview?: import('./types').ExitPostExpPreview
+  error?: string
+  /**
+   * Force a fresh preview. The query key does NOT include pyIndex (it's read
+   * live inside previewExitPostExp), so invalidating ['market'] alone won't
+   * refresh the PT-redemption leg when the stored index drifts — callers use
+   * this after a failed flow / on Retry to re-read pyIndex.
+   */
+  refetch: () => void
+} {
+  const client = usePublicClient()
+  // Debounce the LP amount (stringified — useDebouncedValue is a string hook
+  // and bigints can't sit in query keys anyway). '' encodes "no amount";
+  // a PT-only exit (ptIncluded > 0, no LP) previews with lpIn = 0n.
+  const lpKey = lpIn === undefined ? '' : lpIn.toString()
+  const debouncedLpKey = useDebouncedValue(lpKey, SWAP_QUOTE_DEBOUNCE_MS)
+  const inputsReady =
+    snapshot !== undefined &&
+    snapshot.isExpired &&
+    ((lpIn !== undefined && lpIn > 0n) || ptIncluded > 0n)
+  const enabled = inputsReady && client !== undefined && debouncedLpKey === lpKey
+
+  // The LP leg is pure ratio math over snapshot.state — fingerprint the pool
+  // sides into the key (useDualAddPreview precedent) so a refreshed market
+  // snapshot recomputes the split instead of serving a stale one from cache.
+  const stateKey =
+    snapshot === undefined
+      ? null
+      : `${snapshot.state.totalSy}:${snapshot.state.totalPt}:${snapshot.state.totalLp}`
+
+  const query = useQuery({
+    queryKey: [
+      'exit-preview',
+      snapshot?.address.toLowerCase() ?? null,
+      stateKey,
+      debouncedLpKey,
+      ptIncluded.toString(),
+    ],
+    queryFn: () =>
+      previewExitPostExp(
+        client as PublicClient,
+        snapshot as MarketSnapshot,
+        debouncedLpKey === '' ? 0n : BigInt(debouncedLpKey),
+        ptIncluded,
+      ),
+    enabled,
+    staleTime: SWAP_QUOTE_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  // Stable identity (TanStack v5's query.refetch is stable) so callers can
+  // key effects on it without refetch loops.
+  const queryRefetch = query.refetch
+  const refetch = useCallback((): void => {
+    void queryRefetch()
+  }, [queryRefetch])
+
+  if (!inputsReady) return { status: 'idle', refetch }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading', refetch }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error), refetch }
+  }
+  if (query.status === 'success') return { status: 'success', preview: query.data, refetch }
+  return { status: 'loading', refetch }
+}
+
+/** Depeg reads refresh slowly — the stored index only moves on YT activity. */
+const DEPEG_STALE_TIME_MS = 30_000
+
+/** Depeg guard for matured markets (SY.exchangeRate vs pyIndexStored). */
+export function useDepegInfo(snapshot?: MarketSnapshot): {
+  status: QueryStatus
+  info?: import('./types').DepegInfo
+} {
+  const client = usePublicClient()
+  const enabled = snapshot !== undefined && snapshot.isExpired && client !== undefined
+
+  const query = useQuery({
+    queryKey: ['depeg-info', snapshot?.address.toLowerCase() ?? null],
+    queryFn: () => readDepegInfo(client as PublicClient, snapshot as MarketSnapshot),
+    enabled,
+    staleTime: DEPEG_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  if (snapshot === undefined || !snapshot.isExpired) return { status: 'idle' }
+  if (!enabled) return { status: 'loading' }
+  if (query.status === 'error') return { status: 'error' }
+  if (query.status === 'success') return { status: 'success', info: query.data }
+  return { status: 'loading' }
 }
