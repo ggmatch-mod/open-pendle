@@ -229,6 +229,37 @@ export function savePool(chainId: SupportedChainId, snapshot: MarketSnapshot): S
   return pool
 }
 
+/**
+ * Refresh an ALREADY-saved pool's cached display fields (label, expiry, token
+ * addresses, factory, assetSymbol/decimals) from a fresh snapshot, PRESERVING
+ * savedAt (so it doesn't jump to the top of the recency list). No-op if the
+ * pool isn't saved or nothing changed. Called on the market page after a
+ * successful load so a "Your pools" card can never show a caption that's
+ * drifted from the live market — the identity (chainId, market) is fixed; only
+ * the cached display is reconciled.
+ */
+export function refreshPoolCache(chainId: SupportedChainId, snapshot: MarketSnapshot): void {
+  if (!snapshot.validated) return
+  const needle = poolKey(chainId, snapshot.address)
+  const current = loadPools()
+  const existing = current.find((p) => poolKey(p.chainId, p.market) === needle)
+  if (!existing) return
+  const refreshed: SavedPool = {
+    ...existing,
+    label: snapshot.displayName,
+    sy: snapshot.sy.address,
+    pt: snapshot.pt,
+    yt: snapshot.yt,
+    expiry: snapshot.expiry,
+    factory: snapshot.factory,
+    assetDecimals: snapshot.sy.assetDecimals,
+    ...(snapshot.sy.assetSymbol !== undefined ? { assetSymbol: snapshot.sy.assetSymbol } : {}),
+  }
+  // Only write when something actually changed (avoids needless re-render churn).
+  if (JSON.stringify(refreshed) === JSON.stringify(existing)) return
+  writeEnvelope(current.map((p) => (poolKey(p.chainId, p.market) === needle ? refreshed : p)))
+}
+
 /** Forget a pool by (chainId, market). No-op when not saved. */
 export function forgetPool(chainId: SupportedChainId, market: Address): void {
   const needle = poolKey(chainId, market)

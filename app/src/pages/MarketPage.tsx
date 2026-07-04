@@ -8,11 +8,13 @@
  * the page (PLAN M1).
  */
 
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
 import type { Address } from 'viem'
 import type { MarketSnapshot, Vintage } from '../lib/types'
-import { useMarketSnapshot, usePositions } from '../lib/hooks'
+import { useActiveChain, useMarketSnapshot, usePositions } from '../lib/hooks'
+import { refreshPoolCache } from '../lib/registry'
 import { ActionTabs } from '../components/ActionTabs'
 import { AddressChip } from '../components/AddressChip'
 import { DegradedBanner } from '../components/DegradedBanner'
@@ -227,6 +229,14 @@ function MarketView({ address }: { address: Address }) {
     error: positionsError,
     refetch: refetchPositions,
   } = usePositions(snapshot)
+
+  const { chainId } = useActiveChain()
+  // Self-heal the saved-pool display cache from the fresh snapshot, so a card in
+  // "Your pools" can never show a caption that's drifted from the live market.
+  // No-op unless this pool is saved and something actually changed.
+  useEffect(() => {
+    if (snapshot?.validated) refreshPoolCache(chainId, snapshot)
+  }, [chainId, snapshot])
 
   useDocumentTitle(snapshot?.displayName)
 
