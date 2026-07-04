@@ -16,7 +16,6 @@
  * Exits 1 on any invariant failure.
  */
 
-import { writeFileSync } from 'node:fs'
 import { createPublicClient, getAddress, http, numberToHex } from 'viem'
 import { arbitrum } from 'viem/chains'
 import { loadMarketSnapshot } from '../src/lib/market.ts'
@@ -46,8 +45,6 @@ const LEGACY_SPOT_CHECKS = [
   { vintage: 'V4', address: '0x279b44E48226d40Ec389129061cb0B56C5c09e46' },
   { vintage: 'V5', address: '0x281fE15fd3E08A282f52D5cf09a4d13c3709E66D' },
 ]
-
-const STARTER_MARKETS_URL = new URL('../src/lib/starterMarkets.json', import.meta.url)
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -264,16 +261,19 @@ async function main() {
     await sleep(150)
   }
 
-  // --- starterMarkets.json ---------------------------------------------------
-  const starter = snapshots
+  // --- Home-screen examples --------------------------------------------------
+  // src/lib/starterMarkets.json is HAND-CURATED (a small, deliberate example
+  // set), NOT auto-generated — the sweep no longer overwrites it. For
+  // reference it prints the non-expired active-gen markets it found so the
+  // curated list can be refreshed by hand if desired.
+  const nonExpired = snapshots
     .filter((s) => !s.isExpired)
     .sort((a, b) => a.expiry - b.expiry)
-    .map((s) => ({ address: s.address, displayName: s.displayName, expiry: s.expiry }))
-  writeFileSync(
-    STARTER_MARKETS_URL,
-    `${JSON.stringify({ generatedAt: new Date().toISOString(), markets: starter }, null, 2)}\n`,
+    .map((s) => `  ${s.address}  ${s.displayName}`)
+  console.log(
+    `\nHome examples are curated in src/lib/starterMarkets.json (not written by this sweep).` +
+      `\nNon-expired active-gen markets found (${nonExpired.length}) — for optional hand-curation:\n${nonExpired.join('\n')}`,
   )
-  console.log(`\nWrote starterMarkets.json: ${starter.length} non-expired markets (of ${markets.length} enumerated)`)
 
   // --- Verdict ---------------------------------------------------------------
   if (failures.length > 0) {
