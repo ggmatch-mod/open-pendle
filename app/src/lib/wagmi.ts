@@ -8,19 +8,20 @@
  * - All reads flow through the HTTP RPC transports, never the connected wallet,
  *   so the whole app browses wallet-less on any selected chain.
  * - Multicall batching is on: viem aggregates reads through Multicall3.
- * - WalletConnect projectId is optional; with the placeholder, injected wallets
- *   (MetaMask, Rabby, ...) still work — only the WalletConnect QR modal needs a
- *   real id from https://cloud.walletconnect.com.
+ * - Injected-only: NO WalletConnect. EIP-6963 discovery lists each installed
+ *   injected wallet (MetaMask, Rabby, Brave); there is no WC QR option and no
+ *   Reown/AppKit init or external WalletConnect config fetch.
  * - The active chain (which network the app is showing) is a UI/localStorage
  *   concept (`openpendle.chain`, see hooks.useActiveChain) — NOT the wagmi
  *   config's chain order. Data hooks select their client via
  *   usePublicClient({ chainId }); this config just makes all six available.
  */
 
-import { getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { connectorsForWallets } from '@rainbow-me/rainbowkit'
+import { injectedWallet } from '@rainbow-me/rainbowkit/wallets'
 import { getAddress, isAddress } from 'viem'
 import type { Address, Chain } from 'viem'
-import { http } from 'wagmi'
+import { createConfig, http } from 'wagmi'
 import { arbitrum, base, bsc, mainnet, monad, plasma } from 'wagmi/chains'
 import type { SupportedChainId } from './types'
 import {
@@ -126,9 +127,6 @@ const chains = SUPPORTED_VIEM_CHAINS.map((chain) => {
   return chain
 }) as unknown as readonly [Chain, ...Chain[]]
 
-const walletConnectProjectId =
-  import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'OPENPENDLE_PLACEHOLDER_PROJECT_ID'
-
 // Per-chain HTTP transports keyed by chain id (user-configurable per chain).
 const transports = Object.fromEntries(
   SUPPORTED_VIEM_CHAINS.map((chain) => [
@@ -137,9 +135,19 @@ const transports = Object.fromEntries(
   ]),
 )
 
-export const wagmiConfig = getDefaultConfig({
-  appName: 'OpenPendle',
-  projectId: walletConnectProjectId,
+// Injected-only connectors — NO WalletConnect (so no Reown/AppKit init, no dead
+// WC option in the connect modal, no external WC config fetches). wagmi's
+// EIP-6963 discovery surfaces each installed injected wallet (MetaMask, Rabby,
+// Brave) by name; the generic injectedWallet entry connects to whatever
+// window.ethereum is. `projectId` is required by the type but unused here (no
+// WC-based wallet is listed), so WalletConnect is never initialized.
+const connectors = connectorsForWallets(
+  [{ groupName: 'Installed', wallets: [injectedWallet] }],
+  { appName: 'OpenPendle', projectId: 'openpendle-injected-only' },
+)
+
+export const wagmiConfig = createConfig({
+  connectors,
   chains,
   transports,
   // Batch eth_calls through Multicall3 — public RPCs rate-limit hard (PLAN §3.2).
