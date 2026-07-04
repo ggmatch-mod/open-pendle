@@ -112,3 +112,107 @@ export const pyProbeAbi = parseAbi([
 export const erc20SymbolAbi = parseAbi([
   'function symbol() view returns (string)',
 ])
+
+// ---------------------------------------------------------------------------
+// M2 additions — transaction & positions ABIs (data layer). Signatures
+// verified against docs/research/pendle-v2-research.md (IPActionMiscV3 /
+// IStandardizedYield / IPRouterStatic) AND against live Arbitrum calls
+// (2026-07-04): getUserPYInfo takes the YT address and returns ptBalance
+// FIRST (token fields checked against readTokens()); getUserSYInfo /
+// getUserMarketInfo tuple shapes decoded cleanly with the layouts below.
+// ---------------------------------------------------------------------------
+
+/**
+ * Router V4 mint/redeem/claim surface (IPActionMiscV3 subset).
+ * PY functions take the YT address, NOT the market. TokenInput/TokenOutput are
+ * only ever built with SwapType.NONE (0) + pendleSwap = address(0) in v1
+ * (SY-accepted tokens; aggregator zaps are v1.5).
+ */
+export const routerActionsAbi = parseAbi([
+  'struct SwapData { uint8 swapType; address extRouter; bytes extCalldata; bool needScale; }',
+  'struct TokenInput { address tokenIn; uint256 netTokenIn; address tokenMintSy; address pendleSwap; SwapData swapData; }',
+  'struct TokenOutput { address tokenOut; uint256 minTokenOut; address tokenRedeemSy; address pendleSwap; SwapData swapData; }',
+  'function mintPyFromToken(address receiver, address YT, uint256 minPyOut, TokenInput input) payable returns (uint256 netPyOut, uint256 netSyInterm)',
+  'function mintPyFromSy(address receiver, address YT, uint256 netSyIn, uint256 minPyOut) returns (uint256 netPyOut)',
+  'function redeemPyToSy(address receiver, address YT, uint256 netPyIn, uint256 minSyOut) returns (uint256 netSyOut)',
+  'function redeemPyToToken(address receiver, address YT, uint256 netPyIn, TokenOutput output) returns (uint256 netTokenOut, uint256 netSyInterm)',
+  'function redeemDueInterestAndRewards(address user, address[] sys, address[] yts, address[] markets)',
+])
+
+/** IStandardizedYield wrap/unwrap + exact view quotes (M2). deposit is payable (native tokenIn = address(0)). */
+export const syActionsAbi = parseAbi([
+  'function deposit(address receiver, address tokenIn, uint256 amountTokenToDeposit, uint256 minSharesOut) payable returns (uint256 amountSharesOut)',
+  'function redeem(address receiver, uint256 amountSharesToRedeem, address tokenOut, uint256 minTokenOut, bool burnFromInternalBalance) returns (uint256 amountTokenOut)',
+  'function previewDeposit(address tokenIn, uint256 amountTokenToDeposit) view returns (uint256 amountSharesOut)',
+  'function previewRedeem(address tokenOut, uint256 amountSharesToRedeem) view returns (uint256 amountTokenOut)',
+])
+
+/** YT index read for indicative PY quotes: pyIndex = max(SY.exchangeRate(), YT.pyIndexStored()). */
+export const ytIndexAbi = parseAbi([
+  'function pyIndexStored() view returns (uint256)',
+])
+
+/**
+ * RouterStatic IPActionInfoStatic getUser* helpers. STATE-MUTATING (they poke
+ * reward indexes) — call via eth_call / simulateContract ONLY, never in a tx.
+ * `py` in getUserPYInfo is the YT address (live-verified). Consumers should
+ * still match pt/yt entries by their `.token` field (positions.ts does).
+ */
+export const routerStaticUserAbi = parseAbi([
+  'struct TokenAmount { address token; uint256 amount; }',
+  'struct UserSYInfo { TokenAmount syBalance; TokenAmount[] unclaimedRewards; }',
+  'struct UserPYInfo { TokenAmount ptBalance; TokenAmount ytBalance; TokenAmount unclaimedInterest; TokenAmount[] unclaimedRewards; }',
+  'struct UserMarketInfo { TokenAmount lpBalance; TokenAmount ptBalance; TokenAmount syBalance; TokenAmount[] unclaimedRewards; }',
+  'function getUserSYInfo(address sy, address user) returns (UserSYInfo res)',
+  'function getUserPYInfo(address py, address user) returns (UserPYInfo res)',
+  'function getUserMarketInfo(address market, address user) returns (UserMarketInfo res)',
+])
+
+/** Minimal ERC-20 surface for M2 balances/approvals. */
+export const erc20Abi = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+])
+
+/**
+ * Pendle custom errors (core Errors.sol + MarketV7) that txflow's
+ * decodePendleError maps to friendly messages. Selector spot-checks
+ * (cast sig, 2026-07-04) match PLAN §3.4: MarketExpired 0xb2094b59,
+ * MarketFactoryMarketExists 0x4a588866, MarketFactoryInvalidPt 0x781eae2d,
+ * YCFactoryYieldContractExisted 0xa50d9502, YCFactoryInvalidExpiry 0x1f687fd0;
+ * YCExpired 0x5b15a6da additionally fork-verified (0-amount mintPyFromSy on an
+ * expired market reverts with exactly that selector). The remaining selectors
+ * derive from these signature strings at decode time (viem hashes ABI items).
+ */
+export const pendleErrorsAbi = parseAbi([
+  // Market trading errors
+  'error MarketExpired()',
+  'error MarketZeroNetLPFee()',
+  'error MarketProportionTooHigh(int256 proportion, int256 maxProportion)',
+  'error MarketInsufficientSyForTrade(int256 currentAmount, int256 requiredAmount)',
+  // Yield contract (PT/YT) errors
+  'error YCExpired()',
+  'error YCNothingToRedeem()',
+  // SY errors
+  'error SYZeroDeposit()',
+  'error SYZeroRedeem()',
+  'error SYInsufficientSharesOut(uint256 actualSharesOut, uint256 requiredSharesOut)',
+  'error SYInsufficientTokenOut(uint256 actualTokenOut, uint256 requiredTokenOut)',
+  // Router min-out (slippage) errors
+  'error RouterInsufficientSyOut(uint256 actualSyOut, uint256 requiredSyOut)',
+  'error RouterInsufficientPtOut(uint256 actualPtOut, uint256 requiredPtOut)',
+  'error RouterInsufficientYtOut(uint256 actualYtOut, uint256 requiredYtOut)',
+  'error RouterInsufficientPYOut(uint256 actualPYOut, uint256 requiredPYOut)',
+  'error RouterInsufficientLpOut(uint256 actualLpOut, uint256 requiredLpOut)',
+  'error RouterInsufficientTokenOut(uint256 actualTokenOut, uint256 requiredTokenOut)',
+  // Creation errors (PLAN M6 pre-flight decoding)
+  'error MarketFactoryMarketExists()',
+  'error MarketFactoryInvalidPt()',
+  'error MarketFactoryExpiredPt()',
+  'error YCFactoryYieldContractExisted()',
+  'error YCFactoryInvalidExpiry()',
+])

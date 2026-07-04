@@ -173,15 +173,15 @@ Each milestone ends with: fork-test/preview verification, a short demo note, and
 
 **Done when:** a **scripted acceptance sweep** — enumerate every market created through the *active* factory generation (from its `CreateNewMarket` events; archive-grade RPC in CI, not the app default) and run the reader over all of them asserting load-without-error and sane invariants (expiry parses, tokens resolve, TVL ≥ 0) — passes, plus best-effort spot-checks of a few markets per legacy vintage; expired markets render the disabled Matured layout; pools persist across reloads; unticking forgets.
 
-### M2 — Positions, wrap/unwrap, mint/redeem (macro #4, part 1)
+### M2 — Positions, wrap/unwrap, mint/redeem (macro #4, part 1) ✅ complete 2026-07-04
 
-- [ ] Positions panel: PT/YT/LP/SY/underlying balances; claimable interest & rewards via RouterStatic `getUserSYInfo/getUserPYInfo/getUserMarketInfo` (eth_call only — they're state-mutating).
-- [ ] Wrap/unwrap SY: `SY.deposit`/`SY.redeem` (or router `mintSyFromToken`/`redeemSyToToken` for token lists), quoting via `previewDeposit/previewRedeem`.
-- [ ] Mint PT+YT: router `mintPyFromToken`/`mintPyFromSy`; Redeem PT+YT → `redeemPyToToken`/`redeemPyToSy` (pre-expiry: equal PT+YT amounts).
-- [ ] Claim flows: `redeemDueInterestAndRewards` batch.
-- [ ] Approvals manager (exact-amount default) + tx lifecycle UX per §3.2 (approve → simulate → confirm → pending → confirmed/decoded-error; indicative quotes pre-approval; opportunistic state-override simulation).
+- [x] Positions panel: PT/YT/LP/SY/underlying balances; claimable interest & rewards via RouterStatic `getUserSYInfo/getUserPYInfo/getUserMarketInfo` (eth_call only — they're state-mutating).
+- [x] Wrap/unwrap SY: `SY.deposit`/`SY.redeem` (or router `mintSyFromToken`/`redeemSyToToken` for token lists), quoting via `previewDeposit/previewRedeem`.
+- [x] Mint PT+YT: router `mintPyFromToken`/`mintPyFromSy`; Redeem PT+YT → `redeemPyToToken`/`redeemPyToSy` (pre-expiry: equal PT+YT amounts).
+- [x] Claim flows: `redeemDueInterestAndRewards` batch.
+- [x] Approvals manager (exact-amount default) + tx lifecycle UX per §3.2 (approve → simulate → confirm → pending → confirmed/decoded-error; indicative quotes pre-approval; opportunistic state-override simulation).
 
-**Done when:** full mint→wrap→claim→redeem loop verified on a fork against a live market, and in preview against Arbitrum; expired markets never render these controls enabled (M1 state machine).
+**Done when:** full mint→wrap→claim→redeem loop verified on a fork against a live market, and in preview against Arbitrum; expired markets never render these controls enabled (M1 state machine). ✅ Verified twice: lib-level fork flow test (12/12, incl. TokenInput/TokenOutput paths) + browser E2E on an anvil fork via the dev wallet (wrap, mint, dual-approval redeem). M2 review rules now encoded in code: **PT/YT decimals = `SY.assetInfo().assetDecimals`, never `SY.decimals()`** (live counterexample markets exist); the action flow **latches the plan once a send begins** (no teardown of in-flight txs on quote drift); wrong-network gating reads the connector's real chain (`useAccount().chainId`).
 
 ### M3 — Trading PT & YT (macro #4, part 2)
 

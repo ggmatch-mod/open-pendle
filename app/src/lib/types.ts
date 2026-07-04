@@ -131,3 +131,78 @@ export interface SavedPool {
 }
 
 export type QueryStatus = 'idle' | 'loading' | 'error' | 'success'
+
+// ---------------------------------------------------------------------------
+// M2 contracts — positions & transaction flows
+// ---------------------------------------------------------------------------
+
+/** address(0) denotes native ETH throughout (matches SY tokensIn convention). */
+export interface TokenAmount {
+  token: Address
+  amount: bigint
+  symbol: string
+  decimals: number
+}
+
+export interface Positions {
+  user: Address
+  pt: bigint
+  yt: bigint
+  lp: bigint
+  sy: bigint
+  /** Wallet balances of the SY's tokensIn (wrap sources), incl. native ETH when listed. */
+  walletTokens: TokenAmount[]
+  /** Claimable YT interest, denominated in SY units. */
+  ytClaimableInterestSy: bigint
+  ytClaimableRewards: TokenAmount[]
+  lpClaimableRewards: TokenAmount[]
+  syClaimableRewards: TokenAmount[]
+  /** Probe failures — render what loaded, note what didn't. */
+  degraded: string[]
+}
+
+export interface ApprovalNeed {
+  token: Address
+  spender: Address
+  amount: bigint
+  symbol: string
+  decimals: number
+}
+
+/** viem writeContract-shaped call; `value` set for native-ETH deposits. */
+export interface PlannedCall {
+  address: Address
+  abi: readonly unknown[]
+  functionName: string
+  args: readonly unknown[]
+  value?: bigint
+}
+
+export interface ActionPlan {
+  /** Short human description, e.g. "Wrap 100 USDai into SY-USDai". */
+  describe: string
+  /** ERC-20 approvals required before `call` can succeed (native ETH → none). */
+  approvals: ApprovalNeed[]
+  call: PlannedCall
+  /** Indicative expected output (pre-simulation), display only. */
+  indicativeOut?: TokenAmount
+}
+
+/**
+ * approve → simulate → confirm lifecycle (PLAN §3.2). Quotes shown before
+ * approval are indicative; the binding number comes from simulation, which
+ * gates the confirm button.
+ */
+export type TxPhase =
+  | 'idle'
+  | 'needs-wallet'
+  | 'wrong-network'
+  | 'checking'
+  | 'needs-approval'
+  | 'approving'
+  | 'simulating'
+  | 'ready'
+  | 'signing'
+  | 'pending'
+  | 'confirmed'
+  | 'failed'

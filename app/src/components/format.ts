@@ -3,6 +3,7 @@
  * owns lib/). Pure functions only; safe to unit-test without a DOM.
  */
 
+import { formatUnits } from 'viem'
 import type { Address } from 'viem'
 
 /** 0x1234…abcd */
@@ -23,6 +24,27 @@ export function clampLabel(s: string, max = 48): string {
 
 export function arbiscanAddressUrl(addr: Address | string): string {
   return `https://arbiscan.io/address/${addr}`
+}
+
+export function arbiscanTxUrl(hash: string): string {
+  return `https://arbiscan.io/tx/${hash}`
+}
+
+/**
+ * bigint token amount → human string, decimals-aware (M2 balances/quotes).
+ * Grouped thousands ("1,234.56"), more precision for small values, compact
+ * suffixes for absurdly large ones, "<0.000001" for dust instead of "0".
+ */
+export function formatAmount(amount: bigint, decimals: number): string {
+  if (amount === 0n) return '0'
+  const exact = formatUnits(amount, decimals)
+  const n = Number(exact)
+  if (!Number.isFinite(n)) return exact
+  const abs = Math.abs(n)
+  if (abs >= 1e15) return formatCompact(n)
+  if (abs > 0 && abs < 1e-6) return n > 0 ? '<0.000001' : '>-0.000001'
+  const dp = abs >= 1000 ? 2 : abs >= 1 ? 4 : 6
+  return n.toLocaleString('en-US', { maximumFractionDigits: dp })
 }
 
 /**

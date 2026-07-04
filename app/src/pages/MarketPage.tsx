@@ -1,21 +1,24 @@
 /**
  * MarketPage — /market/:address. Loads a full market snapshot via
  * useMarketSnapshot: header (name, vintage, matured badge, remember toggle),
- * overview grid, trust panel, disabled action placeholders (or MaturedNotice
- * post-expiry), and the PT/YT/SY token strip. Legacy probe failures render
- * the DegradedBanner instead of failing the page (PLAN M1).
+ * overview grid, trust panel, the M2 actions area (PositionsCard + ActionTabs
+ * on validated live markets; MaturedNotice post-expiry; M1 placeholder on
+ * unvalidated markets), and the PT/YT/SY token strip. Legacy probe failures
+ * render the DegradedBanner instead of failing the page (PLAN M1).
  */
 
 import { Link, useParams } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
 import type { Address } from 'viem'
 import type { MarketSnapshot, Vintage } from '../lib/types'
-import { useMarketSnapshot } from '../lib/hooks'
+import { useMarketSnapshot, usePositions } from '../lib/hooks'
+import { ActionTabs } from '../components/ActionTabs'
 import { AddressChip } from '../components/AddressChip'
 import { DegradedBanner } from '../components/DegradedBanner'
 import { clampLabel } from '../components/format'
 import { MaturedNotice } from '../components/MaturedNotice'
 import { OverviewGrid } from '../components/OverviewGrid'
+import { PositionsCard } from '../components/PositionsCard'
 import { RememberToggle } from '../components/RememberToggle'
 import { TrustPanel } from '../components/TrustPanel'
 import { useDocumentTitle } from '../components/useDocumentTitle'
@@ -86,9 +89,13 @@ function MaturedBadge() {
   )
 }
 
+/**
+ * Kept for UNVALIDATED (non-expired) markets only — the red-state page never
+ * offers transaction UI (PLAN §3.4). Validated live markets get ActionTabs.
+ */
 function ActionsPlaceholder() {
   const tabs = [
-    { label: 'Mint / Redeem', arrives: 'arrives in M2' },
+    { label: 'Wrap / Mint / Redeem', arrives: 'disabled — market not validated' },
     { label: 'Trade PT & YT', arrives: 'arrives in M3' },
     { label: 'Liquidity', arrives: 'arrives in M4' },
   ]
@@ -96,7 +103,8 @@ function ActionsPlaceholder() {
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
       <h2 className="text-base font-semibold text-zinc-100">Actions</h2>
       <p className="mt-1 text-xs text-zinc-500">
-        M1 is read-only on purpose — transaction flows land milestone by milestone.
+        Transactions are never offered on markets no known Pendle factory
+        validates.
       </p>
       <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
         {tabs.map((tab) => (
@@ -210,6 +218,14 @@ function LoadError({ message, onRetry }: { message?: string; onRetry: () => void
 
 function MarketView({ address }: { address: Address }) {
   const { status, snapshot, error, refetch } = useMarketSnapshot(address)
+  // M2: positions load once the snapshot exists AND a wallet is connected
+  // (hook contract: undefined snapshot / no wallet → 'idle').
+  const {
+    status: positionsStatus,
+    positions,
+    error: positionsError,
+    refetch: refetchPositions,
+  } = usePositions(snapshot)
 
   useDocumentTitle(snapshot?.displayName)
 
@@ -255,7 +271,30 @@ function MarketView({ address }: { address: Address }) {
         trust={snapshot.trust}
       />
 
-      {snapshot.isExpired ? <MaturedNotice /> : <ActionsPlaceholder />}
+      {/* M2 actions area: PositionsCard whenever the market is validated and a
+          wallet is connected (the card gates on connection itself — claims stay
+          valid on expired markets); live tabs only on validated, non-expired
+          markets. Unvalidated keeps the no-tx red state. */}
+      {snapshot.validated && (
+        <PositionsCard
+          snapshot={snapshot}
+          positions={positions}
+          status={positionsStatus}
+          error={positionsError}
+          refetch={refetchPositions}
+        />
+      )}
+      {snapshot.isExpired ? (
+        <MaturedNotice />
+      ) : snapshot.validated ? (
+        <ActionTabs
+          snapshot={snapshot}
+          positions={positions}
+          refetchPositions={refetchPositions}
+        />
+      ) : (
+        <ActionsPlaceholder />
+      )}
 
       <TokenStrip snapshot={snapshot} />
     </div>
