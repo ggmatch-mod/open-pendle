@@ -288,6 +288,16 @@ export const pendleErrorsAbi = parseAbi([
   'error MarketFactoryMarketExists()',
   'error MarketFactoryInvalidPt()',
   'error MarketFactoryExpiredPt()',
+  // 2-arg form is the canonical on-chain signature (PendleMarketFactoryV7Upg:
+  // `revert Errors.MarketFactoryLnFeeRateRootTooHigh(lnFeeRateRoot,
+  // maxLnFeeRateRoot)`). Real selector 0x163cca2a (viem
+  // toFunctionSelector('MarketFactoryLnFeeRateRootTooHigh(uint80,uint256)')).
+  // The stale no-arg form hashed to 0x4f5e2d07 and never matched a live revert.
+  'error MarketFactoryLnFeeRateRootTooHigh(uint80 lnFeeRateRoot, uint256 maxLnFeeRateRoot)',
+  // The characteristic bad-band revert: createNewMarket reverts this when the
+  // derived initialAnchor < minInitialAnchor (= 1e18). 2-arg (int256, int256),
+  // real selector 0x7b48ef70.
+  'error MarketFactoryInitialAnchorTooLow(int256 initialAnchor, int256 minInitialAnchor)',
   'error YCFactoryYieldContractExisted()',
   'error YCFactoryInvalidExpiry()',
   // M3: approx-search failure family (pendle-core-v2 Errors.sol, thrown by the
@@ -443,4 +453,79 @@ export const routerExitAbi = parseAbi([
   'struct ExitPostExpReturnParams { uint256 netPtFromRemove; uint256 netSyFromRemove; uint256 netPtRedeem; uint256 netSyFromRedeem; uint256 totalSyOut; }',
   'function exitPostExpToSy(address receiver, address market, uint256 netPtIn, uint256 netLpIn, uint256 minSyOut) returns (ExitPostExpReturnParams params)',
   'function exitPostExpToToken(address receiver, address market, uint256 netPtIn, uint256 netLpIn, TokenOutput output) returns (uint256 totalTokenOut, ExitPostExpReturnParams params)',
+])
+
+// ---------------------------------------------------------------------------
+// M6 additions — community pool creation surface (commonDeploy). Verified
+// VERBATIM against the Arbiscan-verified PendleCommonPoolDeployHelperV2 /
+// PendlePoolDeployHelperV2 sources (scratchpad/pendle) — the @pendle/core-v2
+// repo `IPCommonPoolDeployHelperV2` interface is STALE (it omits
+// deploy5115MarketAndSeedLiquidity entirely, and its deployCommonMarketById
+// lacks the `initData` param the deployed contract takes). Corrections vs the
+// stale repo interface are documented in deploy.ts's header and the M6 report.
+// ---------------------------------------------------------------------------
+
+/**
+ * commonDeploy pool-creation entry point + its emitted event.
+ *
+ * `deploy5115MarketAndSeedLiquidity(SY, PoolConfig, tokenToSeedLiquidity,
+ * amountToSeed)` — the one-tx deploy path. PoolConfig carries the user-friendly
+ * band; the contract computes scalarRoot/initialAnchor/lnFeeRateRoot on-chain
+ * via MarketDeployLib. `payable`: when the seed token is native ETH the amount
+ * rides in `value` (no approval); otherwise the seed token is approved to
+ * COMMON_DEPLOY and pulled with transferFrom. Returns PoolDeploymentAddrs
+ * {SY, PT, YT, market}.
+ *
+ * `MarketDeployment(PoolDeploymentAddrs addrs, PoolDeploymentParams params)`
+ * — topic0 0xd1f8866e1ab220ea57cc2bc3d029810357a6f6df863760170473f9df5b322ebd
+ * (derived from this exact ABI item; asserted in scripts/m6-deploy-test.mjs).
+ * NEITHER field is indexed: both structs live entirely in `data`, so a
+ * deployer-filtered log scan must filter by the tx sender (recoverDeployments),
+ * NOT by an indexed topic.
+ */
+export const commonDeployPoolAbi = parseAbi([
+  'struct PoolConfig { uint32 expiry; uint256 rateMin; uint256 rateMax; uint256 desiredImpliedRate; uint256 fee; }',
+  'struct PoolDeploymentAddrs { address SY; address PT; address YT; address market; }',
+  'struct PoolDeploymentParams { uint32 expiry; uint80 lnFeeRateRoot; int256 scalarRoot; int256 initialRateAnchor; bool doCacheIndexSameBlock; }',
+  'function deploy5115MarketAndSeedLiquidity(address SY, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed) payable returns (PoolDeploymentAddrs)',
+  'event MarketDeployment(PoolDeploymentAddrs addrs, PoolDeploymentParams params)',
+])
+
+/**
+ * Yield-contract-factory duplicate-PT / expiry probes (M6 preflight).
+ * `getPT(SY, expiry)` returns address(0) when no PT exists for that (SY,expiry)
+ * on this factory (a non-zero result means the deploy will REUSE it — the
+ * commonDeploy `_createPYIfNotExist` reuse path). `getYT` mirrors it.
+ * `expiryDivisor()` is the live divisor an expiry must be a multiple of
+ * (also on yieldContractFactoryAbi — duplicated here so preflight has a single
+ * import). Reads return address(0) / a value; they do NOT revert on unknown
+ * inputs, so they are multicall-safe with allowFailure.
+ */
+export const ycfDeployProbeAbi = parseAbi([
+  'function getPT(address SY, uint256 expiry) view returns (address)',
+  'function getYT(address SY, uint256 expiry) view returns (address)',
+  'function expiryDivisor() view returns (uint256)',
+])
+
+/**
+ * The five creation custom errors decoded into friendly messages by txflow
+ * (PLAN §3.4 + M6 checklist). Selectors (viem hashes the signatures):
+ * - MarketFactoryMarketExists 0x4a588866 — the scalarRoot/anchor tuple already
+ *   has a market (same-timestamp collision / front-run);
+ * - YCFactoryInvalidExpiry 0x1f687fd0 — expiry not a future divisor boundary;
+ * - MarketFactoryLnFeeRateRootTooHigh(uint80,uint256) 0x163cca2a — creator fee
+ *   above the 5% cap (belt-and-braces: preflight blocks this before the tx);
+ * - MarketFactoryInitialAnchorTooLow(int256,int256) 0x7b48ef70 — the derived
+ *   anchor fell below 1e18 (rate band too wide / launch APY too low);
+ * - MarketFactoryInvalidPt / MarketFactoryExpiredPt round out the PT checks.
+ * These are ALSO listed in pendleErrorsAbi (the decode table).
+ */
+export const creationErrorsAbi = parseAbi([
+  'error MarketFactoryMarketExists()',
+  'error MarketFactoryInvalidPt()',
+  'error MarketFactoryExpiredPt()',
+  'error MarketFactoryLnFeeRateRootTooHigh(uint80 lnFeeRateRoot, uint256 maxLnFeeRateRoot)',
+  'error MarketFactoryInitialAnchorTooLow(int256 initialAnchor, int256 minInitialAnchor)',
+  'error YCFactoryYieldContractExisted()',
+  'error YCFactoryInvalidExpiry()',
 ])

@@ -212,14 +212,14 @@ The disabled-actions Matured layout and registry badge already exist from M1; M5
 
 **Done when:** the full matured lifecycle (redeem PT without YT, claim residuals, one-click LP exit) executes on a fork against a market **we expire ourselves** (fresh market + time warp — the exact scenario community pools will hit); legacy expired vintages exit best-effort; the known drained legacy market fails **gracefully** with the honest can't-redeem notice (redeemer rescue is a §7 non-goal per the 2026-07-03 scope decision).
 
-### M6 — Community pool creation (macro #1)
+### M6 — Community pool creation (macro #1) ✅ complete 2026-07-04
 
-- [ ] Wizard over `commonDeploy.deploy5115MarketAndSeedLiquidity` (existing SY) — inputs: SY address (validated: implements IStandardizedYield via probe calls), expiry (date picker snapped to `expiryDivisor` boundaries, defaulting to Thursdays for ecosystem convention), rateMin/rateMax band, desiredImpliedRate (must be strictly inside the band), fee (default `rateMax/25`, max 5%), seed token (must be the SY itself or in `getTokensIn()`) + amount.
-- [ ] Parameter education UI: the band → `scalarRoot`/`initialAnchor` mapping is **immutable**; if implied APY exits [rateMin, rateMax] the pool goes out of range permanently — explain with a visual; explain the seeder receives LP **and** YT (they end up long-yield unless they sell the YT).
-- [ ] Pre-flight per research checklist: expiry future + divisor-aligned (read live), rateMax > rateMin strictly, fee cap, duplicate-PT check on YCF v6 (`getPT(SY, expiry)` → "PT exists, will be reused") + legacy-YCF scan (parallel-PT warning), then full `eth_call` simulation from the user's address.
-- [ ] Error handling: decode the five custom errors from F-facts; on `MarketFactoryMarketExists` (front-run/griefing edge) resolve the existing market and offer "use existing market" or "retry" (next block's timestamp changes the tuple). **The event scan must be bounded**: a tuple collision implies same-timestamp creation, so scan only the last few minutes of blocks (`topic2 = PT`) — public RPCs reject wide `eth_getLogs` ranges; alternatively precompute the market's CREATE2 address (constant salt `bytes32(chainid)`) and skip logs entirely.
-- [ ] Success → market address from the `MarketDeployment` event → auto-save to registry → land on the new pool page, with an **"initialize oracle" CTA** (one-time cardinality bump so TWAP pricing works later; optional, clearly priced).
-- [ ] **"Recover my deployment"** affordance: if the receipt is missed (closed tab, RPC drop), scan `commonDeploy` `MarketDeployment` events filtered by the connected deployer from a checkpoint block stored at wizard start (bounded range), and/or accept a pasted tx hash — without this, a lost address is unusually costly in a directory-less app.
+- [x] Wizard over `commonDeploy.deploy5115MarketAndSeedLiquidity` (existing SY) — inputs: SY address (validated: implements IStandardizedYield via probe calls), expiry (date picker snapped to `expiryDivisor` boundaries, defaulting to Thursdays for ecosystem convention), rateMin/rateMax band, desiredImpliedRate (must be strictly inside the band), fee (default `rateMax/25`, max 5%), seed token (must be the SY itself or in `getTokensIn()`) + amount.
+- [x] Parameter education UI: the band → `scalarRoot`/`initialAnchor` mapping is **immutable**; if implied APY exits [rateMin, rateMax] the pool goes out of range permanently — explain with a visual; explain the seeder receives LP **and** YT (they end up long-yield unless they sell the YT).
+- [x] Pre-flight per research checklist: expiry future + divisor-aligned (read live), rateMax > rateMin strictly, fee cap, duplicate-PT check on YCF v6 (`getPT(SY, expiry)` → "PT exists, will be reused") + legacy-YCF scan (parallel-PT warning), then full `eth_call` simulation from the user's address.
+- [x] Error handling: decode the five custom errors from F-facts; on `MarketFactoryMarketExists` (front-run/griefing edge) resolve the existing market and offer "use existing market" or "retry" (next block's timestamp changes the tuple). **The event scan must be bounded**: a tuple collision implies same-timestamp creation, so scan only the last few minutes of blocks (`topic2 = PT`) — public RPCs reject wide `eth_getLogs` ranges; alternatively precompute the market's CREATE2 address (constant salt `bytes32(chainid)`) and skip logs entirely.
+- [x] Success → market address from the `MarketDeployment` event → auto-save to registry → land on the new pool page, with an **"initialize oracle" CTA** (one-time cardinality bump so TWAP pricing works later; optional, clearly priced).
+- [x] **"Recover my deployment"** affordance: if the receipt is missed (closed tab, RPC drop), scan `commonDeploy` `MarketDeployment` events filtered by the connected deployer from a checkpoint block stored at wizard start (bounded range), and/or accept a pasted tx hash — without this, a lost address is unusually costly in a directory-less app.
 
 **Done when:** a pool is deployed + seeded on a fork through the wizard end-to-end, the created market immediately loads in M1's loader, and the recovery path retrieves it from a tx hash.
 
@@ -233,7 +233,25 @@ The disabled-actions Matured layout and registry badge already exist from M1; M5
 
 **Done when:** each template deploys through the wizard on a fork (mirroring the 16-test research suite), FOT/rebasing mocks are correctly blocked **by the browser-side screening mechanism** (not just forge assertions), and the resulting pool trades in M3's panel.
 
-### M8 — Hardening & public release
+### M8 — Multi-network (user request 2026-07-04)
+
+Requested chains: **Arbitrum (have it), Ethereum, Base, BSC, Plasma, Monad**, selectable via a header dropdown. **Verified (multichain research 2026-07-04):** ALL SIX have Pendle V2 deployed with both RouterStatic (quoter works) AND commonDeploy (create wizard works) — including Plasma (chainId 9745) and Monad (chainId 143, live 2026-06-19, ~$50M TVL). So the full requested set is supportable; nothing is dropped.
+
+Per-chain address books come from Pendle's `deployments/<id>-core.json`. **Cross-chain constants** (same address everywhere): Router V4 `0x8888…F946`, commonDeploy `0x2Ed4…8aA9`, syFactory `0x466C…1CF8`, pyYtLpOracle `0x5542…DAc2`. **Per-chain (must be chain-keyed, never reuse Arbitrum's):** RouterStatic, PENDLE token, wrappedNative + native symbol (ETH/BNB/XPL/MON), treasury, and every factory address. **Factory lineage VARIES** — ETH & BSC: base+V3+V4+V5+V6; Base & Plasma: V5+V6 only; Monad: V6 only → the refactor MUST pick the newest generation present per chain and build the M1 validation set per chain (V3/V4 keys are undefined on Base/Plasma/Monad). Multicall3 (`0xcA11…CA11`) is canonical but not in Pendle's JSON → verify liveness per chain (esp. Plasma/Monad) or fall back to non-batched reads. RPC reliability varies (Plasma's official RPC is non-production, BSC dataseeds disable eth_getLogs, Monad caps batch size) → user-configurable per-chain RPC is required, defaulting to log-capable providers. **Phasing (recommended):** Phase 1 = Ethereum, Base, BSC (mature, robust RPCs); Phase 2 = Plasma, Monad (newer, thinner public RPCs). Full per-chain data: `docs/research/` (workflow whyc601ku).
+
+**Sequencing:** research + design happen during M6/M7 (non-conflicting); the **code refactor starts only AFTER M6/M7 commit** — it rewrites `addresses.ts` + every address-consuming lib module + `wagmi.ts` + the registry, which would clobber the in-flight M6/M7 lib edits.
+
+- [ ] **Per-chain address book:** turn `addresses.ts` into a `chainId → AddressBook` map (router, routerStatic, pyYtLpOracle, commonDeploy, syFactory, all factory generations + active pair, treasury, multicall). Sourced from Pendle's `deployments/<id>-core.json`, verified live at runtime (F12 still applies per chain). Router V4 is the same vanity address cross-chain; factory *generations* differ per chain.
+- [ ] **Chain threading:** every lib fn already takes a `PublicClient` — add an explicit `chainId`/`AddressBook` param (or resolve from the client's chain) so no address is hardcoded to Arbitrum; validate markets against *that chain's* factory set.
+- [ ] **wagmi config:** register all supported chains; per-chain RPC (user-configurable via `openpendle.rpc.<chainId>`); sensible default public RPC per chain.
+- [ ] **Network dropdown** in the header: switches the active chain (`useSwitchChain`); loader/pool page operate on the selected chain; the wrong-network banner generalizes to "switch to <selected chain>".
+- [ ] **Registry keyed by (chainId, market):** `SavedPool.chainId` already exists (currently hardcoded `42161`) — generalize it; storage stays `openpendle.pools.v1` (chainId is already in the shape, so no schema bump). **Home "Your pools" shows ALL remembered pools grouped + badged by network** (not filtered to the active chain), so switching networks and returning always shows a chain's pools; a pool on a non-active chain shows a one-click "switch to <chain>" affordance. *(This satisfies the user's requirement and is strictly more useful than filtering.)*
+- [ ] **Per-chain capability degradation:** chains without `commonDeploy` → hide the M6 create wizard there; chains without RouterStatic → quoter falls back to the simulation-only default-ApproxParams path (M0); per-chain factory-generation counts drive the validation set.
+- [ ] **Fork-test** the core read + trade (+ create where supported) flow on each shipped chain (a fork per chain).
+
+**Done when:** the dropdown switches between every verified chain; a pool loads + trades on each; remembering a pool on chain A, switching to B and back to A still shows it (per-chain persistence); chains lacking Pendle are absent; chains lacking `commonDeploy`/RouterStatic degrade gracefully rather than break.
+
+### M9 — Hardening & public release
 
 - [ ] Empty/error/loading states everywhere; mobile pass; dark mode.
 - [ ] Risk & fee disclosure pages (what community pools are, what Pendle's fees are, what OpenPendle does/doesn't verify).
@@ -264,9 +282,10 @@ The disabled-actions Matured layout and registry badge already exist from M1; M5
 
 - Limit orders (needs Pendle's centralized orderbook + per-market governance fee setup — degrades gracefully by always passing empty `LimitOrderData`).
 - Aggregator zaps from arbitrary tokens — **user-approved as the first v1.5 feature (2026-07-04)**: client-side KyberSwap/ODOS calls, no Pendle backend.
-- Chains beyond Arbitrum One (architecture keeps `chainId` explicit everywhere to ease expansion).
+- ~~Chains beyond Arbitrum One~~ → **promoted to M8** (multi-network, user request 2026-07-04). Was a v1 non-goal; the `chainId`-explicit architecture makes the expansion tractable.
 - Historical charts / underlying-APY column (needs archive RPC or indexer; revisit with event-scan + localStorage sampling).
-- PENDLE gauge incentives, vePENDLE, points programs.
+- PENDLE gauge incentives, vePENDLE, points programs (native Pendle incentives are gated to team-whitelisted pools — permissionless community pools don't get them).
+- **Protocol-added incentives → v1.5 via Merkl** (user direction 2026-07-04). Community pools can't tap Pendle's native gauges, so a protocol incentivizing its OpenPendle pool uses **Merkl** (Angle) — the industry standard for Pendle LP incentives; Pendle's SY templates already carry Merkl hooks (`offchainRewardManager`/`MerklRewardAbstract`), zero custom contracts. v1.5 scope: display active Merkl campaigns on the pool page + a claim button (on-chain merkle-proof claim), optionally deep-link creators to launch a campaign. Reading campaigns uses Merkl's off-chain API — a third-party API (same category as v1.5 aggregator zaps), not OpenPendle's own backend. **Not** building a custom incentive/staking contract.
 - Bespoke SY authoring for rebasing/exotic assets (blocked in wizard; adapter escape hatch exists for power users).
 - Legacy Pendle-listed market special-casing: `ExpiredLpPtRedeemer` whitelist routing, the 9 hard-stuck markets, guaranteed pre-V6 rendering. OpenPendle targets current-generation community pools; older markets load best-effort with honest degradation (user direction, §2).
 - Our own smart contracts of any kind.

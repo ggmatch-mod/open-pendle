@@ -29,25 +29,40 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
   }
 
   return (
-    <label
-      className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-4 py-2.5 transition ${
-        saved
-          ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
-          : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-emerald-800 hover:text-zinc-100'
-      }`}
-    >
-      <input
-        type="checkbox"
-        checked={saved}
-        onChange={(e) => {
-          if (e.target.checked) save(snapshot)
-          else forget(snapshot.address)
-        }}
-        className="h-4 w-4 accent-emerald-500"
-      />
-      <span className="text-sm font-medium">
-        {saved ? 'Remembered' : 'Remember this pool'}
-      </span>
-    </label>
+    <div>
+      <label
+        className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-4 py-2.5 transition ${
+          saved
+            ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
+            : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-emerald-800 hover:text-zinc-100'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={saved}
+          onChange={(e) => {
+            if (e.target.checked) save(snapshot)
+            else forget(snapshot.address)
+          }}
+          className="h-4 w-4 accent-emerald-500"
+        />
+        <span className="text-sm font-medium">
+          {saved ? 'Remembered' : 'Remember this pool'}
+        </span>
+      </label>
+      {/* Nudge for pool creators — incentivize this pool's LPs via Merkl (v1.5
+          will surface active campaigns in-app; for now this deep-links out). */}
+      <p className="mt-1.5 text-xs text-zinc-500">
+        Is this your Pool? You can add incentives over at{' '}
+        <a
+          href="https://studio.merkl.xyz/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-emerald-400 underline decoration-dotted underline-offset-2 hover:text-emerald-300"
+        >
+          Merkl
+        </a>
+      </p>
+    </div>
   )
 }

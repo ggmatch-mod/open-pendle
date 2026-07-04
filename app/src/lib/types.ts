@@ -308,3 +308,67 @@ export type TxPhase =
   | 'pending'
   | 'confirmed'
   | 'failed'
+
+// ---------------------------------------------------------------------------
+// M6 contracts — community pool creation (commonDeploy.deploy5115MarketAndSeedLiquidity)
+// ---------------------------------------------------------------------------
+
+/**
+ * User-friendly market config. All rates are 1e18-scaled APYs. The contract
+ * derives scalarRoot/initialAnchor/lnFeeRateRoot from this on-chain (via
+ * MarketDeployLib) — we mirror the math client-side ONLY for preview/education.
+ */
+export interface PoolConfig {
+  /** unix seconds (uint32). Must be future AND % expiryDivisor == 0 (read live). */
+  expiry: number
+  /** lower edge of the implied-APY band (e.g. 0.02e18). */
+  rateMin: bigint
+  /** upper edge, strictly > rateMin. */
+  rateMax: bigint
+  /** launch implied APY, strictly inside (rateMin, rateMax). */
+  desiredImpliedRate: bigint
+  /** rate-terms fee (e.g. 0.008e18); lnFeeRateRoot = ln(1+fee) must be ≤ ln(1.05). */
+  fee: bigint
+}
+
+/** Client-side mirror of MarketDeployLib output — DISPLAY ONLY (the tx recomputes on-chain). */
+export interface DerivedDeployParams {
+  scalarRoot: bigint
+  initialAnchor: bigint
+  lnFeeRateRoot: bigint
+  /** launch PT proportion 0..1 (float, for the education visual). */
+  initialProportion: number
+  yearsToExpiry: number
+}
+
+export interface DeployPreflight {
+  /** true only when all hard checks pass AND the eth_call simulation succeeds. */
+  ok: boolean
+  errors: string[] // hard blocks (bad expiry, rateMax≤rateMin, fee>cap, desired outside band, sim revert…)
+  warnings: string[] // non-blocking (PT already exists on active YCF → reused; parallel legacy PT…)
+  syValid: boolean
+  ptExistsOnActive: boolean
+  existingPt?: Address
+  /** PTs for the same (SY,expiry) on OLDER factory generations — informational. */
+  legacyParallelPts: { gen: string; pt: Address }[]
+  derived?: DerivedDeployParams
+  simulated: boolean
+  simulationError?: string
+  /**
+   * True when the binding simulation could not run only because the seed token
+   * is an ERC20/SY not yet approved to COMMON_DEPLOY (the expected pre-approval
+   * state). The advisory sim revert is then NOT a config failure — the UI can
+   * still reach Approve → Deploy (FIX A). Native ETH and already-approved tokens
+   * leave this false; a genuine revert (bad config, insufficient balance) also
+   * leaves it false so the error surfaces normally.
+   */
+  simulationPendingApproval?: boolean
+}
+
+/** Parsed from the commonDeploy MarketDeployment event / a recovery scan. */
+export interface DeployResult {
+  market: Address
+  sy: Address
+  pt: Address
+  yt: Address
+}

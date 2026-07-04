@@ -175,15 +175,19 @@ const FRIENDLY_ERRORS: Record<string, FriendlyFn> = {
   RouterInsufficientPYOut: slippage('PT+YT'),
   RouterInsufficientLpOut: slippage('LP'),
   RouterInsufficientTokenOut: slippage('tokens'),
+  // M6 creation errors (PLAN §3.4 / M6 checklist wording).
   MarketFactoryMarketExists: () =>
-    'A market with these exact parameters already exists — use the existing market or retry.',
+    'A market with these exact parameters already exists — use it, or retry (a later block changes the parameters).',
   MarketFactoryInvalidPt: () =>
     'This PT was not created by the factory paired with this market factory.',
   MarketFactoryExpiredPt: () => 'This PT has already expired — pick a future expiry.',
+  MarketFactoryLnFeeRateRootTooHigh: () => 'Fee above the 5% cap.',
+  MarketFactoryInitialAnchorTooLow: () =>
+    'Rate band too wide / anchor below the minimum — narrow the band or adjust the launch APY.',
   YCFactoryYieldContractExisted: () =>
     'A PT/YT pair for this SY and expiry already exists.',
   YCFactoryInvalidExpiry: () =>
-    'Invalid expiry — it must be in the future and aligned to the factory expiry divisor (daily 00:00 UTC).',
+    'Expiry must be a future midnight-UTC timestamp.',
   // M3: ApproxFail-family custom errors (V2 approx lib — belt-and-braces; the
   // deployed Arbitrum contracts revert the string forms mapped above).
   ApproxFail: () => TRADE_TOO_LARGE_MSG,
@@ -203,8 +207,16 @@ const FRIENDLY_ERRORS: Record<string, FriendlyFn> = {
  * Error(string) → friendlyStringRevert of the string (approx-failure and
  * min-out families rewritten, ERC20 allowance/balance reverts pass through);
  * unknown selector → undefined.
+ *
+ * `forDeploy` scopes the Panic 0x11/0x12 interpretation to the M6 deploy path.
+ * A Panic (arithmetic overflow/underflow 0x11, divide-by-zero 0x12) is common
+ * in Pendle's fixed-point math across M2-M5 (trades / liquidity / mint /
+ * redeem), so the SHARED decoder must return a NEUTRAL arithmetic message.
+ * Only the deploy flow — where calcParams divides by (rateMaxScaled −
+ * initialAnchor) and subtracts rateMin from rateMax, so a degenerate rate band
+ * is the characteristic cause — opts into the rate-band hint.
  */
-export function decodeRevertData(data: Hex): string | undefined {
+export function decodeRevertData(data: Hex, forDeploy = false): string | undefined {
   if (!data || data === '0x') return undefined
   try {
     // Cast: viem types errorName to the ABI's declared errors only, but at
@@ -217,7 +229,17 @@ export function decodeRevertData(data: Hex): string | undefined {
       return friendlyStringRevert(String(decoded.args?.[0] ?? 'Execution reverted.'))
     }
     if (decoded.errorName === 'Panic') {
-      return `Panic (code ${String(decoded.args?.[0] ?? '?')}) — arithmetic or assertion failure.`
+      const code = decoded.args?.[0]
+      // Deploy path only: point an arithmetic panic at the likely bad-band /
+      // expiry cause (preflight blocks these upstream — belt-and-braces).
+      if (forDeploy && (code === 0x11n || code === 0x12n)) {
+        return 'Check the rate band (max must be above min) and expiry.'
+      }
+      // Shared default: a NEUTRAL message. M2-M5 arithmetic panics (common in
+      // Pendle fixed-point math) must NOT be mislabeled as a rate-band error.
+      return `Arithmetic error (panic ${
+        typeof code === 'bigint' ? `0x${code.toString(16)}` : String(code ?? '?')
+      }) — the amount or parameters are out of range.`
     }
     const friendly = FRIENDLY_ERRORS[decoded.errorName]
     return friendly ? friendly(decoded.args ?? []) : `Reverted: ${decoded.errorName}`
@@ -233,8 +255,12 @@ export function decodeRevertData(data: Hex): string | undefined {
  *    reverts — pass through verbatim);
  * 2. Pendle custom-error selectors map to friendly messages (FRIENDLY_ERRORS);
  * 3. anything else falls back to viem's shortMessage / the raw message.
+ *
+ * `forDeploy` (M6 only) scopes the Panic 0x11/0x12 → rate-band interpretation
+ * to the deploy path; every other caller (M2-M5 trades / liquidity / mint /
+ * redeem / exits) leaves it false and gets the neutral arithmetic message.
  */
-export function decodePendleError(err: unknown): string {
+export function decodePendleError(err: unknown, forDeploy = false): string {
   if (err instanceof BaseError) {
     const revert = err.walk((e) => e instanceof ContractFunctionRevertedError)
     if (revert instanceof ContractFunctionRevertedError) {
@@ -245,7 +271,7 @@ export function decodePendleError(err: unknown): string {
       // decoded form on `data` only when the call ABI contained the error —
       // ours deliberately does not; pendleErrorsAbi is the decode table).
       if (revert.raw) {
-        const decoded = decodeRevertData(revert.raw)
+        const decoded = decodeRevertData(revert.raw, forDeploy)
         if (decoded) return decoded
       }
       if (revert.data?.errorName) return `Reverted: ${revert.data.errorName}`
@@ -258,7 +284,7 @@ export function decodePendleError(err: unknown): string {
       (e) => typeof (e as { data?: unknown }).data === 'string',
     ) as { data?: string } | null
     if (withData && typeof withData.data === 'string' && withData.data.startsWith('0x')) {
-      const decoded = decodeRevertData(withData.data as Hex)
+      const decoded = decodeRevertData(withData.data as Hex, forDeploy)
       if (decoded) return decoded
     }
     return err.shortMessage

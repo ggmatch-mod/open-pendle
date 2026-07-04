@@ -18,6 +18,7 @@ import type {
 } from './types'
 import type { RegistrySweepResult } from './market'
 import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './market'
+import { preflightDeploy } from './deploy'
 import { ARBITRUM_CHAIN_ID } from './addresses'
 import { loadPositions } from './positions'
 import { quoteBuy, quoteSell } from './swaps'
@@ -887,5 +888,88 @@ export function useDepegInfo(snapshot?: MarketSnapshot): {
   if (!enabled) return { status: 'loading' }
   if (query.status === 'error') return { status: 'error' }
   if (query.status === 'success') return { status: 'success', info: query.data }
+  return { status: 'loading' }
+}
+
+// ---------------------------------------------------------------------------
+// M6 hook contract — STUB body below is replaced by the data-layer work;
+// signature is the contract the UI codes against.
+// ---------------------------------------------------------------------------
+
+/** Debounce for the create-pool preflight (the whole config, not one field). */
+const DEPLOY_PREFLIGHT_DEBOUNCE_MS = 500
+const DEPLOY_PREFLIGHT_STALE_TIME_MS = 8_000
+
+/** Stable string fingerprint of a PoolConfig (bigints → decimal strings). */
+function serializeConfig(config: import('./types').PoolConfig): string {
+  return [
+    config.expiry,
+    config.rateMin.toString(),
+    config.rateMax.toString(),
+    config.desiredImpliedRate.toString(),
+    config.fee.toString(),
+  ].join('|')
+}
+
+/**
+ * Debounced live preflight for the create-pool wizard: validates the config +
+ * runs the binding eth_call simulation of the deploy. Undefined/incomplete
+ * inputs → 'idle'. Errors that are the SIMULATION reverting land in
+ * preflight.simulationError (decoded), not as a thrown hook error.
+ *
+ * The simulation `user` is the connected account: the deploy is signed from
+ * their wallet and the seeding pulls the seed token from them, so the eth_call
+ * must run as them (needs the seed token held + approved to COMMON_DEPLOY —
+ * the wizard runs preflight AFTER the approve tx confirms, PLAN §3.2). With no
+ * wallet connected the preflight stays idle (nothing to simulate against).
+ */
+export function useDeployPreflight(
+  sy: Address | undefined,
+  config: import('./types').PoolConfig | undefined,
+  seedToken: Address | undefined,
+  seedAmount: bigint | undefined,
+): { status: QueryStatus; preflight?: import('./types').DeployPreflight; error?: string } {
+  const client = usePublicClient()
+  const { address: account } = useAccount()
+
+  // Debounce the whole config + seed amount (stringified — useDebouncedValue is
+  // a string hook and bigints can't sit in query keys anyway).
+  const configKey = config === undefined ? '' : serializeConfig(config)
+  const seedAmountKey = seedAmount === undefined ? '' : seedAmount.toString()
+  const inputKey = `${sy?.toLowerCase() ?? ''}~${configKey}~${seedToken?.toLowerCase() ?? ''}~${seedAmountKey}~${account?.toLowerCase() ?? ''}`
+  const debouncedKey = useDebouncedValue(inputKey, DEPLOY_PREFLIGHT_DEBOUNCE_MS)
+
+  const inputsReady =
+    sy !== undefined &&
+    config !== undefined &&
+    seedToken !== undefined &&
+    seedAmount !== undefined &&
+    seedAmount > 0n &&
+    account !== undefined
+  const enabled = inputsReady && client !== undefined && debouncedKey === inputKey
+
+  const query = useQuery({
+    queryKey: ['deploy-preflight', debouncedKey],
+    queryFn: () =>
+      preflightDeploy(
+        client as PublicClient,
+        sy as Address,
+        config as import('./types').PoolConfig,
+        seedToken as Address,
+        seedAmount as bigint,
+        account as Address,
+      ),
+    enabled,
+    staleTime: DEPLOY_PREFLIGHT_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  if (!inputsReady) return { status: 'idle' }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading' }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error) }
+  }
+  if (query.status === 'success') return { status: 'success', preflight: query.data }
   return { status: 'loading' }
 }

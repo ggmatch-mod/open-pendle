@@ -8,6 +8,7 @@ import { Link, Route, Routes } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
+import CreatePoolPage from './pages/CreatePoolPage'
 import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
 
@@ -37,6 +38,12 @@ export default function App() {
             <span className="text-emerald-400">Open</span>Pendle
           </Link>
           <div className="flex items-center gap-2.5">
+            <Link
+              to="/create"
+              className="hidden rounded-md border border-emerald-800 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:border-emerald-600 hover:text-emerald-300 sm:inline-block"
+            >
+              Create pool
+            </Link>
             <RpcSettings />
             <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
           </div>
@@ -46,6 +53,7 @@ export default function App() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/create" element={<CreatePoolPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
