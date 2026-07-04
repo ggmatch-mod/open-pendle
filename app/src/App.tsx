@@ -98,7 +98,10 @@ export default function App() {
               Community pools are permissionless and{' '}
               <span className="text-warn">unreviewed — use at your own risk</span>. OpenPendle
               validates market provenance but cannot vouch for the assets or SY contracts underneath.{' '}
-              <span className="text-warn">Not affiliated with Pendle Finance.</span>
+              <span className="text-warn">Not affiliated with Pendle Finance.</span>{' '}
+              <span className="text-accent-ink">
+                OpenPendle is a gift to Pendle's community and charges no fee.
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-3.5">
