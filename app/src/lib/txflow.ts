@@ -138,6 +138,13 @@ function friendlyStringRevert(reason: string): string {
     return TRADE_TOO_LARGE_MSG
   }
   if (/INSUFFICIENT_[A-Z_]*OUT/.test(reason)) return SLIPPAGE_MOVED_MSG
+  // M4: addLiquidityDualTokenAndPt reverts this when the wrapped SY exceeds
+  // what the pool ratio can absorb against netPtDesired (facet-verified:
+  // `if (netSyInterm != netSyUsed) revert("Slippage: NOT_ALL_SY_USED")`) —
+  // in practice the pool ratio moved between preview and execution.
+  if (/NOT_ALL_SY_USED/.test(reason)) {
+    return 'The pool ratio moved since your preview — the deposited amount no longer matches the PT side exactly. Refresh the preview and retry.'
+  }
   return reason
 }
 
@@ -177,6 +184,13 @@ const FRIENDLY_ERRORS: Record<string, FriendlyFn> = {
   ApproxFail: () => TRADE_TOO_LARGE_MSG,
   ApproxParamsInvalid: () => TRADE_TOO_LARGE_MSG,
   ApproxBinarySearchInputInvalid: () => TRADE_TOO_LARGE_MSG,
+  // M4: MarketMathCore add/remove-liquidity custom errors (selectors decoded
+  // via the pendleErrorsAbi entries appended for M4).
+  MarketZeroAmountsInput: () => 'Liquidity amount is zero — enter an amount.',
+  MarketZeroAmountsOutput: () =>
+    'Amount too small — the resulting output rounds to zero. Increase the amount.',
+  MarketProportionMustNotEqualOne: () =>
+    'This zap would drain the pool\'s SY side entirely — reduce the size.',
 }
 
 /**

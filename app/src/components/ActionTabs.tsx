@@ -1,27 +1,27 @@
 /**
- * ActionTabs (M2/M3) — the market page actions area. Three live tabs
- * (Wrap/Unwrap, Mint/Redeem, Trade PT & YT) plus the M4 Liquidity
- * placeholder. Rendered ONLY on validated, non-expired markets — expired
- * keeps MaturedNotice, unvalidated keeps the red state (gating lives in
- * MarketPage). SlippageControl in the header is shared by all panels.
+ * ActionTabs (M2/M3/M4) — the market page actions area. Four live tabs
+ * (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, Liquidity). Rendered ONLY on
+ * validated, non-expired markets — expired keeps MaturedNotice, unvalidated
+ * keeps the red state (gating lives in MarketPage). SlippageControl in the
+ * header is shared by all panels.
  */
 
 import { useState } from 'react'
 import type { MarketSnapshot, Positions } from '../lib/types'
+import { LiquidityPanel } from './LiquidityPanel'
 import { MintRedeemPanel } from './MintRedeemPanel'
 import { SlippageControl } from './SlippageControl'
 import { TradePanel } from './TradePanel'
 import { WrapUnwrapPanel } from './WrapUnwrapPanel'
 
-type TabId = 'wrap' | 'mint' | 'trade'
+type TabId = 'wrap' | 'mint' | 'trade' | 'liquidity'
 
 const LIVE_TABS: Array<{ id: TabId; label: string }> = [
   { id: 'wrap', label: 'Wrap / Unwrap' },
   { id: 'mint', label: 'Mint / Redeem' },
   { id: 'trade', label: 'Trade PT & YT' },
+  { id: 'liquidity', label: 'Liquidity' },
 ]
-
-const PLACEHOLDER_TABS = [{ label: 'Liquidity', arrives: 'arrives in M4' }]
 
 export function ActionTabs({
   snapshot,
@@ -66,19 +66,6 @@ export function ActionTabs({
             {t.label}
           </button>
         ))}
-        {PLACEHOLDER_TABS.map((t) => (
-          <span
-            key={t.label}
-            aria-disabled="true"
-            title={t.arrives}
-            className="cursor-not-allowed rounded-md px-3 py-1.5 text-sm text-zinc-600"
-          >
-            {t.label}
-            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-zinc-700">
-              {t.arrives.replace('arrives in ', '')}
-            </span>
-          </span>
-        ))}
       </div>
 
       <div className="pt-4">
@@ -96,8 +83,15 @@ export function ActionTabs({
             refetchPositions={refetchPositions}
             onBusyChange={setFlowBusy}
           />
-        ) : (
+        ) : tab === 'trade' ? (
           <TradePanel
+            snapshot={snapshot}
+            positions={positions}
+            refetchPositions={refetchPositions}
+            onBusyChange={setFlowBusy}
+          />
+        ) : (
+          <LiquidityPanel
             snapshot={snapshot}
             positions={positions}
             refetchPositions={refetchPositions}

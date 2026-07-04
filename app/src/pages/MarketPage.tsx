@@ -96,8 +96,8 @@ function MaturedBadge() {
 function ActionsPlaceholder() {
   const tabs = [
     { label: 'Wrap / Mint / Redeem', arrives: 'disabled — market not validated' },
-    { label: 'Trade PT & YT', arrives: 'arrives in M3' },
-    { label: 'Liquidity', arrives: 'arrives in M4' },
+    { label: 'Trade PT & YT', arrives: 'disabled — market not validated' },
+    { label: 'Liquidity', arrives: 'disabled — market not validated' },
   ]
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">

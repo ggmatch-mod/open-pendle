@@ -21,6 +21,7 @@ import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './marke
 import { ARBITRUM_CHAIN_ID } from './addresses'
 import { loadPositions } from './positions'
 import { quoteBuy, quoteSell } from './swaps'
+import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { buildApproveCall, checkApprovals, decodePendleError, simulateAction } from './txflow'
 import {
   forgetPool,
@@ -592,6 +593,150 @@ export function useSwapQuote(
             client as PublicClient,
             snapshot as MarketSnapshot,
             side,
+            token as Address,
+            BigInt(debouncedAmountKey),
+          ),
+    enabled,
+    staleTime: SWAP_QUOTE_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  // Stable identity (TanStack v5's query.refetch is stable) so callers can
+  // key effects on it without refetch loops.
+  const queryRefetch = query.refetch
+  const refetch = useCallback((): void => {
+    void queryRefetch()
+  }, [queryRefetch])
+
+  if (!inputsReady) return { status: 'idle', refetch }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading', refetch }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error), refetch }
+  }
+  if (query.status === 'success') return { status: 'success', quote: query.data, refetch }
+  return { status: 'loading', refetch }
+}
+
+// ---------------------------------------------------------------------------
+// M4 hook contracts — STUB bodies below are replaced by the data-layer work;
+// signatures are the contract the UI codes against.
+// ---------------------------------------------------------------------------
+
+/**
+ * Debounced dual-add preview (pure ratio math + optional previewDeposit for
+ * token pay sides). Undefined inputs → 'idle'.
+ */
+export function useDualAddPreview(
+  snapshot: MarketSnapshot | undefined,
+  fixed: 'pt' | 'sy' | 'token',
+  tokenIn: Address | undefined,
+  amount: bigint | undefined,
+): { status: QueryStatus; preview?: import('./types').DualAddPreview; error?: string } {
+  const client = usePublicClient()
+  // Debounce the amount (stringified — useDebouncedValue is a string hook and
+  // bigints can't sit in query keys anyway). '' encodes "no amount".
+  const amountKey = amount === undefined ? '' : amount.toString()
+  const debouncedAmountKey = useDebouncedValue(amountKey, SWAP_QUOTE_DEBOUNCE_MS)
+  const inputsReady =
+    snapshot !== undefined &&
+    amount !== undefined &&
+    amount > 0n &&
+    // tokenIn only matters for the token pay side (previewDeposit input).
+    (fixed !== 'token' || tokenIn !== undefined)
+  const enabled = inputsReady && client !== undefined && debouncedAmountKey === amountKey
+
+  // The preview is pure ratio math over snapshot.state — fingerprint the
+  // pool sides into the key so a refreshed market snapshot (useActionFlow
+  // invalidates ['market'] after every confirmed send) recomputes it instead
+  // of serving a pre-trade ratio from cache.
+  const stateKey =
+    snapshot === undefined
+      ? null
+      : `${snapshot.state.totalSy}:${snapshot.state.totalPt}:${snapshot.state.totalLp}`
+
+  const query = useQuery({
+    queryKey: [
+      'dual-add-preview',
+      snapshot?.address.toLowerCase() ?? null,
+      stateKey,
+      fixed,
+      tokenIn?.toLowerCase() ?? null,
+      debouncedAmountKey,
+    ],
+    queryFn: () =>
+      previewDualAdd(
+        client as PublicClient,
+        snapshot as MarketSnapshot,
+        fixed,
+        tokenIn,
+        BigInt(debouncedAmountKey),
+      ),
+    enabled,
+    staleTime: SWAP_QUOTE_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  if (!inputsReady) return { status: 'idle' }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading' }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error) }
+  }
+  if (query.status === 'success') return { status: 'success', preview: query.data }
+  return { status: 'loading' }
+}
+
+/**
+ * Debounced zap quote (single-sided liquidity via RouterStatic). action
+ * 'in' quotes token/SY → LP (keepYt → LP+YT); 'out' quotes LP → token/SY.
+ * Undefined inputs → 'idle'.
+ */
+export function useZapQuote(
+  snapshot: MarketSnapshot | undefined,
+  action: 'in' | 'out',
+  token: Address | undefined,
+  amount: bigint | undefined,
+  keepYt: boolean,
+  slippageFraction: number,
+): { status: QueryStatus; quote?: import('./types').SwapQuote; error?: string; refetch: () => void } {
+  const client = usePublicClient()
+  const amountKey = amount === undefined ? '' : amount.toString()
+  const debouncedAmountKey = useDebouncedValue(amountKey, SWAP_QUOTE_DEBOUNCE_MS)
+  const inputsReady =
+    snapshot !== undefined && token !== undefined && amount !== undefined && amount > 0n
+  const enabled = inputsReady && client !== undefined && debouncedAmountKey === amountKey
+
+  const query = useQuery({
+    // Keyed under the 'swap-quote' family ON PURPOSE: useActionFlow
+    // invalidates ['swap-quote'] after every confirmed send, and a zap moves
+    // the pool exactly like a swap does — a repeat zap must never reuse a
+    // pre-trade cached quote (its ApproxParams bounds are now stale). The
+    // 'zap' discriminator cannot collide with useSwapQuote's keys (its second
+    // element is a market address / null).
+    queryKey: [
+      'swap-quote',
+      'zap',
+      snapshot?.address.toLowerCase() ?? null,
+      action,
+      token?.toLowerCase() ?? null,
+      debouncedAmountKey,
+      keepYt,
+      slippageFraction,
+    ],
+    queryFn: () =>
+      action === 'in'
+        ? quoteZapIn(
+            client as PublicClient,
+            snapshot as MarketSnapshot,
+            token as Address,
+            BigInt(debouncedAmountKey),
+            keepYt,
+            slippageFraction,
+          )
+        : quoteZapOut(
+            client as PublicClient,
+            snapshot as MarketSnapshot,
             token as Address,
             BigInt(debouncedAmountKey),
           ),

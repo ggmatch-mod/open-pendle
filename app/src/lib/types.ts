@@ -217,6 +217,35 @@ export interface SwapQuote {
    * (exact-in, no search).
    */
   approx: ApproxParamsStruct | null
+  /** KeepYt zap-ins only: the YT amount the user keeps alongside LP. */
+  ytOut?: bigint
+}
+
+// ---------------------------------------------------------------------------
+// M4 contracts — liquidity
+// ---------------------------------------------------------------------------
+
+/**
+ * Dual-sided add preview — pure ratio math, no swap, no price impact.
+ * Amounts are raw units (SY at sy.decimals, PT at assetDecimals; when the
+ * pay side is a token, tokenAmount is the token's raw input that wraps to
+ * syDesired).
+ */
+export interface DualAddPreview {
+  syDesired: bigint
+  ptDesired: bigint
+  /** Estimated LP out: totalLp × syDesired / totalSy (pro-rata; no swap). */
+  lpOutEstimate: bigint
+  /** User's pool share after the add, 0..1. */
+  shareOfPoolAfter: number
+}
+
+/** Dual-sided remove preview — pro-rata burn, no swap. */
+export interface DualRemovePreview {
+  syOut: bigint
+  ptOut: bigint
+  /** Share of pool being burned, 0..1. */
+  shareBurned: number
 }
 
 /**

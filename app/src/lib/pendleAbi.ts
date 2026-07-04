@@ -299,4 +299,113 @@ export const pendleErrorsAbi = parseAbi([
   'error ApproxFail()',
   'error ApproxParamsInvalid(uint256 guessMin, uint256 guessMax, uint256 eps)',
   'error ApproxBinarySearchInputInvalid(uint256 approxGuessMin, uint256 approxGuessMax, uint256 minGuessMin, uint256 maxGuessMax)',
+  // M4: MarketMathCore add/remove-liquidity errors (verified against the
+  // scratchpad MarketMathCore.sol: addLiquidityCore throws ZeroAmountsInput /
+  // ZeroAmountsOutput / MarketExpired; removeLiquidityCore the two Zero ones;
+  // MarketProportionMustNotEqualOne guards the post-add swap proportion).
+  'error MarketZeroAmountsInput()',
+  'error MarketZeroAmountsOutput()',
+  'error MarketProportionMustNotEqualOne()',
+])
+
+// ---------------------------------------------------------------------------
+// M4 additions — liquidity surface (data layer). Router signatures verified
+// verbatim against the scratchpad IPActionAddRemoveLiqV3.sol AND the
+// ActionAddRemoveLiqV3.sol facet implementation (return orders + revert
+// strings). RouterStatic signatures live-verified 2026-07-04 against the
+// deployed diamond 0xAdB0…B3E8 on the PLP USDai market (raw eth_call word
+// counts + magnitude decoding of EVERY word — see routerStaticLiquidityAbi
+// notes; the M3 lesson about tuple asymmetries applied again).
+// ---------------------------------------------------------------------------
+
+/**
+ * Router V4 liquidity actions (IPActionAddRemoveLiqV3, the v1-scope subset —
+ * the SinglePt variants are out of scope and omitted).
+ * - Only the non-KeepYt single-sided ADDS take ApproxParams
+ *   (guessPtReceivedFromSy — the PT amount bought by the internal swap, NOT
+ *   the LP out). KeepYt variants take NO ApproxParams and NO limit: they mint
+ *   PY from part of the SY and dual-add, no AMM swap happens.
+ * - Single-sided removes to SY/token take a LimitOrderData but no ApproxParams
+ *   (exact LP in, PT side is market-sold exact-in).
+ * - LimitOrderData is ALWAYS passed empty by us (F11); TokenInput/TokenOutput
+ *   follow the M2 rule (SwapType.NONE, pendleSwap = 0, token = mint/redeem sy).
+ * - Every function returns its primary output FIRST (netLpOut / netSyOut /
+ *   netTokenOut) — simulateAction's firstBigint rule holds.
+ * - Dual-add order of operations (facet-verified): the ratio math runs BEFORE
+ *   any transferFrom, so an expired market reverts MarketExpired even when the
+ *   caller holds no tokens; the token variant reverts 'Slippage:
+ *   NOT_ALL_SY_USED' when the wrapped SY overshoots what the ratio can absorb.
+ */
+export const routerLiquidityAbi = parseAbi([
+  'struct SwapData { uint8 swapType; address extRouter; bytes extCalldata; bool needScale; }',
+  'struct TokenInput { address tokenIn; uint256 netTokenIn; address tokenMintSy; address pendleSwap; SwapData swapData; }',
+  'struct TokenOutput { address tokenOut; uint256 minTokenOut; address tokenRedeemSy; address pendleSwap; SwapData swapData; }',
+  'struct ApproxParams { uint256 guessMin; uint256 guessMax; uint256 guessOffchain; uint256 maxIteration; uint256 eps; }',
+  'struct Order { uint256 salt; uint256 expiry; uint256 nonce; uint8 orderType; address token; address YT; address maker; address receiver; uint256 makingAmount; uint256 lnImpliedRate; uint256 failSafeRate; bytes permit; }',
+  'struct FillOrderParams { Order order; bytes signature; uint256 makingAmount; }',
+  'struct LimitOrderData { address limitRouter; uint256 epsSkipMarket; FillOrderParams[] normalFills; FillOrderParams[] flashFills; bytes optData; }',
+  // dual adds
+  'function addLiquidityDualSyAndPt(address receiver, address market, uint256 netSyDesired, uint256 netPtDesired, uint256 minLpOut) returns (uint256 netLpOut, uint256 netSyUsed, uint256 netPtUsed)',
+  'function addLiquidityDualTokenAndPt(address receiver, address market, TokenInput input, uint256 netPtDesired, uint256 minLpOut) payable returns (uint256 netLpOut, uint256 netPtUsed, uint256 netSyInterm)',
+  // single-sided adds (zap-in)
+  'function addLiquiditySingleSy(address receiver, address market, uint256 netSyIn, uint256 minLpOut, ApproxParams guessPtReceivedFromSy, LimitOrderData limit) returns (uint256 netLpOut, uint256 netSyFee)',
+  'function addLiquiditySingleToken(address receiver, address market, uint256 minLpOut, ApproxParams guessPtReceivedFromSy, TokenInput input, LimitOrderData limit) payable returns (uint256 netLpOut, uint256 netSyFee, uint256 netSyInterm)',
+  // single-sided adds keeping the YT (no ApproxParams, no limit)
+  'function addLiquiditySingleSyKeepYt(address receiver, address market, uint256 netSyIn, uint256 minLpOut, uint256 minYtOut) returns (uint256 netLpOut, uint256 netYtOut, uint256 netSyMintPy)',
+  'function addLiquiditySingleTokenKeepYt(address receiver, address market, uint256 minLpOut, uint256 minYtOut, TokenInput input) payable returns (uint256 netLpOut, uint256 netYtOut, uint256 netSyMintPy, uint256 netSyInterm)',
+  // dual removes
+  'function removeLiquidityDualSyAndPt(address receiver, address market, uint256 netLpToRemove, uint256 minSyOut, uint256 minPtOut) returns (uint256 netSyOut, uint256 netPtOut)',
+  'function removeLiquidityDualTokenAndPt(address receiver, address market, uint256 netLpToRemove, TokenOutput output, uint256 minPtOut) returns (uint256 netTokenOut, uint256 netPtOut, uint256 netSyInterm)',
+  // single-sided removes (zap-out)
+  'function removeLiquiditySingleSy(address receiver, address market, uint256 netLpToRemove, uint256 minSyOut, LimitOrderData limit) returns (uint256 netSyOut, uint256 netSyFee)',
+  'function removeLiquiditySingleToken(address receiver, address market, uint256 netLpToRemove, TokenOutput output, LimitOrderData limit) returns (uint256 netTokenOut, uint256 netSyFee, uint256 netSyInterm)',
+])
+
+/**
+ * RouterStatic liquidity statics (view; display quotes only — the binding
+ * number is always a real-router simulation, PLAN §3.2).
+ *
+ * ALL 12 liquidity statics are PRESENT on the deployed diamond, including
+ * both KeepYt statics (live-probed 2026-07-04, PLP USDai market
+ * 0x46f5…46ef: every candidate selector dispatched). Return layouts verified
+ * word-by-word against a live pool state where SY.exchangeRate() was exactly
+ * 1e18 (PYUSD 6d / SY 18d / PT 18d / LP 18d gives unambiguous magnitudes):
+ * - addLiquidityDualSyAndPtStatic(100e18 SY, 100e18 PT) → (68.25e18 LP,
+ *   100e18 syUsed, 45.24e18 ptUsed) — matches lp = totalLp·syUsed/totalSy and
+ *   the pool's sy:pt ratio exactly;
+ * - the single-sided add statics put netPtFromSwap at index 1 (the
+ *   guessPtReceivedFromSy seed for ApproxParams synthesis) — cross-checked:
+ *   30.21 SY swapped → 31.49 PT at the pool's ~0.959 PT price, remaining
+ *   69.79 SY : 31.49 PT sits on the post-swap ratio;
+ * - the token variants insert netSyMinted before the trailing swap detail
+ *   (index 5 of 7 on add, absent on the Sy sibling) — the M3 asymmetry
+ *   pattern again;
+ * - KeepYt statics carry NO priceImpact/exchangeRateAfter/netSyFee — honest:
+ *   the KeepYt path does no AMM swap (facet-verified: mint PY + dual add), so
+ *   price impact is genuinely zero. netYtOut at index 1 (equal to netSyToPY
+ *   at 1e18 index in the probe; ordering per IPRouterStatic and re-asserted
+ *   by the M4 fork gate's executed YT delta);
+ * - remove statics: netSyOut/netTokenOut FIRST, then fee/impact/rate, then
+ *   burn/swap breakdown words (netSyFromBurn, netPtFromBurn, netSyFromSwap —
+ *   magnitude-matched against removeLiquidityDualSyAndPtStatic of the same
+ *   LP amount; netSyOut = netSyFromBurn + netSyFromSwap held exactly).
+ * priceImpact is 1e18-scaled; exchangeRateAfter same frame as the M3 swap
+ * statics (→ impliedApyAfter formula).
+ */
+export const routerStaticLiquidityAbi = parseAbi([
+  // dual (pure ratio math — no fee/impact fields)
+  'function addLiquidityDualSyAndPtStatic(address market, uint256 netSyDesired, uint256 netPtDesired) view returns (uint256 netLpOut, uint256 netSyUsed, uint256 netPtUsed)',
+  'function addLiquidityDualTokenAndPtStatic(address market, address tokenIn, uint256 netTokenDesired, uint256 netPtDesired) view returns (uint256 netLpOut, uint256 netTokenUsed, uint256 netPtUsed, uint256 netSyUsed, uint256 netSyDesired)',
+  // single-sided adds
+  'function addLiquiditySingleSyStatic(address market, uint256 netSyIn) view returns (uint256 netLpOut, uint256 netPtFromSwap, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyToSwap)',
+  'function addLiquiditySingleTokenStatic(address market, address tokenIn, uint256 netTokenIn) view returns (uint256 netLpOut, uint256 netPtFromSwap, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyMinted, uint256 netSyToSwap)',
+  // single-sided adds keeping YT (no swap → no fee/impact words)
+  'function addLiquiditySingleSyKeepYtStatic(address market, uint256 netSyIn) view returns (uint256 netLpOut, uint256 netYtOut, uint256 netSyToPY)',
+  'function addLiquiditySingleTokenKeepYtStatic(address market, address tokenIn, uint256 netTokenIn) view returns (uint256 netLpOut, uint256 netYtOut, uint256 netSyMinted, uint256 netSyToPY)',
+  // dual removes (pure pro-rata)
+  'function removeLiquidityDualSyAndPtStatic(address market, uint256 netLpToRemove) view returns (uint256 netSyOut, uint256 netPtOut)',
+  'function removeLiquidityDualTokenAndPtStatic(address market, uint256 netLpToRemove, address tokenOut) view returns (uint256 netTokenOut, uint256 netPtOut, uint256 netSyToRedeem)',
+  // single-sided removes
+  'function removeLiquiditySingleSyStatic(address market, uint256 netLpToRemove) view returns (uint256 netSyOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyFromBurn, uint256 netPtFromBurn, uint256 netSyFromSwap)',
+  'function removeLiquiditySingleTokenStatic(address market, uint256 netLpToRemove, address tokenOut) view returns (uint256 netTokenOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyOut, uint256 netSyFromBurn, uint256 netPtFromBurn, uint256 netSyFromSwap)',
 ])

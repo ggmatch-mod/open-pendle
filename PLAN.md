@@ -134,7 +134,7 @@ type SavedPool = {
 | 1. Community Pool Creation | M6 |
 | 2. SY Adapter Creation | M7 |
 | 3. Load pools by address + remember/forget | M1 |
-| 4. Full integrations (PT/YT, SY, liquidity, zap) | M2 + M3 + M4 — **partial on zaps**: v1 zaps cover SY-accepted tokens only; aggregator zaps from arbitrary tokens (what makes the official UI's zap "any token") are deferred to v1.5 (§7). ⚠ *Needs explicit user sign-off — the one place v1 knowingly under-delivers a stated requirement.* |
+| 4. Full integrations (PT/YT, SY, liquidity, zap) | M2 + M3 + M4 — zap scope **approved by user 2026-07-04**: v1.0 zaps cover SY-accepted tokens (the underlying); aggregator zaps from arbitrary tokens are confirmed for **v1.5** (§7). |
 | 5. Maturity handling | M5 (flows) — but the basic expired-state gating ships in **M1**, since 138 of the 146 loadable Arbitrum markets are already expired |
 
 Mapping to the user's original 8-point list: points 1–5 are the macro features above; #6 (Arbitrum-only) is a global constraint; #7 (respect Pendle's fees) is satisfied by construction (F3); #8 (remember/forget checkboxes, multi-pool, persisted locally) is §3.3, delivered in M1.
@@ -192,14 +192,14 @@ Each milestone ends with: fork-test/preview verification, a short demo note, and
 
 **Done when:** all four swap directions execute on a fork against a fresh unlisted market (replicating the research fork test) and against a live listed market; quoted min-received matches fork execution within slippage tolerance on both; expired markets show no trade controls. ✅ Verified twice: lib fork gate 19/19 (all 8 router fns + 8 statics, quote-vs-executed 0–3 ppm, perturbed-pool leg) + browser E2E of all four directions via the dev wallet (executed amounts matched quotes to the digit). M3 review rules now encoded: **ApproxParams bounds scale with the user's slippage** (guessMin = quote×(1−slippage), guessMax = quote×1.05 — Pendle's own generator recipe; hardcoded ±0.1% bounds live-reproduced reverting on ANY >0.1% pool move, favorable included); quote failures decode through the same friendly mapper as simulations; the 0.96 PT-proportion cap is pre-checked and blocks the plan.
 
-### M4 — Liquidity & zaps (macro #4, part 3)
+### M4 — Liquidity & zaps (macro #4, part 3) ✅ complete 2026-07-04
 
-- [ ] Add liquidity: dual (`addLiquidityDualTokenAndPt`/`DualSyAndPt`) and single-token zap (`addLiquiditySingleToken`, plus `KeepYt` variant with its no-ApproxParams signature).
-- [ ] Remove liquidity: dual and single-token (`removeLiquiditySingleToken`).
-- [ ] Zap scope v1: tokens the SY itself accepts (`getTokensIn/Out`, `SwapType.NONE`, `pendleSwap = 0`). Aggregator zaps (KyberSwap/ODOS via client-side API calls) are a v1.5 enhancement — third-party API, not Pendle backend.
-- [ ] LP position display: LP → (SY + PT) decomposition, share of pool, LP rewards claim.
+- [x] Add liquidity: dual (`addLiquidityDualTokenAndPt`/`DualSyAndPt`) and single-token zap (`addLiquiditySingleToken`, plus `KeepYt` variant with its no-ApproxParams signature).
+- [x] Remove liquidity: dual and single-token (`removeLiquiditySingleToken`).
+- [x] Zap scope v1: tokens the SY itself accepts (`getTokensIn/Out`, `SwapType.NONE`, `pendleSwap = 0`). Aggregator zaps (KyberSwap/ODOS via client-side API calls) are a v1.5 enhancement — third-party API, not Pendle backend.
+- [x] LP position display: LP → (SY + PT) decomposition, share of pool, LP rewards claim.
 
-**Done when:** zap-in with underlying → LP → zap-out round-trip verified on fork; dual-sided flows verified; expired markets show no add-liquidity/zap-in controls.
+**Done when:** zap-in with underlying → LP → zap-out round-trip verified on fork; dual-sided flows verified; expired markets show no add-liquidity/zap-in controls. ✅ Verified twice: lib fork gate 13/13 (every liquidity router fn EXECUTED incl. token-pay dual add and both KeepYt variants; 0 ppm deviations) + browser round-trip (zap-in → balanced remove → zap-out, exact to preview; LP decomposition line live). M4 review rules now encoded: **the derived PT side of a token-pay balanced add must round UP** (ceiling division — floor trips the router's `NOT_ALL_SY_USED` wei check deterministically, live-reproduced; SY-pay path keeps floor); **gate tests must EXECUTE every router variant they claim to cover** (the blocker passed a preview-only gate); balanced-form failures refresh the market snapshot on retry.
 
 ### M5 — Maturity handling (macro #5)
 
@@ -263,7 +263,7 @@ The disabled-actions Matured layout and registry badge already exist from M1; M5
 ## 7. Explicit non-goals for v1
 
 - Limit orders (needs Pendle's centralized orderbook + per-market governance fee setup — degrades gracefully by always passing empty `LimitOrderData`).
-- Aggregator zaps from arbitrary tokens (v1.5: client-side KyberSwap/ODOS calls).
+- Aggregator zaps from arbitrary tokens — **user-approved as the first v1.5 feature (2026-07-04)**: client-side KyberSwap/ODOS calls, no Pendle backend.
 - Chains beyond Arbitrum One (architecture keeps `chainId` explicit everywhere to ease expansion).
 - Historical charts / underlying-APY column (needs archive RPC or indexer; revisit with event-scan + localStorage sampling).
 - PENDLE gauge incentives, vePENDLE, points programs.

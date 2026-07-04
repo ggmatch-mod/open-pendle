@@ -5,6 +5,10 @@
  * an ≈-asset conversion via exchangeRate, plus reward tokens) with a Claim
  * button driving useActionFlow(planClaim). Renders only when a wallet is
  * connected; works on expired markets too — claims stay valid there.
+ *
+ * M4: the LP cell decomposes the balance into its pro-rata pool share
+ * ("≈ X SY + Y PT · Z% of pool") via previewDualRemove, falling back to
+ * inline lp/totalLp × reserves math while the data-layer skeleton throws.
  */
 
 import { useMemo } from 'react'
@@ -20,10 +24,11 @@ import type {
 } from '../lib/types'
 import { useActionFlow } from '../lib/hooks'
 import { planClaim } from '../lib/actions'
+import { previewDualRemove } from '../lib/liquidity'
 import { UNKNOWN_DECIMALS } from '../lib/positions'
 import { TxButton } from './TxButton'
 import { TxStatus } from './TxStatus'
-import { clampLabel, formatAmount } from './format'
+import { clampLabel, formatAmount, formatPercent } from './format'
 
 /** Pendle market LP is a standard 18-decimals ERC-20 (PendleERC20). */
 const LP_DECIMALS = 18
@@ -43,11 +48,14 @@ function BalanceCell({
   symbol,
   amount,
   decimals,
+  sub,
 }: {
   role: string
   symbol: string
   amount: bigint
   decimals: number
+  /** Optional muted line under the balance (LP decomposition). */
+  sub?: ReactNode
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
@@ -60,6 +68,9 @@ function BalanceCell({
       <p className="mt-1 text-sm font-semibold text-zinc-100">
         {formatAmount(amount, decimals)}
       </p>
+      {sub != null && (
+        <p className="mt-0.5 text-[11px] leading-snug text-zinc-600">{sub}</p>
+      )}
     </div>
   )
 }
@@ -162,6 +173,26 @@ export function PositionsCard({
   }
 
   const { sy } = snapshot
+
+  // M4: LP → (SY + PT) pro-rata decomposition + share of pool. Prefer the
+  // lib's previewDualRemove (single source of truth with the Liquidity tab);
+  // fall back to inline lp/totalLp × reserves math while the skeleton throws.
+  const lpBreakdown = ((): { syOut: bigint; ptOut: bigint; share: number } | undefined => {
+    if (positions.lp <= 0n) return undefined
+    try {
+      const p = previewDualRemove(snapshot, positions.lp)
+      return { syOut: p.syOut, ptOut: p.ptOut, share: p.shareBurned }
+    } catch {
+      const { totalLp, totalSy, totalPt } = snapshot.state
+      if (totalLp <= 0n) return undefined
+      return {
+        syOut: (positions.lp * totalSy) / totalLp,
+        ptOut: (positions.lp * totalPt) / totalLp,
+        share: Number((positions.lp * 1_000_000n) / totalLp) / 1_000_000,
+      }
+    }
+  })()
+
   const walletNonZero = positions.walletTokens.filter((t) => t.amount > 0n)
   // Raw-first conversion so sy.decimals ≠ assetDecimals cannot skew the ≈ line:
   // SY raw × exchangeRate (1e18-scaled SY→asset) yields RAW asset units, which
@@ -190,7 +221,21 @@ export function PositionsCard({
           amount={positions.yt}
           decimals={sy.assetDecimals}
         />
-        <BalanceCell role="LP" symbol="Pool LP" amount={positions.lp} decimals={LP_DECIMALS} />
+        <BalanceCell
+          role="LP"
+          symbol="Pool LP"
+          amount={positions.lp}
+          decimals={LP_DECIMALS}
+          sub={
+            lpBreakdown !== undefined ? (
+              <>
+                ≈ {formatAmount(lpBreakdown.syOut, sy.decimals)} SY +{' '}
+                {formatAmount(lpBreakdown.ptOut, sy.assetDecimals)} PT ·{' '}
+                {formatPercent(lpBreakdown.share)} of pool
+              </>
+            ) : undefined
+          }
+        />
         <BalanceCell role="SY" symbol={sy.symbol} amount={positions.sy} decimals={sy.decimals} />
       </div>
 
