@@ -24,11 +24,20 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePublicClient } from 'wagmi'
 import type { PublicClient } from 'viem'
-import type { SyDeployResult } from '../../lib/types'
+import type { SupportedChainId, SyDeployResult } from '../../lib/types'
 import { decodeSyDeployResult } from '../../lib/syDeploy'
-import { arbiscanAddressUrl, arbiscanTxUrl } from '../format'
+import { useActiveChain } from '../../lib/hooks'
+import { explorerAddressUrl, explorerName, explorerTxUrl } from '../format'
 
-function AddressRow({ label, address }: { label: string; address: string }) {
+function AddressRow({
+  label,
+  address,
+  chainId,
+}: {
+  label: string
+  address: string
+  chainId: SupportedChainId
+}) {
   return (
     <div className="rounded-lg border border-emerald-800 bg-emerald-950/50 p-3">
       <p className="text-xs text-emerald-200/80">{label}</p>
@@ -36,12 +45,12 @@ function AddressRow({ label, address }: { label: string; address: string }) {
         {address}
       </p>
       <a
-        href={arbiscanAddressUrl(address)}
+        href={explorerAddressUrl(chainId, address)}
         target="_blank"
         rel="noreferrer"
         className="mt-1.5 inline-block text-xs text-emerald-300/80 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
       >
-        View on Arbiscan ↗
+        View on {explorerName(chainId)} ↗
       </a>
     </div>
   )
@@ -55,7 +64,10 @@ export function SyDeploySuccess({
   /** True when the chosen template deploys an upgradeable proxy (advanced path). */
   upgradeable: boolean
 }) {
-  const client = usePublicClient()
+  // M8: read the deploy receipt on the ACTIVE chain (deploy target), and link
+  // to that chain's explorer.
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const [result, setResult] = useState<SyDeployResult | undefined>(undefined)
   const [decodeFailed, setDecodeFailed] = useState(false)
 
@@ -99,7 +111,7 @@ export function SyDeploySuccess({
       <p className="mt-2 text-xs text-emerald-200/80">
         Your deploy transaction confirmed:{' '}
         <a
-          href={arbiscanTxUrl(txHash)}
+          href={explorerTxUrl(chainId, txHash)}
           target="_blank"
           rel="noreferrer"
           className="font-mono text-emerald-300 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
@@ -110,9 +122,13 @@ export function SyDeploySuccess({
 
       {result ? (
         <div className="mt-3 space-y-2.5">
-          <AddressRow label="New SY (Standardized Yield) address" address={result.sy} />
+          <AddressRow
+            label="New SY (Standardized Yield) address"
+            address={result.sy}
+            chainId={chainId}
+          />
           {result.market && (
-            <AddressRow label="New market (PLP) address" address={result.market} />
+            <AddressRow label="New market (PLP) address" address={result.market} chainId={chainId} />
           )}
 
           {upgradeable && (
@@ -150,8 +166,9 @@ export function SyDeploySuccess({
         <div className="mt-3 rounded-lg border border-amber-800/60 bg-amber-950/30 p-3">
           <p className="text-xs text-amber-200/90">
             The transaction confirmed, but the deployed address couldn't be read
-            from the receipt automatically. Open the transaction on Arbiscan
-            (link above) to find the new SY (and market) in its event logs.
+            from the receipt automatically. Open the transaction on{' '}
+            {explorerName(chainId)} (link above) to find the new SY (and market)
+            in its event logs.
           </p>
         </div>
       ) : (

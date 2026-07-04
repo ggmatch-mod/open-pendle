@@ -11,12 +11,14 @@
  */
 
 import type { ActionFlowState } from './TxButton'
-import { arbiscanTxUrl, clampLabel, formatAmount, formatPercent } from './format'
+import { useActiveChain } from '../lib/hooks'
+import { clampLabel, explorerTxUrl, formatAmount, formatPercent } from './format'
 
 function TxLink({ hash }: { hash: `0x${string}` }) {
+  const { chainId } = useActiveChain()
   return (
     <a
-      href={arbiscanTxUrl(hash)}
+      href={explorerTxUrl(chainId, hash)}
       target="_blank"
       rel="noreferrer"
       className="font-mono text-xs text-emerald-400 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-300"

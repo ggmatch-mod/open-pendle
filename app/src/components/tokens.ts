@@ -13,6 +13,8 @@ import { erc20Abi, zeroAddress } from 'viem'
 import type { Address } from 'viem'
 import { useReadContracts } from 'wagmi'
 import type { Positions } from '../lib/types'
+import { supportedChain } from '../lib/addresses'
+import { useActiveChain } from '../lib/hooks'
 
 export interface TokenMeta {
   address: Address
@@ -35,13 +37,18 @@ export function isNativeEth(token: Address): boolean {
  * undefined (panels degrade to a short address + disabled input, never crash).
  */
 export function useTokenMetas(tokens: readonly Address[]): Record<string, TokenMeta> {
+  // M8: route the metadata multicall to the ACTIVE chain (else the wagmi
+  // default = Ethereum), and label the native token with THIS chain's symbol
+  // (ETH / BNB / MON / XPL), not a hardcoded ETH.
+  const { chainId } = useActiveChain()
+  const nativeSymbol = supportedChain(chainId)?.nativeSymbol ?? 'ETH'
   const unique = [...new Set(tokens.map((t) => t.toLowerCase()))] as Address[]
   const erc20s = unique.filter((t) => !isNativeEth(t))
 
   const { data } = useReadContracts({
     contracts: erc20s.flatMap((address) => [
-      { address, abi: erc20Abi, functionName: 'symbol' } as const,
-      { address, abi: erc20Abi, functionName: 'decimals' } as const,
+      { chainId, address, abi: erc20Abi, functionName: 'symbol' } as const,
+      { chainId, address, abi: erc20Abi, functionName: 'decimals' } as const,
     ]),
     allowFailure: true,
     query: { staleTime: Infinity, enabled: erc20s.length > 0 },
@@ -50,7 +57,7 @@ export function useTokenMetas(tokens: readonly Address[]): Record<string, TokenM
   const metas: Record<string, TokenMeta> = {}
   for (const t of unique) {
     if (isNativeEth(t)) {
-      metas[t] = { address: t, isNative: true, symbol: 'ETH', decimals: 18 }
+      metas[t] = { address: t, isNative: true, symbol: nativeSymbol, decimals: 18 }
     } else {
       metas[t] = { address: t, isNative: false }
     }

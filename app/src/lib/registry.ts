@@ -14,8 +14,8 @@
  */
 
 import type { Address } from 'viem'
-import type { MarketSnapshot, SavedPool } from './types.ts'
-import { ARBITRUM_CHAIN_ID } from './addresses.ts'
+import type { MarketSnapshot, SavedPool, SupportedChainId } from './types.ts'
+import { ARBITRUM_CHAIN_ID, isSupportedChainId } from './addresses.ts'
 
 export const REGISTRY_STORAGE_KEY = 'openpendle.pools.v1'
 
@@ -65,23 +65,64 @@ function isAddressString(value: unknown): value is Address {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)
 }
 
-function isSavedPool(value: unknown): value is SavedPool {
-  if (typeof value !== 'object' || value === null) return false
+/**
+ * (chainId, market) composite key — lowercased market so it is
+ * case-insensitive. A pool is unique per (chain, market): the same market
+ * address CANNOT collide across chains in practice, but keying by both is the
+ * correct M8 identity and lets the home grid group by chain.
+ */
+function poolKey(chainId: SupportedChainId, market: Address): string {
+  return `${chainId}:${market.toLowerCase()}`
+}
+
+/**
+ * Parse + MIGRATE one stored entry. M8: chainId is now any supported chain.
+ * Migration (v1 store, unreleased schema): a pre-M8 entry may have chainId ===
+ * 42161 already (the old shape hardcoded it) OR — defensively — be missing
+ * chainId entirely; both resolve to Arbitrum. Returns a normalized SavedPool or
+ * undefined for genuinely-corrupt entries. Schema stays version 1 (chainId was
+ * always in the shape, so no envelope bump).
+ */
+function parseSavedPool(value: unknown): SavedPool | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
   const p = value as Record<string, unknown>
-  return (
-    p.chainId === ARBITRUM_CHAIN_ID &&
-    isAddressString(p.market) &&
-    typeof p.savedAt === 'number' &&
-    typeof p.label === 'string' &&
-    isAddressString(p.sy) &&
-    isAddressString(p.pt) &&
-    isAddressString(p.yt) &&
-    typeof p.expiry === 'number' &&
-    isAddressString(p.factory) &&
+  // chainId: accept any supported chain; migrate a missing one to Arbitrum.
+  const rawChainId = p.chainId
+  const chainId: SupportedChainId =
+    rawChainId === undefined
+      ? ARBITRUM_CHAIN_ID
+      : typeof rawChainId === 'number' && isSupportedChainId(rawChainId)
+        ? rawChainId
+        : (NaN as unknown as SupportedChainId)
+  if (!isSupportedChainId(chainId)) return undefined
+  if (
+    !isAddressString(p.market) ||
+    typeof p.savedAt !== 'number' ||
+    typeof p.label !== 'string' ||
+    !isAddressString(p.sy) ||
+    !isAddressString(p.pt) ||
+    !isAddressString(p.yt) ||
+    typeof p.expiry !== 'number' ||
+    !isAddressString(p.factory) ||
     // Optional home-grid sweep cache (older saves simply lack these).
-    (p.assetDecimals === undefined || typeof p.assetDecimals === 'number') &&
-    (p.assetSymbol === undefined || typeof p.assetSymbol === 'string')
-  )
+    !(p.assetDecimals === undefined || typeof p.assetDecimals === 'number') ||
+    !(p.assetSymbol === undefined || typeof p.assetSymbol === 'string')
+  ) {
+    return undefined
+  }
+  return {
+    chainId,
+    market: p.market,
+    savedAt: p.savedAt,
+    label: p.label,
+    sy: p.sy,
+    pt: p.pt,
+    yt: p.yt,
+    expiry: p.expiry,
+    factory: p.factory,
+    ...(p.assetDecimals !== undefined ? { assetDecimals: p.assetDecimals as number } : {}),
+    ...(p.assetSymbol !== undefined ? { assetSymbol: p.assetSymbol as string } : {}),
+  }
 }
 
 function readEnvelope(): SavedPool[] {
@@ -99,7 +140,9 @@ function readEnvelope(): SavedPool[] {
     ) {
       return EMPTY_POOLS
     }
-    const pools = (parsed as { pools: unknown[] }).pools.filter(isSavedPool)
+    const pools = (parsed as { pools: unknown[] }).pools
+      .map(parseSavedPool)
+      .filter((p): p is SavedPool => p !== undefined)
     return pools.length > 0 ? pools : EMPTY_POOLS
   } catch {
     // Corrupt JSON / storage read failure → empty registry.
@@ -139,17 +182,23 @@ export function getServerPools(): SavedPool[] {
   return EMPTY_POOLS
 }
 
-/** Is this market already remembered? (case-insensitive address compare). */
-export function isPoolSaved(market: Address): boolean {
-  const needle = market.toLowerCase()
-  return loadPools().some((p) => p.market.toLowerCase() === needle)
+/**
+ * Is this (chainId, market) pool already remembered? (case-insensitive market
+ * compare). M8: keyed by (chainId, market) so the SAME market address on two
+ * chains is two independent entries.
+ */
+export function isPoolSaved(chainId: SupportedChainId, market: Address): boolean {
+  const needle = poolKey(chainId, market)
+  return loadPools().some((p) => poolKey(p.chainId, p.market) === needle)
 }
 
 /**
- * Remember a pool. Derives the SavedPool display cache from a loaded
- * snapshot (label = displayName); upserts by market address.
+ * Remember a pool on `chainId` (the ACTIVE chain). Derives the SavedPool
+ * display cache from a loaded snapshot (label = displayName); upserts by
+ * (chainId, market). The snapshot carries no chain id (it's a client-chain
+ * concept), so the caller (useRegistry, which reads the active chain) stamps it.
  */
-export function savePool(snapshot: MarketSnapshot): SavedPool {
+export function savePool(chainId: SupportedChainId, snapshot: MarketSnapshot): SavedPool {
   // Hard gate, not just UI: a market no known Pendle factory validates must
   // never enter the registry (PLAN §3.4 — the home grid re-renders saved
   // pools from cache, which would launder an unvalidated market).
@@ -157,7 +206,7 @@ export function savePool(snapshot: MarketSnapshot): SavedPool {
     throw new Error(`Refusing to remember unvalidated market ${snapshot.address}`)
   }
   const pool: SavedPool = {
-    chainId: ARBITRUM_CHAIN_ID,
+    chainId,
     market: snapshot.address,
     savedAt: Date.now(),
     label: snapshot.displayName,
@@ -173,18 +222,18 @@ export function savePool(snapshot: MarketSnapshot): SavedPool {
       ? { assetSymbol: snapshot.sy.assetSymbol }
       : {}),
   }
-  const needle = pool.market.toLowerCase()
-  const next = loadPools().filter((p) => p.market.toLowerCase() !== needle)
+  const needle = poolKey(chainId, pool.market)
+  const next = loadPools().filter((p) => poolKey(p.chainId, p.market) !== needle)
   next.push(pool)
   writeEnvelope(next)
   return pool
 }
 
-/** Forget a pool by market address. No-op when not saved. */
-export function forgetPool(market: Address): void {
-  const needle = market.toLowerCase()
+/** Forget a pool by (chainId, market). No-op when not saved. */
+export function forgetPool(chainId: SupportedChainId, market: Address): void {
+  const needle = poolKey(chainId, market)
   const current = loadPools()
-  const next = current.filter((p) => p.market.toLowerCase() !== needle)
+  const next = current.filter((p) => poolKey(p.chainId, p.market) !== needle)
   if (next.length === current.length) return
   writeEnvelope(next)
 }

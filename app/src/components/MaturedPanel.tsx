@@ -45,7 +45,7 @@ import type {
   MarketSnapshot,
   Positions,
 } from '../lib/types'
-import { useActionFlow, useDepegInfo, useExitPreview } from '../lib/hooks'
+import { useActionFlow, useActiveChain, useDepegInfo, useExitPreview } from '../lib/hooks'
 import {
   planRedeemPyToSy,
   planRedeemPyToToken,
@@ -227,7 +227,9 @@ function RedeemPtSection({
 }: SectionProps) {
   const { sy } = snapshot
   const { address: user, isConnected } = useAccount()
-  const client = usePublicClient()
+  // M8: quotes read the ACTIVE chain, not the wagmi default (Ethereum).
+  const { chainId: activeChainId } = useActiveChain()
+  const client = usePublicClient({ chainId: activeChainId })
   // SY-target redeem is EXACT at the PY index (only index drift moves it) → the
   // 0.05% index-drift cap. TOKEN-target redeem chains through previewRedeem
   // (SY→token), which can move more than index drift, so it uses the user's
@@ -259,6 +261,7 @@ function RedeemPtSection({
   const quoteQuery = useQuery({
     queryKey: [
       'm5-redeem-pt-quote',
+      activeChainId,
       snapshot.address.toLowerCase(),
       choiceIsSy ? SY_CHOICE : token?.toLowerCase(),
       debouncedKey,
@@ -426,7 +429,9 @@ function ExitLpSection({
 }: SectionProps) {
   const { sy } = snapshot
   const { address: user, isConnected } = useAccount()
-  const client = usePublicClient()
+  // M8: quotes read the ACTIVE chain, not the wagmi default (Ethereum).
+  const { chainId: activeChainId } = useActiveChain()
+  const client = usePublicClient({ chainId: activeChainId })
   const queryClient = useQueryClient()
   // SY-target min-out is EXACT math (only index drift can move it) → the 0.05%
   // index-drift cap applies. TOKEN-target min-out comes from previewRedeem,
@@ -481,6 +486,7 @@ function ExitLpSection({
   const unwrapQuery = useQuery({
     queryKey: [
       'm5-exit-unwrap',
+      activeChainId,
       snapshot.address.toLowerCase(),
       token?.toLowerCase() ?? null,
       totalSyKey,

@@ -5,10 +5,58 @@
 
 import { formatUnits } from 'viem'
 import type { Address } from 'viem'
+import type { SupportedChainId } from '../lib/types'
+import { ARBITRUM_CHAIN_ID } from '../lib/addresses'
 
 /** 0x1234…abcd */
 export function shortAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
+}
+
+// ---------------------------------------------------------------------------
+// Per-chain block-explorer links (M8). The app is multi-network, so a market /
+// tx / address must link to the explorer of the ACTIVE chain, not always
+// Arbiscan. Callers pass the active chain id (useActiveChain().chainId); the
+// legacy arbiscan* helpers below delegate to the Arbitrum entry.
+// ---------------------------------------------------------------------------
+
+/** Explorer host (no trailing slash) per supported chain. */
+const EXPLORER_BASE: Record<SupportedChainId, string> = {
+  1: 'https://etherscan.io',
+  56: 'https://bscscan.com',
+  143: 'https://monadexplorer.com',
+  8453: 'https://basescan.org',
+  9745: 'https://plasmascan.to',
+  42161: 'https://arbiscan.io',
+}
+
+/** Human name of the explorer (for "View on <name>" copy). */
+const EXPLORER_NAME: Record<SupportedChainId, string> = {
+  1: 'Etherscan',
+  56: 'BscScan',
+  143: 'Monad Explorer',
+  8453: 'BaseScan',
+  9745: 'Plasmascan',
+  42161: 'Arbiscan',
+}
+
+function explorerBase(chainId: SupportedChainId): string {
+  return EXPLORER_BASE[chainId] ?? EXPLORER_BASE[ARBITRUM_CHAIN_ID]
+}
+
+/** Explorer address URL for a given chain. */
+export function explorerAddressUrl(chainId: SupportedChainId, addr: Address | string): string {
+  return `${explorerBase(chainId)}/address/${addr}`
+}
+
+/** Explorer tx URL for a given chain. */
+export function explorerTxUrl(chainId: SupportedChainId, hash: string): string {
+  return `${explorerBase(chainId)}/tx/${hash}`
+}
+
+/** Explorer display name for a given chain ("Arbiscan", "BaseScan", …). */
+export function explorerName(chainId: SupportedChainId): string {
+  return EXPLORER_NAME[chainId] ?? EXPLORER_NAME[ARBITRUM_CHAIN_ID]
 }
 
 /**
@@ -22,12 +70,14 @@ export function clampLabel(s: string, max = 48): string {
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned
 }
 
+/** @deprecated M8: use explorerAddressUrl(chainId, addr). Kept as the Arbitrum default. */
 export function arbiscanAddressUrl(addr: Address | string): string {
-  return `https://arbiscan.io/address/${addr}`
+  return explorerAddressUrl(ARBITRUM_CHAIN_ID, addr)
 }
 
+/** @deprecated M8: use explorerTxUrl(chainId, hash). Kept as the Arbitrum default. */
 export function arbiscanTxUrl(hash: string): string {
-  return `https://arbiscan.io/tx/${hash}`
+  return explorerTxUrl(ARBITRUM_CHAIN_ID, hash)
 }
 
 /**

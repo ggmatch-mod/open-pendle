@@ -3,7 +3,7 @@
 // coupling for the data layer lives HERE; market.ts / registry.ts stay pure.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi'
 import { BaseError, UserRejectedRequestError } from 'viem'
 import type { Address, PublicClient } from 'viem'
 import type {
@@ -14,13 +14,15 @@ import type {
   PlannedCall,
   QueryStatus,
   SavedPool,
+  SupportedChainId,
   TxPhase,
 } from './types'
 import type { RegistrySweepResult } from './market'
+import type { SupportedChain } from './addresses'
 import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './market'
 import { preflightDeploy } from './deploy'
 import { probeAsset } from './syDeploy'
-import { ARBITRUM_CHAIN_ID } from './addresses'
+import { ARBITRUM_CHAIN_ID, isSupportedChainId, supportedChain } from './addresses'
 import { loadPositions } from './positions'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
@@ -61,6 +63,84 @@ function errorMessage(error: unknown): string {
   return String(error)
 }
 
+// ---------------------------------------------------------------------------
+// M8 active chain — the app's SELECTED network (localStorage-backed, cross-tab).
+// This is NOT the wallet's chain; every data hook reads the active chain via
+// usePublicClient({ chainId }), so switching it reloads everything on the new
+// chain WITHOUT the UI passing a chainId anywhere. The wallet-chain vs
+// active-chain mismatch drives the wrong-network state (useActionFlow).
+// ---------------------------------------------------------------------------
+
+/** localStorage key holding the selected active chain id (default Arbitrum). */
+const ACTIVE_CHAIN_STORAGE_KEY = 'openpendle.chain'
+
+const activeChainListeners = new Set<() => void>()
+let activeChainStorageInstalled = false
+
+function readActiveChainId(): SupportedChainId {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = window.localStorage.getItem(ACTIVE_CHAIN_STORAGE_KEY)
+      const parsed = raw === null ? NaN : Number(raw)
+      if (isSupportedChainId(parsed)) return parsed
+    }
+  } catch {
+    // localStorage unavailable — fall through to the default.
+  }
+  return ARBITRUM_CHAIN_ID
+}
+
+function writeActiveChainId(id: SupportedChainId): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(ACTIVE_CHAIN_STORAGE_KEY, String(id))
+    }
+  } catch {
+    // Quota / storage disabled — the in-memory emit below still updates this tab.
+  }
+  for (const l of activeChainListeners) l()
+}
+
+function subscribeActiveChain(listener: () => void): () => void {
+  if (!activeChainStorageInstalled && typeof window !== 'undefined') {
+    activeChainStorageInstalled = true
+    window.addEventListener('storage', (event: StorageEvent) => {
+      if (event.key === null || event.key === ACTIVE_CHAIN_STORAGE_KEY) {
+        for (const l of activeChainListeners) l()
+      }
+    })
+  }
+  activeChainListeners.add(listener)
+  return () => {
+    activeChainListeners.delete(listener)
+  }
+}
+
+/**
+ * The app's selected network. `chainId` is backed by localStorage
+ * (`openpendle.chain`, default 42161) and stays in sync across tabs;
+ * `setChainId` persists + notifies. `chain` is the SUPPORTED_CHAINS entry for
+ * the active id. This is the SINGLE source the data hooks read — the UI never
+ * threads a chainId through them.
+ */
+export function useActiveChain(): {
+  chainId: SupportedChainId
+  setChainId: (id: SupportedChainId) => void
+  chain: SupportedChain
+} {
+  const chainId = useSyncExternalStore(
+    subscribeActiveChain,
+    readActiveChainId,
+    () => ARBITRUM_CHAIN_ID,
+  )
+  const setChainId = useCallback((id: SupportedChainId) => {
+    writeActiveChainId(id)
+  }, [])
+  // SUPPORTED_CHAINS always contains every SupportedChainId, so this is defined.
+  const chain = supportedChain(chainId) as SupportedChain
+  return { chainId, setChainId, chain }
+}
+
 /**
  * Classify pasted input. Empty/whitespace input → status 'idle'.
  * Runs format validation, then on-chain probes (market validation across the
@@ -71,13 +151,14 @@ export function useClassifyAddress(input: string): {
   classification?: AddressClassification
   error?: string
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const trimmed = input.trim()
   const debounced = useDebouncedValue(trimmed, CLASSIFY_DEBOUNCE_MS)
   const enabled = debounced.length > 0 && client !== undefined
 
   const query = useQuery({
-    queryKey: ['classify', debounced],
+    queryKey: ['classify', chainId, debounced],
     queryFn: () => classifyAddress(client as PublicClient, debounced),
     enabled,
     staleTime: 60_000,
@@ -107,11 +188,12 @@ export function useMarketSnapshot(address?: Address): {
   error?: string
   refetch: () => void
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const enabled = address !== undefined && client !== undefined
 
   const query = useQuery({
-    queryKey: ['market', address?.toLowerCase() ?? null],
+    queryKey: ['market', chainId, address?.toLowerCase() ?? null],
     queryFn: () => loadMarketSnapshot(client as PublicClient, address as Address),
     enabled,
     staleTime: MARKET_STALE_TIME_MS,
@@ -131,26 +213,76 @@ export function useMarketSnapshot(address?: Address): {
 }
 
 /**
- * Home-grid quick stats for ALL saved pools in ONE multicall batch
- * (PLAN §3.3 "one multicall sweep") instead of a full snapshot per card.
- * Per market: readState(ROUTER_V4) + isExpired() + SY.exchangeRate().
- * Result is keyed by lowercased market address; a missing key means that
- * market's reads failed (the card renders '—', never crashes).
+ * All six supported-chain public clients, resolved unconditionally at the top
+ * level (the chain list is a compile-time constant, so this is a FIXED set of
+ * hook calls — React's rules-of-hooks hold). Used by the cross-chain registry
+ * sweep so a pool saved on Base reads via Base's client. Keyed by chainId.
+ */
+function useAllChainClients(): Record<SupportedChainId, PublicClient | undefined> {
+  // One usePublicClient per supported chain — order is stable across renders.
+  const c1 = usePublicClient({ chainId: 1 })
+  const c56 = usePublicClient({ chainId: 56 })
+  const c143 = usePublicClient({ chainId: 143 })
+  const c8453 = usePublicClient({ chainId: 8453 })
+  const c9745 = usePublicClient({ chainId: 9745 })
+  const c42161 = usePublicClient({ chainId: 42161 })
+  return useMemo(
+    () => ({ 1: c1, 56: c56, 143: c143, 8453: c8453, 9745: c9745, 42161: c42161 }),
+    [c1, c56, c143, c8453, c9745, c42161],
+  )
+}
+
+/**
+ * Home-grid quick stats for ALL saved pools (PLAN §3.3 "one multicall sweep").
+ * M8: pools may span chains — group by each pool's OWN chainId and sweep each
+ * group through that chain's client (one multicall PER chain), so the home grid
+ * shows cross-chain pools. Per market: readState(router) + isExpired() +
+ * SY.exchangeRate(). Result is keyed by `${chainId}:${market}` (sweepKey), so
+ * the same market address saved on two chains stays two distinct entries; a
+ * missing key means that market's reads failed (the card renders '—', never
+ * crashes).
  */
 export function useRegistrySweep(pools: SavedPool[]): {
   status: QueryStatus
   stats: RegistrySweepResult
 } {
-  const client = usePublicClient()
+  const clients = useAllChainClients()
+  // Fingerprint (chainId:market) pairs, sorted, so the query re-runs when the
+  // set of saved pools changes across ANY chain.
   const key = pools
-    .map((p) => p.market.toLowerCase())
+    .map((p) => `${p.chainId}:${p.market.toLowerCase()}`)
     .sort()
     .join(',')
-  const enabled = pools.length > 0 && client !== undefined
+  const enabled = pools.length > 0
 
   const query = useQuery({
     queryKey: ['registry-sweep', key],
-    queryFn: () => sweepRegistryPools(client as PublicClient, pools),
+    queryFn: async () => {
+      // Group by chainId, then one sweep per chain (each with that chain's
+      // client). Chains whose client isn't ready are skipped (their cards
+      // render '—' until it is).
+      const byChain = new Map<SupportedChainId, SavedPool[]>()
+      for (const p of pools) {
+        const arr = byChain.get(p.chainId)
+        if (arr) arr.push(p)
+        else byChain.set(p.chainId, [p])
+      }
+      const results = await Promise.all(
+        [...byChain.entries()].map(async ([chainId, chainPools]) => {
+          const client = clients[chainId]
+          if (!client) return {} as RegistrySweepResult
+          try {
+            return await sweepRegistryPools(client, chainPools)
+          } catch {
+            return {} as RegistrySweepResult
+          }
+        }),
+      )
+      // Merge: each chain's sweep keys entries by `${chainId}:${market}`
+      // (sweepKey), so the composite keys never collide across chains — the
+      // same market address on two chains stays two distinct entries.
+      return Object.assign({}, ...results) as RegistrySweepResult
+    },
     enabled,
     staleTime: MARKET_STALE_TIME_MS,
     retry: 1,
@@ -164,24 +296,42 @@ export function useRegistrySweep(pools: SavedPool[]): {
 
 /**
  * The remember/forget registry (localStorage-backed, schema-versioned,
- * multi-pool; see PLAN.md §3.3). save() derives the SavedPool display cache
- * from a loaded snapshot; forget() removes by market address.
+ * multi-pool, M8 CROSS-CHAIN; see PLAN.md §3.3).
+ *
+ * - `pools` are ALL remembered pools across ALL chains (each carries its own
+ *   chainId) — the home grid groups/badges them by network, never filters to
+ *   the active chain (PLAN M8: switching networks and returning always shows a
+ *   chain's pools).
+ * - `save()` stamps the ACTIVE chain id (the pool page is always on the active
+ *   chain); `isSaved(market)` / `forget(market)` are scoped to the active chain
+ *   (the UI passes no chainId — the pool-page market lives on the active chain).
+ * - `isSavedOn(chainId, market)` / `forgetOn(chainId, market)` are the
+ *   chain-explicit variants for the grouped home grid, where a card may belong
+ *   to a non-active chain.
  */
 export function useRegistry(): {
   pools: SavedPool[]
   isSaved: (market: Address) => boolean
+  isSavedOn: (chainId: SupportedChainId, market: Address) => boolean
   save: (snapshot: MarketSnapshot) => void
   forget: (market: Address) => void
+  forgetOn: (chainId: SupportedChainId, market: Address) => void
 } {
+  const { chainId } = useActiveChain()
   const pools = useSyncExternalStore(subscribeRegistry, loadPools, getServerPools)
   return {
     pools,
-    isSaved: (market: Address) => isPoolSaved(market),
+    isSaved: (market: Address) => isPoolSaved(chainId, market),
+    isSavedOn: (poolChainId: SupportedChainId, market: Address) =>
+      isPoolSaved(poolChainId, market),
     save: (snapshot: MarketSnapshot) => {
-      savePool(snapshot)
+      savePool(chainId, snapshot)
     },
     forget: (market: Address) => {
-      forgetPool(market)
+      forgetPool(chainId, market)
+    },
+    forgetOn: (poolChainId: SupportedChainId, market: Address) => {
+      forgetPool(poolChainId, market)
     },
   }
 }
@@ -204,13 +354,15 @@ export function usePositions(snapshot?: MarketSnapshot): {
   error?: string
   refetch: () => void
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const { address: user } = useAccount()
   const enabled = snapshot !== undefined && user !== undefined && client !== undefined
 
   const query = useQuery({
     queryKey: [
       'positions',
+      chainId,
       snapshot?.address.toLowerCase() ?? null,
       user?.toLowerCase() ?? null,
     ],
@@ -292,14 +444,24 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   approve: () => void
   execute: () => void
   reset: () => void
+  /**
+   * Ask the wallet to switch to the app's ACTIVE chain — for the wrong-network
+   * banner's "Switch to <chain>" button (M8: generalized from switch-to-Arbitrum).
+   * Resolves whether or not the user accepts; the pipeline re-arms via the
+   * walletChainId change when the switch lands.
+   */
+  switchNetwork: () => Promise<void>
 } {
-  // chainId comes from useAccount() — the CONNECTOR's real chain (the same
-  // source WrongNetworkBanner reads). useChainId() would report the wagmi
-  // config's chain, which in a single-chain config is always 42161, making
-  // the wrong-network phase unreachable.
-  const { address: user, chainId } = useAccount()
-  const client = usePublicClient()
+  // walletChainId comes from useAccount() — the CONNECTOR's real chain.
+  // activeChainId is the app's SELECTED network. The tx must go to the ACTIVE
+  // chain; the wrong-network state is walletChainId ≠ activeChainId (M8:
+  // generalized from the hardcoded 42161). The reads use the active-chain
+  // client so a preflight/simulation always runs on the selected chain.
+  const { address: user, chainId: walletChainId } = useAccount()
+  const { chainId: activeChainId } = useActiveChain()
+  const client = usePublicClient({ chainId: activeChainId })
   const { writeContractAsync } = useWriteContract()
+  const { switchChainAsync } = useSwitchChain()
   const queryClient = useQueryClient()
 
   const [phase, setPhase] = useState<TxPhase>('idle')
@@ -343,7 +505,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       functionName: call.functionName,
       args: call.args,
       ...(call.value !== undefined ? { value: call.value } : {}),
-      chainId: ARBITRUM_CHAIN_ID,
+      chainId: activeChainId,
     }) as unknown as Parameters<typeof writeContractAsync>[0]
 
   /** checkApprovals → needs-approval | simulate → ready/failed (pipeline effect body). */
@@ -398,7 +560,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       setPhase('needs-wallet')
       return
     }
-    if (chainId !== ARBITRUM_CHAIN_ID) {
+    // Wrong network = the WALLET is not on the app's ACTIVE chain (M8).
+    if (walletChainId !== activeChainId) {
       setPhase('wrong-network')
       return
     }
@@ -419,7 +582,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     // planKey (not plan) is deliberate: the UI may rebuild an identical plan
     // object every render; resetNonce re-arms the pipeline after reset().
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planKey, user, chainId, client, resetNonce])
+  }, [planKey, user, walletChainId, activeChainId, client, resetNonce])
 
   const approve = useCallback(() => {
     const activePlan = planRef.current
@@ -546,7 +709,26 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setResetNonce((n) => n + 1)
   }, [])
 
-  return { phase, error, simulatedOut, txHash, pendingApproval, reverted, approve, execute, reset }
+  const switchNetwork = useCallback(async () => {
+    try {
+      await switchChainAsync({ chainId: activeChainId })
+    } catch {
+      // User declined / wallet can't switch — leave them on the banner.
+    }
+  }, [switchChainAsync, activeChainId])
+
+  return {
+    phase,
+    error,
+    simulatedOut,
+    txHash,
+    pendingApproval,
+    reverted,
+    approve,
+    execute,
+    reset,
+    switchNetwork,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -581,7 +763,8 @@ export function useSwapQuote(
   error?: string
   refetch: () => void
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   // Debounce the amount (stringified — useDebouncedValue is a string hook and
   // bigints can't sit in query keys anyway). '' encodes "no amount".
   const amountKey = amount === undefined ? '' : amount.toString()
@@ -593,6 +776,7 @@ export function useSwapQuote(
   const query = useQuery({
     queryKey: [
       'swap-quote',
+      chainId,
       snapshot?.address.toLowerCase() ?? null,
       side,
       action,
@@ -654,7 +838,8 @@ export function useDualAddPreview(
   tokenIn: Address | undefined,
   amount: bigint | undefined,
 ): { status: QueryStatus; preview?: import('./types').DualAddPreview; error?: string } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   // Debounce the amount (stringified — useDebouncedValue is a string hook and
   // bigints can't sit in query keys anyway). '' encodes "no amount".
   const amountKey = amount === undefined ? '' : amount.toString()
@@ -679,6 +864,7 @@ export function useDualAddPreview(
   const query = useQuery({
     queryKey: [
       'dual-add-preview',
+      chainId,
       snapshot?.address.toLowerCase() ?? null,
       stateKey,
       fixed,
@@ -721,7 +907,8 @@ export function useZapQuote(
   keepYt: boolean,
   slippageFraction: number,
 ): { status: QueryStatus; quote?: import('./types').SwapQuote; error?: string; refetch: () => void } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const amountKey = amount === undefined ? '' : amount.toString()
   const debouncedAmountKey = useDebouncedValue(amountKey, SWAP_QUOTE_DEBOUNCE_MS)
   const inputsReady =
@@ -733,11 +920,12 @@ export function useZapQuote(
     // invalidates ['swap-quote'] after every confirmed send, and a zap moves
     // the pool exactly like a swap does — a repeat zap must never reuse a
     // pre-trade cached quote (its ApproxParams bounds are now stale). The
-    // 'zap' discriminator cannot collide with useSwapQuote's keys (its second
+    // 'zap' discriminator cannot collide with useSwapQuote's keys (its third
     // element is a market address / null).
     queryKey: [
       'swap-quote',
       'zap',
+      chainId,
       snapshot?.address.toLowerCase() ?? null,
       action,
       token?.toLowerCase() ?? null,
@@ -809,7 +997,8 @@ export function useExitPreview(
    */
   refetch: () => void
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   // Debounce the LP amount (stringified — useDebouncedValue is a string hook
   // and bigints can't sit in query keys anyway). '' encodes "no amount";
   // a PT-only exit (ptIncluded > 0, no LP) previews with lpIn = 0n.
@@ -832,6 +1021,7 @@ export function useExitPreview(
   const query = useQuery({
     queryKey: [
       'exit-preview',
+      chainId,
       snapshot?.address.toLowerCase() ?? null,
       stateKey,
       debouncedLpKey,
@@ -874,11 +1064,12 @@ export function useDepegInfo(snapshot?: MarketSnapshot): {
   status: QueryStatus
   info?: import('./types').DepegInfo
 } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const enabled = snapshot !== undefined && snapshot.isExpired && client !== undefined
 
   const query = useQuery({
-    queryKey: ['depeg-info', snapshot?.address.toLowerCase() ?? null],
+    queryKey: ['depeg-info', chainId, snapshot?.address.toLowerCase() ?? null],
     queryFn: () => readDepegInfo(client as PublicClient, snapshot as MarketSnapshot),
     enabled,
     staleTime: DEPEG_STALE_TIME_MS,
@@ -930,14 +1121,16 @@ export function useDeployPreflight(
   seedToken: Address | undefined,
   seedAmount: bigint | undefined,
 ): { status: QueryStatus; preflight?: import('./types').DeployPreflight; error?: string } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const { address: account } = useAccount()
 
   // Debounce the whole config + seed amount (stringified — useDebouncedValue is
-  // a string hook and bigints can't sit in query keys anyway).
+  // a string hook and bigints can't sit in query keys anyway). The active
+  // chainId is part of the key so switching networks re-runs the preflight.
   const configKey = config === undefined ? '' : serializeConfig(config)
   const seedAmountKey = seedAmount === undefined ? '' : seedAmount.toString()
-  const inputKey = `${sy?.toLowerCase() ?? ''}~${configKey}~${seedToken?.toLowerCase() ?? ''}~${seedAmountKey}~${account?.toLowerCase() ?? ''}`
+  const inputKey = `${chainId}~${sy?.toLowerCase() ?? ''}~${configKey}~${seedToken?.toLowerCase() ?? ''}~${seedAmountKey}~${account?.toLowerCase() ?? ''}`
   const debouncedKey = useDebouncedValue(inputKey, DEPLOY_PREFLIGHT_DEBOUNCE_MS)
 
   const inputsReady =
@@ -990,7 +1183,8 @@ export function useDeployPreflight(
 export function useAssetProbe(
   asset: Address | undefined,
 ): { status: QueryStatus; probe?: import('./types').AssetProbe; error?: string } {
-  const client = usePublicClient()
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
 
   const assetKey = asset?.toLowerCase() ?? ''
   const isValid = /^0x[0-9a-fA-F]{40}$/.test(assetKey)
@@ -998,7 +1192,7 @@ export function useAssetProbe(
   const enabled = isValid && client !== undefined && debouncedKey === assetKey
 
   const query = useQuery({
-    queryKey: ['asset-probe', debouncedKey],
+    queryKey: ['asset-probe', chainId, debouncedKey],
     queryFn: () => probeAsset(client as PublicClient, asset as Address),
     enabled,
     staleTime: 60_000,

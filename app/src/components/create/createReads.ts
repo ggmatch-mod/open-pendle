@@ -14,7 +14,8 @@ import { useQuery } from '@tanstack/react-query'
 import { usePublicClient } from 'wagmi'
 import { getAddress, isAddress, zeroAddress } from 'viem'
 import type { Address, PublicClient } from 'viem'
-import { COMMON_DEPLOY } from '../../lib/addresses'
+import { addressBookFor, supportedChain } from '../../lib/addresses'
+import { useActiveChain } from '../../lib/hooks'
 import {
   commonDeployAbi,
   erc20Abi,
@@ -58,7 +59,11 @@ function errText(e: unknown): string {
  * Throws (query 'error') when the address doesn't answer the SY surface — the
  * caller renders that as "not a valid SY".
  */
-async function loadSyMeta(client: PublicClient, sy: Address): Promise<SyMeta> {
+async function loadSyMeta(
+  client: PublicClient,
+  sy: Address,
+  nativeSymbol: string,
+): Promise<SyMeta> {
   const [name, symbol, decimals, tokensIn] = await Promise.all([
     client.readContract({ address: sy, abi: syReadAbi, functionName: 'name' }),
     client.readContract({ address: sy, abi: syReadAbi, functionName: 'symbol' }),
@@ -82,7 +87,8 @@ async function loadSyMeta(client: PublicClient, sy: Address): Promise<SyMeta> {
   for (const t of rawTokens) {
     if (t.toLowerCase() === sy.toLowerCase()) continue // already listed as the SY itself
     if (t === NATIVE_TOKEN) {
-      seedTokens.push({ address: NATIVE_TOKEN, symbol: 'ETH', decimals: 18, isNative: true, isSy: false })
+      // Native gas token — symbol is chain-specific (ETH / BNB / MON / XPL).
+      seedTokens.push({ address: NATIVE_TOKEN, symbol: nativeSymbol, decimals: 18, isNative: true, isSy: false })
       continue
     }
     try {
@@ -122,15 +128,19 @@ export function useSyMeta(input: string): {
   meta?: SyMeta
   error?: string
 } {
-  const client = usePublicClient()
+  // M8: read the ACTIVE chain (a bare usePublicClient() would hit the wagmi
+  // default = Ethereum). Native seed-token symbol is the active chain's.
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
+  const nativeSymbol = supportedChain(chainId)?.nativeSymbol ?? 'ETH'
   const trimmed = input.trim()
   const valid = isAddress(trimmed, { strict: false })
   const sy = valid ? getAddress(trimmed) : undefined
   const enabled = sy !== undefined && client !== undefined
 
   const query = useQuery({
-    queryKey: ['create.syMeta', sy?.toLowerCase() ?? null],
-    queryFn: () => loadSyMeta(client as PublicClient, sy as Address),
+    queryKey: ['create.syMeta', chainId, sy?.toLowerCase() ?? null],
+    queryFn: () => loadSyMeta(client as PublicClient, sy as Address, nativeSymbol),
     enabled,
     staleTime: SHARED_STALE_MS,
     retry: 1,
@@ -148,12 +158,16 @@ export function useSyMeta(input: string): {
  * the read is in flight or if it fails, so the date picker always snaps.
  */
 export function useExpiryDivisor(): number {
-  const client = usePublicClient()
+  // M8: resolve commonDeploy + read the yield-contract factory on the ACTIVE
+  // chain (keyed by chainId so switching networks re-reads its divisor).
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
+  const commonDeploy = addressBookFor(chainId).commonDeploy
   const query = useQuery({
-    queryKey: ['create.expiryDivisor'],
+    queryKey: ['create.expiryDivisor', chainId],
     queryFn: async () => {
       const ycf = await (client as PublicClient).readContract({
-        address: COMMON_DEPLOY,
+        address: commonDeploy,
         abi: commonDeployAbi,
         functionName: 'yieldContractFactory',
       })
@@ -181,11 +195,14 @@ export function useTokenBalance(
   user: Address | undefined,
   isNative: boolean,
 ): { balance?: bigint } {
-  const client = usePublicClient()
+  // M8: balance must be read on the ACTIVE chain (deploy target), not the
+  // wagmi default. Keyed by chainId so switching networks re-reads.
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const enabled = token !== undefined && user !== undefined && client !== undefined
 
   const query = useQuery({
-    queryKey: ['create.balance', token?.toLowerCase() ?? null, user?.toLowerCase() ?? null, isNative],
+    queryKey: ['create.balance', chainId, token?.toLowerCase() ?? null, user?.toLowerCase() ?? null, isNative],
     queryFn: async (): Promise<bigint> => {
       const c = client as PublicClient
       if (isNative) return c.getBalance({ address: user as Address })

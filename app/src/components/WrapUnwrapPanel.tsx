@@ -16,7 +16,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAccount, usePublicClient } from 'wagmi'
 import type { Address } from 'viem'
 import type { ActionPlan, MarketSnapshot, Positions } from '../lib/types'
-import { useActionFlow } from '../lib/hooks'
+import { useActionFlow, useActiveChain } from '../lib/hooks'
 import { planUnwrap, planWrap, quoteUnwrap, quoteWrap } from '../lib/actions'
 import { AmountInput } from './AmountInput'
 import { parseAmount } from './parseAmount'
@@ -43,7 +43,9 @@ export function WrapUnwrapPanel({
 }) {
   const { sy } = snapshot
   const { address: user, isConnected } = useAccount()
-  const client = usePublicClient()
+  // M8: quotes must read the ACTIVE chain, not the wagmi default (Ethereum).
+  const { chainId: activeChainId } = useActiveChain()
+  const client = usePublicClient({ chainId: activeChainId })
   const [slippage] = useSlippage()
 
   const [direction, setDirection] = useState<Direction>('wrap')
@@ -87,6 +89,7 @@ export function WrapUnwrapPanel({
   const quoteQuery = useQuery({
     queryKey: [
       'm2-quote-wrap-unwrap',
+      activeChainId,
       snapshot.address.toLowerCase(),
       direction,
       token?.toLowerCase() ?? null,

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { clampLabel } from './format'
 
-const BASE_TITLE = 'OpenPendle — Pendle community pools on Arbitrum'
+const BASE_TITLE = 'OpenPendle — Pendle community pools, multi-network'
 
 /**
  * Route-aware document.title. Pass a page-specific prefix

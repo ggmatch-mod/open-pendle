@@ -2,12 +2,14 @@
  * AmountInput (M2) — big numeric amount field with token label, wallet
  * balance line and Max button. Parsing is bigint-safe via viem parseUnits
  * (components/parseAmount.ts); NaN can never escape — invalid text yields an
- * error string and no amount. Native-ETH Max keeps a small gas buffer.
+ * error string and no amount. Native Max keeps a chain-sized gas buffer
+ * (nativeGasBuffer — larger on Ethereum mainnet, small on the L2s).
  */
 
 import { formatUnits } from 'viem'
+import { useActiveChain } from '../lib/hooks'
 import { clampLabel, formatAmount } from './format'
-import { NATIVE_GAS_BUFFER_WEI } from './parseAmount'
+import { nativeGasBuffer } from './parseAmount'
 
 export function AmountInput({
   label,
@@ -38,10 +40,16 @@ export function AmountInput({
 }) {
   const inputDisabled = disabled || decimals === undefined
 
+  // The native token shown here always belongs to the active chain (markets and
+  // creation flows operate on the active chain), so the gas reserve is sized for
+  // it — larger on Ethereum mainnet, small on the L2s.
+  const { chainId } = useActiveChain()
+  const gasBuffer = nativeGasBuffer(chainId)
+
   const maxAmount = (() => {
     if (balance === undefined || decimals === undefined) return undefined
     if (!isNative) return balance
-    return balance > NATIVE_GAS_BUFFER_WEI ? balance - NATIVE_GAS_BUFFER_WEI : 0n
+    return balance > gasBuffer ? balance - gasBuffer : 0n
   })()
 
   const setMax = () => {
@@ -106,7 +114,7 @@ export function AmountInput({
         <p className="mt-1 text-xs text-red-400">{error}</p>
       ) : isNative ? (
         <p className="mt-1 text-xs text-zinc-600">
-          Max leaves ~{formatUnits(NATIVE_GAS_BUFFER_WEI, 18)} ETH for gas.
+          Max leaves ~{formatUnits(gasBuffer, 18)} {clampLabel(symbol, 16)} for gas.
         </p>
       ) : decimals === undefined ? (
         <p className="mt-1 text-xs text-amber-400/80">

@@ -25,13 +25,14 @@ import type {
   Vintage,
 } from './types.ts'
 import {
-  FACTORY_GENERATIONS,
+  ADDRESS_BOOKS,
   MULTICALL3,
   PENDLE_GOVERNANCE,
-  PENDLE_GOVERNANCE_MULTISIG,
   PENDLE_PROXY_ADMIN,
-  ROUTER_V4,
+  addressBookFor,
+  chainIdOf,
 } from './addresses.ts'
+import type { AddressBook } from './addresses.ts'
 import {
   erc20SymbolAbi,
   factoryValidateAbi,
@@ -56,11 +57,14 @@ const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000'
 
 const SECONDS_PER_YEAR = 31536000
 
-/** Addresses that count as "Pendle governance" for the trust panel. */
-const PENDLE_GOVERNANCE_SET: readonly Address[] = [
-  PENDLE_GOVERNANCE,
-  PENDLE_GOVERNANCE_MULTISIG,
-]
+/**
+ * Addresses that count as "Pendle governance" for the trust panel: the
+ * universal governance PROXY (same address on every chain) plus the active
+ * chain's governance MULTISIG (per-chain — resolved from the book).
+ */
+function pendleGovernanceSet(book: AddressBook): readonly Address[] {
+  return [PENDLE_GOVERNANCE, book.governance]
+}
 
 /** addresses.ts gen labels → the shared Vintage type ('V6' is the active generation). */
 const VINTAGE_BY_GEN: Record<string, Vintage> = {
@@ -131,8 +135,12 @@ export async function validateMarket(
   client: PublicClient,
   address: Address,
 ): Promise<MarketValidation> {
+  // Resolve THIS chain's factory set from the client (F7 is per chain — Base/
+  // Plasma have no V3/V4, Monad only V6). No signature change: the chain id
+  // rides on the client.
+  const factories = addressBookFor(client).marketFactories
   const results = await client.multicall({
-    contracts: FACTORY_GENERATIONS.map((g) => ({
+    contracts: factories.map((g) => ({
       address: g.marketFactory,
       abi: factoryValidateAbi,
       functionName: 'isValidMarket' as const,
@@ -144,7 +152,7 @@ export async function validateMarket(
   for (let i = 0; i < results.length; i++) {
     const r = results[i]
     if (r.status === 'success' && r.result === true) {
-      const gen = FACTORY_GENERATIONS[i]
+      const gen = factories[i]
       return {
         isMarket: true,
         factory: gen.marketFactory,
@@ -285,6 +293,9 @@ export async function loadMarketSnapshot(
 ): Promise<MarketSnapshot> {
   const market = getAddress(address)
   const degraded: string[] = []
+  // Per-chain address book (router same address cross-chain, but resolved from
+  // the client's chain so nothing is pinned to Arbitrum).
+  const book = addressBookFor(client)
 
   // -- Round 1: core market reads + factory validation, in parallel ---------
   const [core, validation] = await Promise.all([
@@ -297,7 +308,7 @@ export async function loadMarketSnapshot(
         // attacker-controlled and must never influence validated/vintage.
         { address: market, abi: marketReadAbi, functionName: 'name' },
         // ALWAYS the real router — fees are per-(market, router) overrides (F10).
-        { address: market, abi: marketReadAbi, functionName: 'readState', args: [ROUTER_V4] },
+        { address: market, abi: marketReadAbi, functionName: 'readState', args: [book.router] },
       ],
       allowFailure: true,
       multicallAddress: MULTICALL3,
@@ -474,7 +485,7 @@ export async function loadMarketSnapshot(
   let ownerIsPendleGovernance: boolean | undefined
   let ownerIsRenounced: boolean | undefined
   if (syOwner !== undefined) {
-    ownerIsPendleGovernance = PENDLE_GOVERNANCE_SET.some((g) => sameAddress(g, syOwner))
+    ownerIsPendleGovernance = pendleGovernanceSet(book).some((g) => sameAddress(g, syOwner))
     ownerIsRenounced = sameAddress(syOwner, ZERO_ADDRESS)
     if (ownerIsPendleGovernance) {
       notes.push('SY owner is Pendle governance (same trust profile as listed pools).')
@@ -659,10 +670,18 @@ export function computeMetrics(
 // Registry sweep — home-grid quick stats (PLAN §3.3 "one multicall sweep")
 // ---------------------------------------------------------------------------
 
-/** Vintage for a factory address WE previously validated (e.g. a SavedPool's cached factory). */
+/**
+ * Vintage for a factory address WE previously validated (e.g. a SavedPool's
+ * cached factory). Factory addresses are chain-unique, so we match across ALL
+ * supported chains' books — a saved pool can be on any chain (M8 cross-chain
+ * registry).
+ */
 export function vintageFromFactory(factory: Address): Vintage | undefined {
-  const gen = FACTORY_GENERATIONS.find((g) => sameAddress(g.marketFactory, factory))
-  return gen ? VINTAGE_BY_GEN[gen.gen] : undefined
+  for (const book of Object.values(ADDRESS_BOOKS)) {
+    const gen = book.marketFactories.find((g) => sameAddress(g.marketFactory, factory))
+    if (gen) return VINTAGE_BY_GEN[gen.gen]
+  }
+  return undefined
 }
 
 export interface RegistrySweepEntry {
@@ -672,12 +691,22 @@ export interface RegistrySweepEntry {
   isExpired: boolean
 }
 
-/** Keyed by lowercased market address. Missing key = that market's reads failed. */
+/**
+ * Keyed by `${chainId}:${market.toLowerCase()}` — the same (chainId, market)
+ * identity the rest of the registry uses. Market-only keys would collide when
+ * the same market address is saved on two chains (M8 cross-chain). Missing key
+ * = that market's reads failed.
+ */
 export type RegistrySweepResult = Record<string, RegistrySweepEntry>
+
+/** The (chainId, market) composite key used throughout the sweep result. */
+export function sweepKey(chainId: number, market: Address): string {
+  return `${chainId}:${market.toLowerCase()}`
+}
 
 /**
  * ONE multicall batch across all saved markets: per market
- * readState(ROUTER_V4) + isExpired() + SY.exchangeRate() (SY address from the
+ * readState(router) + isExpired() + SY.exchangeRate() (SY address from the
  * SavedPool cache). Markets whose readState fails are absent from the result —
  * the card renders '—' rather than crashing. APY/TVL math is computeCoreStats,
  * the same formulas the full snapshot uses.
@@ -689,6 +718,14 @@ export async function sweepRegistryPools(
   const out: RegistrySweepResult = {}
   if (pools.length === 0) return out
 
+  // Router is the same address cross-chain, but resolve it from the client's
+  // chain so the sweep is chain-correct. Callers pass only pools that live on
+  // this client's chain (hooks.ts groups saved pools by chainId first).
+  const router = addressBookFor(client).router
+  // addressBookFor above already threw if the client had no configured chain,
+  // so chainIdOf resolves to a real id here (fallback -1 is unreachable).
+  const chainId = chainIdOf(client) ?? -1
+
   // Heterogeneous dynamic batch → viem's documented loose typing
   // (ContractFunctionParameters[]); results are cast per call below.
   const contracts: ContractFunctionParameters[] = pools.flatMap((pool) => [
@@ -696,7 +733,7 @@ export async function sweepRegistryPools(
       address: pool.market,
       abi: marketReadAbi,
       functionName: 'readState',
-      args: [ROUTER_V4],
+      args: [router],
     },
     { address: pool.market, abi: marketReadAbi, functionName: 'isExpired' },
     { address: pool.sy, abi: syReadAbi, functionName: 'exchangeRate' },
@@ -739,7 +776,7 @@ export async function sweepRegistryPools(
       assetDecimals: pool.assetDecimals ?? 18,
     })
 
-    out[pool.market.toLowerCase()] = {
+    out[sweepKey(chainId, pool.market)] = {
       impliedApy: core.impliedApy,
       ...(hasTvlInputs ? { tvlAsset: core.tvlAsset } : {}),
       isExpired,

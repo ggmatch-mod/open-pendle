@@ -7,7 +7,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
-import { useClassifyAddress, useRegistry, useRegistrySweep } from '../lib/hooks'
+import { useActiveChain, useClassifyAddress, useRegistry, useRegistrySweep } from '../lib/hooks'
+import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
+import { sweepKey } from '../lib/market'
+import type { SavedPool, SupportedChainId } from '../lib/types'
 import { ProtocolStatus } from '../components/ProtocolStatus'
 import { SavedPoolCard } from '../components/SavedPoolCard'
 import { clampLabel, formatDate, shortAddress } from '../components/format'
@@ -35,12 +38,13 @@ function ClassificationFeedback({
   input: string
 }) {
   const navigate = useNavigate()
+  const { chain } = useActiveChain()
 
   if (input.length === 0 || status.status === 'idle') {
     return (
       <p className="text-sm text-zinc-500">
-        Paste any Pendle V2 market (PLP) address on Arbitrum — it loads straight
-        from the chain.
+        Paste any Pendle V2 market (PLP) address on {chain.name} — it loads
+        straight from the chain.
       </p>
     )
   }
@@ -175,7 +179,7 @@ function RegistryEmptyState() {
       <p className="mt-3 text-sm leading-relaxed text-zinc-400">
         <span className="text-zinc-200">Where do I find a market address?</span>{' '}
         Community pool creators share their market (PLP) address — in Discord, on
-        X, or as an Arbiscan link. It's the address of the{' '}
+        X, or as a block-explorer link. It's the address of the{' '}
         <span className="font-mono text-xs">PendleMarket</span> contract itself,
         not the PT, YT or SY. If you paste a PT, YT or SY we'll tell you which it
         is, so you can ask the pool creator for the market address.
@@ -184,11 +188,38 @@ function RegistryEmptyState() {
   )
 }
 
+/** Group saved pools by their own chainId, active chain first, then by SUPPORTED_CHAINS order. */
+function groupPoolsByChain(
+  pools: SavedPool[],
+  activeChainId: SupportedChainId,
+): { chainId: SupportedChainId; pools: SavedPool[] }[] {
+  const byChain = new Map<SupportedChainId, SavedPool[]>()
+  for (const p of pools) {
+    const arr = byChain.get(p.chainId)
+    if (arr) arr.push(p)
+    else byChain.set(p.chainId, [p])
+  }
+  // Order: active chain first, then the SUPPORTED_CHAINS display order.
+  const order = [
+    activeChainId,
+    ...SUPPORTED_CHAINS.map((c) => c.id).filter((id) => id !== activeChainId),
+  ]
+  return order
+    .filter((id) => byChain.has(id))
+    .map((chainId) => ({
+      chainId,
+      pools: (byChain.get(chainId) ?? []).sort((a, b) => b.savedAt - a.savedAt),
+    }))
+}
+
 function SavedPools() {
   const { pools } = useRegistry()
-  // ONE multicall sweep for the whole grid (PLAN §3.3) instead of a full
-  // market snapshot per card.
+  const { chainId: activeChainId } = useActiveChain()
+  // ONE multicall sweep PER CHAIN for the whole grid (PLAN §3.3, M8 groups by
+  // each pool's own chainId) instead of a full market snapshot per card.
   const sweep = useRegistrySweep(pools)
+
+  const groups = groupPoolsByChain(pools, activeChainId)
 
   return (
     <section>
@@ -203,17 +234,38 @@ function SavedPools() {
       {pools.length === 0 ? (
         <RegistryEmptyState />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[...pools]
-            .sort((a, b) => b.savedAt - a.savedAt)
-            .map((pool) => (
-              <SavedPoolCard
-                key={pool.market}
-                pool={pool}
-                sweepStatus={sweep.status}
-                stats={sweep.stats[pool.market.toLowerCase()]}
-              />
-            ))}
+        <div className="space-y-5">
+          {groups.map(({ chainId, pools: chainPools }) => {
+            const chain = supportedChain(chainId)
+            const isActive = chainId === activeChainId
+            return (
+              <div key={chainId}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-zinc-600'}`}
+                    aria-hidden="true"
+                  />
+                  <h3 className="text-sm font-medium text-zinc-300">
+                    {chain?.name ?? `Chain ${chainId}`}
+                  </h3>
+                  <span className="text-xs text-zinc-600">
+                    {chainPools.length} pool{chainPools.length === 1 ? '' : 's'}
+                    {isActive ? ' · active' : ''}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {chainPools.map((pool) => (
+                    <SavedPoolCard
+                      key={`${pool.chainId}:${pool.market}`}
+                      pool={pool}
+                      sweepStatus={sweep.status}
+                      stats={sweep.stats[sweepKey(pool.chainId, pool.market)]}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </section>
@@ -277,6 +329,7 @@ function StarterMarkets() {
 
 function CollapsedProtocolStatus() {
   const [open, setOpen] = useState(false)
+  const { chain } = useActiveChain()
 
   return (
     <details
@@ -284,7 +337,7 @@ function CollapsedProtocolStatus() {
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
     >
       <summary className="cursor-pointer select-none px-5 py-4 text-sm font-medium text-zinc-300 hover:text-zinc-100">
-        Protocol status — live from Arbitrum
+        Protocol status — live from {chain.name}
       </summary>
       <div className="px-3 pb-3">{open && <ProtocolStatus />}</div>
     </details>
@@ -295,6 +348,7 @@ function CollapsedProtocolStatus() {
 
 export default function Home() {
   useDocumentTitle()
+  const { chain } = useActiveChain()
 
   return (
     <div className="pb-14">
@@ -303,7 +357,7 @@ export default function Home() {
           Pendle community pools, <span className="text-emerald-400">no whitelist</span>
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-400 sm:text-base">
-          Load any Pendle V2 market on Arbitrum by address. No backend, no
+          Load any Pendle V2 market on {chain.name} by address. No backend, no
           curation — just the chain.
         </p>
         <div className="mt-8">

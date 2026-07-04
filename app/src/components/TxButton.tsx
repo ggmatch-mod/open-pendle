@@ -3,7 +3,7 @@
  * (approve → simulate → confirm lifecycle, PLAN §3.2). Full phase map:
  *
  *   (not connected) / needs-wallet → "Connect wallet" (RainbowKit modal)
- *   wrong-network                  → "Switch to Arbitrum"
+ *   wrong-network                  → "Switch to <active chain>" (M8)
  *   checking                       → spinner "Checking balances & allowances…"
  *   needs-approval                 → "Approve {pendingApproval.symbol}" → approve()
  *   approving                      → spinner "Approving {symbol}…"
@@ -26,7 +26,7 @@
 
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { useAccount, useSwitchChain } from 'wagmi'
-import { ARBITRUM_CHAIN_ID } from '../lib/addresses'
+import { useActiveChain } from '../lib/hooks'
 import type { useActionFlow } from '../lib/hooks'
 import { clampLabel } from './format'
 
@@ -67,6 +67,8 @@ export function TxButton({
   const { isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
   const { switchChain, isPending: isSwitching } = useSwitchChain()
+  // M8: switch the wallet to the app's ACTIVE chain (was hardcoded Arbitrum).
+  const { chainId: activeChainId, chain: activeChain } = useActiveChain()
 
   if (!isConnected || flow.phase === 'needs-wallet') {
     return (
@@ -88,12 +90,12 @@ export function TxButton({
       return (
         <button
           type="button"
-          onClick={() => switchChain({ chainId: ARBITRUM_CHAIN_ID })}
+          onClick={() => switchChain({ chainId: activeChainId })}
           disabled={isSwitching}
           className={`${BASE} bg-amber-600 text-white hover:bg-amber-500 disabled:cursor-wait disabled:opacity-70`}
         >
           {isSwitching && <Spinner />}
-          Switch to Arbitrum
+          Switch to {activeChain.name}
         </button>
       )
     case 'checking':

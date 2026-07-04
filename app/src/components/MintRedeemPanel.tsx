@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAccount, usePublicClient } from 'wagmi'
 import type { Address } from 'viem'
 import type { ActionPlan, MarketSnapshot, Positions } from '../lib/types'
-import { useActionFlow } from '../lib/hooks'
+import { useActionFlow, useActiveChain } from '../lib/hooks'
 import {
   planMintPyFromSy,
   planMintPyFromToken,
@@ -57,7 +57,9 @@ export function MintRedeemPanel({
 }) {
   const { sy } = snapshot
   const { address: user, isConnected } = useAccount()
-  const client = usePublicClient()
+  // M8: quotes must read the ACTIVE chain, not the wagmi default (Ethereum).
+  const { chainId: activeChainId } = useActiveChain()
+  const client = usePublicClient({ chainId: activeChainId })
   const [slippage] = useSlippage()
 
   const [direction, setDirection] = useState<Direction>('mint')
@@ -108,6 +110,7 @@ export function MintRedeemPanel({
   const quoteQuery = useQuery({
     queryKey: [
       'm2-quote-mint-redeem',
+      activeChainId,
       snapshot.address.toLowerCase(),
       direction,
       choiceIsSy ? SY_CHOICE : token?.toLowerCase(),

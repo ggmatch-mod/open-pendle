@@ -24,7 +24,7 @@
 
 import type { Address, PublicClient } from 'viem'
 import type { MarketSnapshot, Positions, TokenAmount } from './types.ts'
-import { MULTICALL3, ROUTER_STATIC } from './addresses.ts'
+import { MULTICALL3, addressBookFor, chainIdOf, supportedChain } from './addresses.ts'
 import { erc20Abi, routerStaticUserAbi } from './pendleAbi.ts'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -61,10 +61,15 @@ interface TokenMeta {
  * PT/YT carry the SY's assetDecimals: the yield-contract factory mints them
  * with SY.assetInfo().assetDecimals, NOT SY.decimals() (live markets differ
  * in both directions — SY-dWBTC: SY 8 / PT+YT 18; SY-RLP: SY 18 / PT+YT 6).
- * Exported for verification scripts.
+ * `nativeSymbol` labels the native gas token per chain (ETH / BNB / MON / XPL);
+ * decimals stay 18 for all four. Exported for verification scripts.
  */
-export function knownMeta(snapshot: MarketSnapshot, token: Address): TokenMeta {
-  if (isNative(token)) return { symbol: 'ETH', decimals: 18 }
+export function knownMeta(
+  snapshot: MarketSnapshot,
+  token: Address,
+  nativeSymbol = 'ETH',
+): TokenMeta {
+  if (isNative(token)) return { symbol: nativeSymbol, decimals: 18 }
   const sy = snapshot.sy
   if (sameAddress(token, sy.address)) return { symbol: sy.symbol, decimals: sy.decimals }
   if (sameAddress(token, sy.assetAddress)) {
@@ -85,6 +90,11 @@ export async function loadPositions(
   user: Address,
 ): Promise<Positions> {
   const degraded: string[] = []
+  // RouterStatic is PER CHAIN — resolve from the client's chain (claimables).
+  const routerStatic = addressBookFor(client).routerStatic
+  // Native gas token symbol is chain-specific (ETH / BNB / MON / XPL); decimals
+  // are 18 on every supported chain. Resolve once from the client's chain.
+  const nativeSymbol = supportedChain(chainIdOf(client))?.nativeSymbol ?? 'ETH'
   const tokensIn = snapshot.sy.tokensIn
   const erc20TokensIn = tokensIn.filter((t) => !isNative(t))
   const hasNativeIn = tokensIn.some((t) => isNative(t))
@@ -92,7 +102,7 @@ export async function loadPositions(
   // -- Round 1: ONE multicall for the 4 core balances + tokensIn balances +
   //    missing tokensIn metadata; native ETH balance in parallel. ------------
   const metaTargets = erc20TokensIn.filter((t) => {
-    const known = knownMeta(snapshot, t)
+    const known = knownMeta(snapshot, t, nativeSymbol)
     return known.symbol === undefined || known.decimals === undefined
   })
   const balanceContracts = [snapshot.pt, snapshot.yt, snapshot.address, snapshot.sy.address, ...erc20TokensIn].map(
@@ -116,7 +126,7 @@ export async function loadPositions(
     }),
     hasNativeIn
       ? client.getBalance({ address: user }).catch(() => {
-          degraded.push('Native ETH balance unavailable.')
+          degraded.push(`Native ${nativeSymbol} balance unavailable.`)
           return 0n
         })
       : Promise.resolve(0n),
@@ -142,7 +152,7 @@ export async function loadPositions(
   }
 
   const metaFor = (token: Address): { symbol: string; decimals: number } => {
-    const known = knownMeta(snapshot, token)
+    const known = knownMeta(snapshot, token, nativeSymbol)
     const fetched = fetchedMeta.get(token.toLowerCase()) ?? {}
     return {
       symbol: known.symbol ?? fetched.symbol ?? '?',
@@ -154,7 +164,7 @@ export async function loadPositions(
 
   const walletTokens: TokenAmount[] = tokensIn.map((token) => {
     if (isNative(token)) {
-      return { token, amount: nativeBalance, symbol: 'ETH', decimals: 18 }
+      return { token, amount: nativeBalance, symbol: nativeSymbol, decimals: 18 }
     }
     const idx = 4 + erc20TokensIn.findIndex((t) => sameAddress(t, token))
     const r = round1[idx]
@@ -175,7 +185,7 @@ export async function loadPositions(
   ): Promise<T | undefined> => {
     try {
       const { result } = await client.simulateContract({
-        address: ROUTER_STATIC,
+        address: routerStatic,
         abi: routerStaticUserAbi,
         functionName,
         args: [target, user],
@@ -222,7 +232,7 @@ export async function loadPositions(
         .flat()
         .map((r) => r.token)
         .filter((t) => {
-          const known = knownMeta(snapshot, t)
+          const known = knownMeta(snapshot, t, nativeSymbol)
           const fetched = fetchedMeta.get(t.toLowerCase())
           return (
             !isNative(t) &&

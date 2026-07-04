@@ -14,12 +14,16 @@ import { usePublicClient } from 'wagmi'
 import type { PublicClient } from 'viem'
 import type { DeployResult } from '../../lib/types'
 import { recoverDeploymentFromTx } from '../../lib/deploy'
+import { useActiveChain } from '../../lib/hooks'
 import { shortAddress } from '../format'
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/
 
 export function DeployRecovery() {
-  const client = usePublicClient()
+  // M8: recover the deploy on the ACTIVE chain (where it was deployed), not the
+  // wagmi default (Ethereum).
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const [hash, setHash] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<DeployResult | undefined>(undefined)

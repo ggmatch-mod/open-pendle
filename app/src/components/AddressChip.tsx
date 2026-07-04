@@ -1,11 +1,14 @@
 /**
- * AddressChip — short checksummed address with copy-to-clipboard and an
- * Arbiscan link. Used in market headers and token strips.
+ * AddressChip — short checksummed address with copy-to-clipboard and a
+ * block-explorer link. Used in market headers and token strips. M8: links to
+ * the ACTIVE chain's explorer (reads useActiveChain internally so callsites
+ * stay unchanged).
  */
 
 import { useEffect, useRef, useState } from 'react'
 import type { Address } from 'viem'
-import { arbiscanAddressUrl, shortAddress } from './format'
+import { useActiveChain } from '../lib/hooks'
+import { explorerAddressUrl, explorerName, shortAddress } from './format'
 
 export function AddressChip({
   address,
@@ -14,6 +17,7 @@ export function AddressChip({
   address: Address
   className?: string
 }) {
+  const { chainId } = useActiveChain()
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -49,11 +53,11 @@ export function AddressChip({
         {copied ? <span className="text-emerald-400">✓</span> : <span aria-hidden>⧉</span>}
       </button>
       <a
-        href={arbiscanAddressUrl(address)}
+        href={explorerAddressUrl(chainId, address)}
         target="_blank"
         rel="noreferrer"
-        title="View on Arbiscan"
-        aria-label={`View ${address} on Arbiscan`}
+        title={`View on ${explorerName(chainId)}`}
+        aria-label={`View ${address} on ${explorerName(chainId)}`}
         className="rounded p-0.5 text-xs leading-none text-zinc-500 hover:bg-zinc-800 hover:text-emerald-400"
       >
         <span aria-hidden>↗</span>

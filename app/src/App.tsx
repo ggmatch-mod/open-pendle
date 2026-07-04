@@ -6,6 +6,7 @@
 
 import { Link, Route, Routes } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
 import CreatePoolPage from './pages/CreatePoolPage'
@@ -45,6 +46,7 @@ export default function App() {
             >
               Create pool
             </Link>
+            <NetworkSelector />
             <RpcSettings />
             <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
           </div>

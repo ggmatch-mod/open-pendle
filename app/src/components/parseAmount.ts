@@ -7,8 +7,19 @@
 
 import { parseUnits } from 'viem'
 
-/** Max leaves this much ETH for gas (Arbitrum gas is cheap; buffer is safety). */
-export const NATIVE_GAS_BUFFER_WEI = 500_000_000_000_000n // 0.0005 ETH
+/**
+ * How much native gas token "Max" leaves in reserve, per chain (18-decimal
+ * native everywhere). Ethereum mainnet (chainId 1) gets a larger reserve because
+ * a single Pendle tx can cost meaningfully more gas there; the L2s / low-fee
+ * chains (Arbitrum, Base, BSC, Monad, Plasma) keep the small default.
+ */
+const L2_GAS_BUFFER_WEI = 500_000_000_000_000n // 0.0005 native
+const ETHEREUM_GAS_BUFFER_WEI = 10_000_000_000_000_000n // 0.01 ETH (mainnet)
+
+/** Native gas-reserve buffer (wei) for `chainId`. Mainnet reserves more. */
+export function nativeGasBuffer(chainId: number | undefined): bigint {
+  return chainId === 1 ? ETHEREUM_GAS_BUFFER_WEI : L2_GAS_BUFFER_WEI
+}
 
 export interface ParsedAmount {
   /** Defined only for a valid, parseable amount. */

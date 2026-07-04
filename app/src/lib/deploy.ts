@@ -46,11 +46,7 @@ import type {
   DerivedDeployParams,
   PoolConfig,
 } from './types.ts'
-import {
-  ARBITRUM_CHAIN_ID,
-  COMMON_DEPLOY,
-  FACTORY_GENERATIONS,
-} from './addresses.ts'
+import { ARBITRUM_CHAIN_ID, COMMON_DEPLOY, addressBookFor } from './addresses.ts'
 import {
   commonDeployPoolAbi,
   erc20Abi,
@@ -65,9 +61,6 @@ const ONE_E18 = 10n ** 18n
 const YEAR_SECONDS = 365 * 86400
 /** ln(1.05)·1e18 — the lnFeeRateRoot cap. Read live in preflight; this is the fallback/expectation. */
 const MAX_LN_FEE_RATE_ROOT = 48790164169432003n
-
-/** Active generation (last entry) — its YCF answers the duplicate-PT / expiryDivisor reads. */
-const ACTIVE_GEN = FACTORY_GENERATIONS[FACTORY_GENERATIONS.length - 1]
 
 function isNative(token: Address): boolean {
   return token.toLowerCase() === ZERO_ADDRESS
@@ -164,19 +157,25 @@ export async function preflightDeploy(
   const errors: string[] = []
   const warnings: string[] = []
 
+  // Per-chain factory set + active generation, resolved from the client's chain
+  // (Base/Plasma have no V3/V4; Monad only V6 — the active pick is per chain).
+  const book = addressBookFor(client)
+  const factories = book.marketFactories
+  const activeGen = factories[factories.length - 1]
+
   // --- Live governance-mutable reads (F12): expiryDivisor off the ACTIVE YCF,
   // maxLnFeeRateRoot off the ACTIVE market factory, current chain time. ---
   const [expiryDivisorRes, maxLnFeeRes, block] = await Promise.all([
     client
       .readContract({
-        address: ACTIVE_GEN.yieldContractFactory,
+        address: activeGen.yieldContractFactory,
         abi: ycfDeployProbeAbi,
         functionName: 'expiryDivisor',
       })
       .catch(() => undefined),
     client
       .readContract({
-        address: ACTIVE_GEN.marketFactory,
+        address: activeGen.marketFactory,
         abi: marketFactoryAbi,
         functionName: 'maxLnFeeRateRoot',
       })
@@ -255,9 +254,9 @@ export async function preflightDeploy(
   let existingPt: Address | undefined
   const legacyParallelPts: { gen: string; pt: Address }[] = []
 
-  // One multicall: getPT(SY, expiry) on every generation's YCF.
+  // One multicall: getPT(SY, expiry) on every generation's YCF (this chain's set).
   const ptResults = await client.multicall({
-    contracts: FACTORY_GENERATIONS.map((g) => ({
+    contracts: factories.map((g) => ({
       address: g.yieldContractFactory,
       abi: ycfDeployProbeAbi,
       functionName: 'getPT' as const,
@@ -265,12 +264,12 @@ export async function preflightDeploy(
     })),
     allowFailure: true,
   })
-  FACTORY_GENERATIONS.forEach((g, i) => {
+  factories.forEach((g, i) => {
     const r = ptResults[i]
     if (r.status !== 'success') return
     const pt = r.result as Address
     if (pt === ZERO_ADDRESS || BigInt(pt) === 0n) return
-    if (g.yieldContractFactory.toLowerCase() === ACTIVE_GEN.yieldContractFactory.toLowerCase()) {
+    if (g.yieldContractFactory.toLowerCase() === activeGen.yieldContractFactory.toLowerCase()) {
       ptExistsOnActive = true
       existingPt = getAddress(pt)
     } else {

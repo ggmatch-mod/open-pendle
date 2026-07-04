@@ -40,7 +40,7 @@ import type {
   PlannedCall,
   SwapQuote,
 } from './types.ts'
-import { ROUTER_STATIC, ROUTER_V4 } from './addresses.ts'
+import { ROUTER_V4, addressBookFor } from './addresses.ts'
 import { routerStaticSwapAbi, routerSwapAbi } from './pendleAbi.ts'
 
 export type SwapSide = 'pt' | 'yt'
@@ -179,9 +179,11 @@ export async function quoteBuy(
   amountIn: bigint,
   slippageFraction: number,
 ): Promise<SwapQuote> {
+  // RouterStatic is PER CHAIN — resolve from the client's chain (F10 quoter).
+  const routerStatic = addressBookFor(client).routerStatic
   if (isSyToken(snapshot, tokenIn)) {
     const [netOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-      address: ROUTER_STATIC,
+      address: routerStatic,
       abi: routerStaticSwapAbi,
       functionName: side === 'pt' ? 'swapExactSyForPtStatic' : 'swapExactSyForYtStatic',
       args: [snapshot.address, amountIn],
@@ -194,7 +196,7 @@ export async function quoteBuy(
   // Token variant — amountIn must be scaled at the TOKEN's own decimals
   // (PARITY gotcha: a mis-scaled 6-decimal tokensIn entry reverts APPROX_EXHAUSTED).
   const [netOut, , netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-    address: ROUTER_STATIC,
+    address: routerStatic,
     abi: routerStaticSwapAbi,
     functionName: side === 'pt' ? 'swapExactTokenForPtStatic' : 'swapExactTokenForYtStatic',
     args: [snapshot.address, tokenIn, amountIn],
@@ -213,11 +215,13 @@ export async function quoteSell(
   tokenOut: Address,
   amountPy: bigint,
 ): Promise<SwapQuote> {
+  // RouterStatic is PER CHAIN — resolve from the client's chain (F10 quoter).
+  const routerStatic = addressBookFor(client).routerStatic
   const sy = isSyToken(snapshot, tokenOut)
   if (side === 'pt') {
     if (sy) {
       const [netSyOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-        address: ROUTER_STATIC,
+        address: routerStatic,
         abi: routerStaticSwapAbi,
         functionName: 'swapExactPtForSyStatic',
         args: [snapshot.address, amountPy],
@@ -226,7 +230,7 @@ export async function quoteSell(
     }
     // (netTokenOut, netSyToRedeem, netSyFee, priceImpact, exchangeRateAfter)
     const [netTokenOut, , netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-      address: ROUTER_STATIC,
+      address: routerStatic,
       abi: routerStaticSwapAbi,
       functionName: 'swapExactPtForTokenStatic',
       args: [snapshot.address, amountPy, tokenOut],
@@ -235,7 +239,7 @@ export async function quoteSell(
   }
   if (sy) {
     const [netSyOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-      address: ROUTER_STATIC,
+      address: routerStatic,
       abi: routerStaticSwapAbi,
       functionName: 'swapExactYtForSyStatic',
       args: [snapshot.address, amountPy],
@@ -245,7 +249,7 @@ export async function quoteSell(
   // (netTokenOut, netSyFee, priceImpact, exchangeRateAfter, …extra) — fee at
   // index 1 here, unlike the PT sibling (live-verified asymmetry, see pendleAbi).
   const [netTokenOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-    address: ROUTER_STATIC,
+    address: routerStatic,
     abi: routerStaticSwapAbi,
     functionName: 'swapExactYtForTokenStatic',
     args: [snapshot.address, amountPy, tokenOut],

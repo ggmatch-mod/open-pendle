@@ -54,7 +54,7 @@ import type {
   PlannedCall,
   SwapQuote,
 } from './types.ts'
-import { ROUTER_STATIC, ROUTER_V4 } from './addresses.ts'
+import { ROUTER_V4, addressBookFor } from './addresses.ts'
 import { routerLiquidityAbi, routerStaticLiquidityAbi, syActionsAbi } from './pendleAbi.ts'
 import { createDefaultApproxParams } from './swaps.ts'
 
@@ -273,6 +273,8 @@ export async function quoteZapIn(
   keepYt: boolean,
   slippageFraction: number,
 ): Promise<SwapQuote> {
+  // RouterStatic is PER CHAIN — resolve from the client's chain (F10 quoter).
+  const routerStatic = addressBookFor(client).routerStatic
   const sy = isSyToken(snapshot, tokenIn)
   if (keepYt) {
     // KeepYt statics EXIST on the deployed diamond (live-probed) — no
@@ -282,14 +284,14 @@ export async function quoteZapIn(
     let netYtOut: bigint
     if (sy) {
       ;[netLpOut, netYtOut] = await client.readContract({
-        address: ROUTER_STATIC,
+        address: routerStatic,
         abi: routerStaticLiquidityAbi,
         functionName: 'addLiquiditySingleSyKeepYtStatic',
         args: [snapshot.address, amountIn],
       })
     } else {
       ;[netLpOut, netYtOut] = await client.readContract({
-        address: ROUTER_STATIC,
+        address: routerStatic,
         abi: routerStaticLiquidityAbi,
         functionName: 'addLiquiditySingleTokenKeepYtStatic',
         args: [snapshot.address, tokenIn, amountIn],
@@ -306,7 +308,7 @@ export async function quoteZapIn(
   if (sy) {
     const [netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter] =
       await client.readContract({
-        address: ROUTER_STATIC,
+        address: routerStatic,
         abi: routerStaticLiquidityAbi,
         functionName: 'addLiquiditySingleSyStatic',
         args: [snapshot.address, amountIn],
@@ -322,7 +324,7 @@ export async function quoteZapIn(
   // Token variant — amountIn scaled at the TOKEN's own decimals (M3 gotcha).
   const [netLpOut, netPtFromSwap, netSyFee, priceImpact, exchangeRateAfter] =
     await client.readContract({
-      address: ROUTER_STATIC,
+      address: routerStatic,
       abi: routerStaticLiquidityAbi,
       functionName: 'addLiquiditySingleTokenStatic',
       args: [snapshot.address, tokenIn, amountIn],
@@ -343,9 +345,11 @@ export async function quoteZapOut(
   tokenOut: Address,
   lpIn: bigint,
 ): Promise<SwapQuote> {
+  // RouterStatic is PER CHAIN — resolve from the client's chain (F10 quoter).
+  const routerStatic = addressBookFor(client).routerStatic
   if (isSyToken(snapshot, tokenOut)) {
     const [netSyOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-      address: ROUTER_STATIC,
+      address: routerStatic,
       abi: routerStaticLiquidityAbi,
       functionName: 'removeLiquiditySingleSyStatic',
       args: [snapshot.address, lpIn],
@@ -359,7 +363,7 @@ export async function quoteZapOut(
     }
   }
   const [netTokenOut, netSyFee, priceImpact, exchangeRateAfter] = await client.readContract({
-    address: ROUTER_STATIC,
+    address: routerStatic,
     abi: routerStaticLiquidityAbi,
     functionName: 'removeLiquiditySingleTokenStatic',
     args: [snapshot.address, lpIn, tokenOut],

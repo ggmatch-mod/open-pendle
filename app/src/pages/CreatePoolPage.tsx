@@ -555,7 +555,7 @@ export default function CreatePoolPage() {
               {seedTokens.map((t) => (
                 <option key={`${t.address}:${t.isSy}`} value={`${t.address}:${t.isSy}`}>
                   {clampLabel(t.symbol, 20)}
-                  {t.isSy ? ' (the SY itself)' : t.isNative ? ' (native ETH)' : ''} ·{' '}
+                  {t.isSy ? ' (the SY itself)' : t.isNative ? ' (native gas token)' : ''} ·{' '}
                   {t.isNative ? 'native' : shortAddress(t.address)}
                 </option>
               ))}

@@ -5,6 +5,19 @@ import type { Address } from 'viem'
 // Erasable TypeScript only in lib/ (no enums/namespaces): the acceptance sweep
 // script imports these modules under `node --experimental-strip-types`.
 
+/**
+ * M8 multi-network: the chains OpenPendle supports (all verified to have Pendle
+ * V2 deployed with RouterStatic + commonDeploy — see docs/research/
+ * multichain-addresses.md). Every per-chain address book is keyed by these ids.
+ */
+export type SupportedChainId =
+  | 1 // Ethereum
+  | 56 // BNB Smart Chain
+  | 143 // Monad
+  | 8453 // Base
+  | 9745 // Plasma
+  | 42161 // Arbitrum (the original single-chain build)
+
 export type Vintage = 'v1' | 'V3' | 'V4' | 'V5' | 'active' | 'unvalidated'
 
 export interface MarketValidation {
@@ -113,7 +126,8 @@ export interface MarketSnapshot {
 }
 
 export interface SavedPool {
-  chainId: 42161
+  /** M8: the network this pool lives on. Pools are keyed by (chainId, market). */
+  chainId: SupportedChainId
   market: Address
   savedAt: number
   // Display cache only — re-verified on load, never trusted for tx building.

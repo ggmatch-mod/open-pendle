@@ -25,7 +25,8 @@ import { usePublicClient } from 'wagmi'
 import type { PublicClient } from 'viem'
 import type { DeployResult } from '../../lib/types'
 import { decodeDeploymentResult } from '../../lib/deploy'
-import { arbiscanAddressUrl, arbiscanTxUrl } from '../format'
+import { useActiveChain } from '../../lib/hooks'
+import { explorerAddressUrl, explorerName, explorerTxUrl } from '../format'
 
 function OracleCta() {
   return (
@@ -60,7 +61,10 @@ function OracleCta() {
 }
 
 export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
-  const client = usePublicClient()
+  // M8: read the deploy receipt on the ACTIVE chain (deploy target), and link
+  // to that chain's explorer.
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
   const [result, setResult] = useState<DeployResult | undefined>(undefined)
   const [decodeFailed, setDecodeFailed] = useState(false)
 
@@ -102,7 +106,7 @@ export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
       <p className="mt-2 text-xs text-emerald-200/80">
         Your deploy transaction confirmed:{' '}
         <a
-          href={arbiscanTxUrl(txHash)}
+          href={explorerTxUrl(chainId, txHash)}
           target="_blank"
           rel="noreferrer"
           className="font-mono text-emerald-300 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
@@ -125,12 +129,12 @@ export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
               Open the pool →
             </Link>
             <a
-              href={arbiscanAddressUrl(result.market)}
+              href={explorerAddressUrl(chainId, result.market)}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-emerald-300/80 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
             >
-              View on Arbiscan
+              View on {explorerName(chainId)}
             </a>
           </div>
           <p className="mt-2 text-[11px] text-emerald-300/70">
