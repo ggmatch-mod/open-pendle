@@ -1,13 +1,18 @@
 /**
- * Slim protocol-fact ticker for the top of the shell. Pure CSS marquee
- * (op-ticker keyframe lives in index.css); pauses on hover. Facts are real —
- * cross-chain constants come from the address book.
+ * Slim protocol ticker for the top of the shell. Pure CSS marquee (op-ticker
+ * keyframe lives in index.css); pauses on hover.
+ *
+ * Content is LIVE Pendle metrics from DefiLlama + CoinGecko (usePendleStats).
+ * If those are unreachable (offline / rate-limited / CSP), it falls back to the
+ * static brand + contract facts below, so the bar is never empty.
  */
 import { ROUTER_V4, SY_FACTORY } from '../lib/addresses'
+import { usePendleStats } from './usePendleStats'
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
-const ITEMS = [
+// Shown until live stats load, or if every metric source fails.
+const FALLBACK = [
   'No backend',
   'No whitelist',
   'No indexer',
@@ -15,19 +20,20 @@ const ITEMS = [
   '6 networks',
   `Router V4 · ${short(ROUTER_V4)}`,
   `SY factory · ${short(SY_FACTORY)}`,
-  'Expiry divisor · 86400s',
-  'YT interest fee · 3%',
-  'Max swap fee · 5%',
   'GPL-3.0 · open source',
 ]
 
 export function Ticker() {
-  const loop = [...ITEMS, ...ITEMS] // duplicated so translateX(-50%) loops seamlessly
+  const live = usePendleStats()
+  // Live metrics lead; a couple of brand facts tail them for identity.
+  const items = live.length > 0 ? [...live, 'No whitelist', 'GPL-3.0 · open source'] : FALLBACK
+  const loop = [...items, ...items] // duplicated so translateX(-50%) loops seamlessly
+
   return (
     <div className="overflow-hidden border-b border-hairline bg-bg-2">
       <div
         className="flex w-max hover:[animation-play-state:paused]"
-        style={{ animation: 'op-ticker 52s linear infinite', willChange: 'transform' }}
+        style={{ animation: 'op-ticker 60s linear infinite', willChange: 'transform' }}
       >
         {loop.map((t, i) => (
           <span
