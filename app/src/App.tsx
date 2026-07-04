@@ -97,8 +97,8 @@ export default function App() {
             <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
               Community pools are permissionless and{' '}
               <span className="text-warn">unreviewed — use at your own risk</span>. OpenPendle
-              validates market provenance but cannot vouch for the assets or SY contracts underneath.
-              Not affiliated with Pendle Finance.
+              validates market provenance but cannot vouch for the assets or SY contracts underneath.{' '}
+              <span className="text-warn">Not affiliated with Pendle Finance.</span>
             </p>
           </div>
           <div className="flex items-center gap-3.5">
