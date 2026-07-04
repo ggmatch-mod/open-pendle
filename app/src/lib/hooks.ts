@@ -20,6 +20,7 @@ import type { RegistrySweepResult } from './market'
 import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './market'
 import { ARBITRUM_CHAIN_ID } from './addresses'
 import { loadPositions } from './positions'
+import { quoteBuy, quoteSell } from './swaps'
 import { buildApproveCall, checkApprovals, decodePendleError, simulateAction } from './txflow'
 import {
   forgetPool,
@@ -480,6 +481,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           void queryClient.invalidateQueries({ queryKey: ['positions'] })
           void queryClient.invalidateQueries({ queryKey: ['market'] })
           void queryClient.invalidateQueries({ queryKey: ['registry-sweep'] })
+          // The trade itself moved the pool: a repeat trade must never reuse
+          // a pre-trade cached quote (its ApproxParams bounds are now stale).
+          void queryClient.invalidateQueries({ queryKey: ['swap-quote'] })
         } else {
           latchRef.current = null
           setError('Transaction reverted on-chain — no tokens moved (gas was spent).')
@@ -521,4 +525,94 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   }, [])
 
   return { phase, error, simulatedOut, txHash, pendingApproval, approve, execute, reset }
+}
+
+// ---------------------------------------------------------------------------
+// M3 hook contract — STUB body below is replaced by the data-layer work; the
+// signature is the contract the UI codes against.
+// ---------------------------------------------------------------------------
+
+const SWAP_QUOTE_DEBOUNCE_MS = 350
+const SWAP_QUOTE_STALE_TIME_MS = 10_000
+
+/**
+ * Debounced swap quote via RouterStatic (display quote + synthesized
+ * ApproxParams; the binding number still comes from useActionFlow's
+ * simulation). token = the pay token for buys / receive token for sells;
+ * pass snapshot.sy.address for the SY variants. Undefined inputs → 'idle'.
+ * slippageFraction only shapes the synthesized ApproxParams bounds (buys).
+ * Quote errors are decoded through decodePendleError (revert families arrive
+ * pre-translated; non-revert errors fall back to viem's shortMessage), and
+ * `refetch` (stable identity) forces a fresh quote — used after a failed
+ * flow, where the pool has usually moved from under the cached quote.
+ */
+export function useSwapQuote(
+  snapshot: MarketSnapshot | undefined,
+  side: import('./swaps').SwapSide,
+  action: 'buy' | 'sell',
+  token: Address | undefined,
+  amount: bigint | undefined,
+  slippageFraction: number,
+): {
+  status: QueryStatus
+  quote?: import('./types').SwapQuote
+  error?: string
+  refetch: () => void
+} {
+  const client = usePublicClient()
+  // Debounce the amount (stringified — useDebouncedValue is a string hook and
+  // bigints can't sit in query keys anyway). '' encodes "no amount".
+  const amountKey = amount === undefined ? '' : amount.toString()
+  const debouncedAmountKey = useDebouncedValue(amountKey, SWAP_QUOTE_DEBOUNCE_MS)
+  const inputsReady =
+    snapshot !== undefined && token !== undefined && amount !== undefined && amount > 0n
+  const enabled = inputsReady && client !== undefined && debouncedAmountKey === amountKey
+
+  const query = useQuery({
+    queryKey: [
+      'swap-quote',
+      snapshot?.address.toLowerCase() ?? null,
+      side,
+      action,
+      token?.toLowerCase() ?? null,
+      debouncedAmountKey,
+      slippageFraction,
+    ],
+    queryFn: () =>
+      action === 'buy'
+        ? quoteBuy(
+            client as PublicClient,
+            snapshot as MarketSnapshot,
+            side,
+            token as Address,
+            BigInt(debouncedAmountKey),
+            slippageFraction,
+          )
+        : quoteSell(
+            client as PublicClient,
+            snapshot as MarketSnapshot,
+            side,
+            token as Address,
+            BigInt(debouncedAmountKey),
+          ),
+    enabled,
+    staleTime: SWAP_QUOTE_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  // Stable identity (TanStack v5's query.refetch is stable) so callers can
+  // key effects on it without refetch loops.
+  const queryRefetch = query.refetch
+  const refetch = useCallback((): void => {
+    void queryRefetch()
+  }, [queryRefetch])
+
+  if (!inputsReady) return { status: 'idle', refetch }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading', refetch }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error), refetch }
+  }
+  if (query.status === 'success') return { status: 'success', quote: query.data, refetch }
+  return { status: 'loading', refetch }
 }

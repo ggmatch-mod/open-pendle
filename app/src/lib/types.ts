@@ -188,6 +188,37 @@ export interface ActionPlan {
   indicativeOut?: TokenAmount
 }
 
+// ---------------------------------------------------------------------------
+// M3 contracts — PT/YT trading
+// ---------------------------------------------------------------------------
+
+/** On-chain ApproxParams struct for the router's guess search. */
+export interface ApproxParamsStruct {
+  guessMin: bigint
+  guessMax: bigint
+  guessOffchain: bigint
+  maxIteration: bigint
+  eps: bigint
+}
+
+export interface SwapQuote {
+  /** Expected out, raw units of the out asset (PT/YT at assetDecimals; tokens at their own). */
+  amountOut: bigint
+  /** Fraction, e.g. 0.0012 = 0.12%. */
+  priceImpact: number
+  /** Post-trade implied APY (fraction), when derivable from exchangeRateAfter. */
+  impliedApyAfter?: number
+  /** Swap fee taken by the market, in SY units. */
+  netSyFee: bigint
+  /**
+   * Synthesized ApproxParams for buy directions (guessOffchain = static
+   * quote, slippage-scaled guessMin, +5% guessMax headroom). null → caller
+   * uses createDefaultApproxParams. Sell directions take no ApproxParams
+   * (exact-in, no search).
+   */
+  approx: ApproxParamsStruct | null
+}
+
 /**
  * approve → simulate → confirm lifecycle (PLAN §3.2). Quotes shown before
  * approval are indicative; the binding number comes from simulation, which

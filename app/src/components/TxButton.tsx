@@ -13,7 +13,9 @@
  *   signing                        → spinner "Confirm in your wallet…"
  *   pending                        → spinner "Transaction pending…"
  *   confirmed                      → "Done" → onDone (reset + refetch + clear)
- *   failed                         → "Retry" → reset()  (error text in TxStatus)
+ *   failed                         → "Retry" → onRetry ?? reset()  (error text
+ *                                    in TxStatus; panels use onRetry to also
+ *                                    refresh their quote before re-arming)
  *   idle                           → disabled; shows disabledReason (no plan:
  *                                    "Enter an amount" / "Insufficient X") or
  *                                    the action label while the flow stub/plan
@@ -50,6 +52,7 @@ export function TxButton({
   actionLabel,
   disabledReason,
   onDone,
+  onRetry,
 }: {
   flow: ActionFlowState
   /** e.g. "Wrap", "Mint PT + YT" — used for "Confirm {actionLabel}". */
@@ -58,6 +61,8 @@ export function TxButton({
   disabledReason?: string | null
   /** Confirmed-state "Done": reset the flow, refetch positions, clear inputs. */
   onDone: () => void
+  /** Failed-state "Retry" — defaults to flow.reset (panels add quote refreshes). */
+  onRetry?: () => void
 }) {
   const { isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
@@ -147,7 +152,7 @@ export function TxButton({
       return (
         <button
           type="button"
-          onClick={flow.reset}
+          onClick={onRetry ?? flow.reset}
           className={`${BASE} border border-amber-800 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50`}
         >
           Retry

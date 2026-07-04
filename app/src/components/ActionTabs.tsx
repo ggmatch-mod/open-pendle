@@ -1,28 +1,27 @@
 /**
- * ActionTabs (M2) — the market page actions area. Two live tabs (Wrap/Unwrap,
- * Mint/Redeem) plus the M3/M4 placeholders. Rendered ONLY on validated,
- * non-expired markets — expired keeps MaturedNotice, unvalidated keeps the
- * red state (gating lives in MarketPage). SlippageControl in the header is
- * shared by both panels.
+ * ActionTabs (M2/M3) — the market page actions area. Three live tabs
+ * (Wrap/Unwrap, Mint/Redeem, Trade PT & YT) plus the M4 Liquidity
+ * placeholder. Rendered ONLY on validated, non-expired markets — expired
+ * keeps MaturedNotice, unvalidated keeps the red state (gating lives in
+ * MarketPage). SlippageControl in the header is shared by all panels.
  */
 
 import { useState } from 'react'
 import type { MarketSnapshot, Positions } from '../lib/types'
 import { MintRedeemPanel } from './MintRedeemPanel'
 import { SlippageControl } from './SlippageControl'
+import { TradePanel } from './TradePanel'
 import { WrapUnwrapPanel } from './WrapUnwrapPanel'
 
-type TabId = 'wrap' | 'mint'
+type TabId = 'wrap' | 'mint' | 'trade'
 
 const LIVE_TABS: Array<{ id: TabId; label: string }> = [
   { id: 'wrap', label: 'Wrap / Unwrap' },
   { id: 'mint', label: 'Mint / Redeem' },
+  { id: 'trade', label: 'Trade PT & YT' },
 ]
 
-const PLACEHOLDER_TABS = [
-  { label: 'Trade PT & YT', arrives: 'arrives in M3' },
-  { label: 'Liquidity', arrives: 'arrives in M4' },
-]
+const PLACEHOLDER_TABS = [{ label: 'Liquidity', arrives: 'arrives in M4' }]
 
 export function ActionTabs({
   snapshot,
@@ -90,8 +89,15 @@ export function ActionTabs({
             refetchPositions={refetchPositions}
             onBusyChange={setFlowBusy}
           />
-        ) : (
+        ) : tab === 'mint' ? (
           <MintRedeemPanel
+            snapshot={snapshot}
+            positions={positions}
+            refetchPositions={refetchPositions}
+            onBusyChange={setFlowBusy}
+          />
+        ) : (
+          <TradePanel
             snapshot={snapshot}
             positions={positions}
             refetchPositions={refetchPositions}

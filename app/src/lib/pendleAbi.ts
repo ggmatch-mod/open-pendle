@@ -178,6 +178,81 @@ export const erc20Abi = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
 ])
 
+// ---------------------------------------------------------------------------
+// M3 additions — PT/YT swap surface (data layer). Router signatures from the
+// verified IPActionSwapPTV3/IPActionSwapYTV3 sources (research scratchpad);
+// RouterStatic signatures live-verified 2026-07-04 against the deployed
+// diamond 0xAdB0…B3E8 (raw eth_call word counts + magnitude decoding on the
+// PLP USDai market) and cross-checked with fork-tests/QuoterParity.t.sol.
+// ---------------------------------------------------------------------------
+
+/**
+ * Router V4 swap actions (IPActionSwapPTV3 + IPActionSwapYTV3).
+ * - Only BUY directions (…ForPt / …ForYt) take ApproxParams.
+ * - LimitOrderData is ALWAYS passed empty by us:
+ *   (address(0), 0, [], [], '0x') — routes 100% through the AMM (F11).
+ * - TokenInput/TokenOutput follow the M2 rule: SwapType.NONE, pendleSwap =
+ *   address(0), tokenMintSy/tokenRedeemSy = the token itself.
+ */
+export const routerSwapAbi = parseAbi([
+  'struct SwapData { uint8 swapType; address extRouter; bytes extCalldata; bool needScale; }',
+  'struct TokenInput { address tokenIn; uint256 netTokenIn; address tokenMintSy; address pendleSwap; SwapData swapData; }',
+  'struct TokenOutput { address tokenOut; uint256 minTokenOut; address tokenRedeemSy; address pendleSwap; SwapData swapData; }',
+  'struct ApproxParams { uint256 guessMin; uint256 guessMax; uint256 guessOffchain; uint256 maxIteration; uint256 eps; }',
+  'struct Order { uint256 salt; uint256 expiry; uint256 nonce; uint8 orderType; address token; address YT; address maker; address receiver; uint256 makingAmount; uint256 lnImpliedRate; uint256 failSafeRate; bytes permit; }',
+  'struct FillOrderParams { Order order; bytes signature; uint256 makingAmount; }',
+  'struct LimitOrderData { address limitRouter; uint256 epsSkipMarket; FillOrderParams[] normalFills; FillOrderParams[] flashFills; bytes optData; }',
+  // PT
+  'function swapExactTokenForPt(address receiver, address market, uint256 minPtOut, ApproxParams guessPtOut, TokenInput input, LimitOrderData limit) payable returns (uint256 netPtOut, uint256 netSyFee, uint256 netSyInterm)',
+  'function swapExactSyForPt(address receiver, address market, uint256 exactSyIn, uint256 minPtOut, ApproxParams guessPtOut, LimitOrderData limit) returns (uint256 netPtOut, uint256 netSyFee)',
+  'function swapExactPtForToken(address receiver, address market, uint256 exactPtIn, TokenOutput output, LimitOrderData limit) returns (uint256 netTokenOut, uint256 netSyFee, uint256 netSyInterm)',
+  'function swapExactPtForSy(address receiver, address market, uint256 exactPtIn, uint256 minSyOut, LimitOrderData limit) returns (uint256 netSyOut, uint256 netSyFee)',
+  // YT
+  'function swapExactTokenForYt(address receiver, address market, uint256 minYtOut, ApproxParams guessYtOut, TokenInput input, LimitOrderData limit) payable returns (uint256 netYtOut, uint256 netSyFee, uint256 netSyInterm)',
+  'function swapExactSyForYt(address receiver, address market, uint256 exactSyIn, uint256 minYtOut, ApproxParams guessYtOut, LimitOrderData limit) returns (uint256 netYtOut, uint256 netSyFee)',
+  'function swapExactYtForToken(address receiver, address market, uint256 exactYtIn, TokenOutput output, LimitOrderData limit) returns (uint256 netTokenOut, uint256 netSyFee, uint256 netSyInterm)',
+  'function swapExactYtForSy(address receiver, address market, uint256 exactYtIn, uint256 minSyOut, LimitOrderData limit) returns (uint256 netSyOut, uint256 netSyFee)',
+])
+
+/**
+ * RouterStatic exact-in swap quote statics (view; display quotes only — the
+ * binding number is always a real-router simulation, PLAN §3.2).
+ *
+ * All 8 selectors live-verified present on the deployed diamond (2026-07-04;
+ * PARITY.md's survey additionally covers the 4 exact-out ones we don't use).
+ * Return layouts verified by word count + magnitude on live calls; note the
+ * asymmetries, they are real:
+ * - swapExactPtForTokenStatic carries netSyToRedeem at index 1 (fee at 2);
+ * - swapExactYtForTokenStatic carries netSyFee at index 1 (NOT the interm SY)
+ *   and 4 trailing extra-info words;
+ * - swapExactYtForSyStatic has 3 trailing extra-info words.
+ * Trailing extra-info names are best-effort labels (only indices 0–3 are
+ * consumed by swaps.ts and were magnitude-verified).
+ *
+ * priceImpact is 1e18-scaled; exchangeRateAfter is the post-trade market
+ * exchange rate in the same frame as exp(lastLnImpliedRate·T/365d) —
+ * live-verified within 0.3 ppm of getMarketState's
+ * marketExchangeRateExcludeFee at zero trade size, monotone down for PT buys
+ * and up for PT sells.
+ *
+ * The *AndGenerateApproxParams helpers do NOT exist on the deployed diamond
+ * (PARITY.md) — ApproxParams are synthesized client-side in swaps.ts.
+ */
+export const routerStaticSwapAbi = parseAbi([
+  // buys (PT)
+  'function swapExactSyForPtStatic(address market, uint256 exactSyIn) view returns (uint256 netPtOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  'function swapExactTokenForPtStatic(address market, address tokenIn, uint256 amountTokenIn) view returns (uint256 netPtOut, uint256 netSyMinted, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  // buys (YT)
+  'function swapExactSyForYtStatic(address market, uint256 exactSyIn) view returns (uint256 netYtOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  'function swapExactTokenForYtStatic(address market, address tokenIn, uint256 amountTokenIn) view returns (uint256 netYtOut, uint256 netSyMinted, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  // sells (PT)
+  'function swapExactPtForSyStatic(address market, uint256 exactPtIn) view returns (uint256 netSyOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  'function swapExactPtForTokenStatic(address market, uint256 exactPtIn, address tokenOut) view returns (uint256 netTokenOut, uint256 netSyToRedeem, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter)',
+  // sells (YT)
+  'function swapExactYtForSyStatic(address market, uint256 exactYtIn) view returns (uint256 netSyOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyOwedInt, uint256 netPYToRepaySyOwedInt, uint256 netPYToRedeemSyOwedInt)',
+  'function swapExactYtForTokenStatic(address market, uint256 exactYtIn, address tokenOut) view returns (uint256 netTokenOut, uint256 netSyFee, uint256 priceImpact, uint256 exchangeRateAfter, uint256 netSyOut, uint256 netSyOwedInt, uint256 netPYToRepaySyOwedInt, uint256 netPYToRedeemSyOwedInt)',
+])
+
 /**
  * Pendle custom errors (core Errors.sol + MarketV7) that txflow's
  * decodePendleError maps to friendly messages. Selector spot-checks
@@ -215,4 +290,13 @@ export const pendleErrorsAbi = parseAbi([
   'error MarketFactoryExpiredPt()',
   'error YCFactoryYieldContractExisted()',
   'error YCFactoryInvalidExpiry()',
+  // M3: approx-search failure family (pendle-core-v2 Errors.sol, thrown by the
+  // V2 approx lib). NOTE: the deployed Router V4 / RouterStatic on Arbitrum
+  // run the V1-style approx lib, whose failures are Error(string) reverts
+  // ('Slippage: search range overflow' / '…APPROX_EXHAUSTED') mapped in
+  // txflow's friendlyStringRevert — these selectors are decoded as a
+  // belt-and-braces for other deployments/paths.
+  'error ApproxFail()',
+  'error ApproxParamsInvalid(uint256 guessMin, uint256 guessMax, uint256 eps)',
+  'error ApproxBinarySearchInputInvalid(uint256 approxGuessMin, uint256 approxGuessMax, uint256 minGuessMin, uint256 maxGuessMax)',
 ])

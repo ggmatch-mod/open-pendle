@@ -556,15 +556,21 @@ await step('11. error decoder spot checks (selectors + revert decoding)', async 
     args: [99n, 100n],
   })
   assert(/^Slippage:/.test(decodeRevertData(slippageData)), 'RouterInsufficientSyOut decode')
-  const stringRevert =
-    '0x08c379a0' +
-    encodeAbiParameters([{ type: 'string' }], ['Slippage: search range overflow']).slice(2)
+  // M3 (txflow friendlyStringRevert): the approx-failure string family is now
+  // rewritten to the friendly 'trade too large' message instead of passing
+  // through raw; neutral Error(string) reverts still pass through verbatim.
+  const stringRevert = (msg) =>
+    '0x08c379a0' + encodeAbiParameters([{ type: 'string' }], [msg]).slice(2)
   assert(
-    decodeRevertData(stringRevert) === 'Slippage: search range overflow',
-    'Error(string) pass-through',
+    /trade too large/i.test(decodeRevertData(stringRevert('Slippage: search range overflow'))),
+    'approx-failure Error(string) must map to the trade-too-large message',
+  )
+  assert(
+    decodeRevertData(stringRevert('SY: insufficient shares')) === 'SY: insufficient shares',
+    'neutral Error(string) pass-through',
   )
   assert(decodeRevertData('0xdeadbeef') === undefined, 'unknown selector must return undefined')
-  return '6 selectors verified, 4 decode paths checked'
+  return '6 selectors verified, 5 decode paths checked'
 })
 
 // --- Report --------------------------------------------------------------------

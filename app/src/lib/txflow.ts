@@ -115,6 +115,32 @@ const slippage =
   (args) =>
     `Slippage: would receive ${String(args[0] ?? '?')} ${unit} (raw units), below your minimum of ${String(args[1] ?? '?')}.`
 
+const TRADE_TOO_LARGE_MSG =
+  "Trade too large for this pool's current liquidity, or the quote went stale — refresh the quote, reduce the size, or retry."
+const SLIPPAGE_MOVED_MSG =
+  'Price moved beyond your slippage tolerance — refresh the quote and retry.'
+
+/**
+ * M3: friendly rewrites for the router's Error(string) revert families.
+ * - Approx-search failures ('Slippage: search range overflow' /
+ *   '…APPROX_EXHAUSTED' / 'Internal: INVALID_APPROX_PARAMS', all thrown by
+ *   the V1-style approx lib the deployed Router V4 + RouterStatic run — e.g.
+ *   oversized YT buys pushing the pool past the 0.96 PT-proportion cap; the
+ *   INVALID_APPROX_PARAMS form is what the swap STATICS revert with when the
+ *   trade exceeds the searchable range, live-observed on oversized token→YT
+ *   quotes) → "trade too large / quote stale".
+ * - ActionBase min-out checks ('Slippage: INSUFFICIENT_PT_OUT' /
+ *   _YT_OUT / _SY_OUT / _TOKEN_OUT / _PT_YT_OUT / _LP_OUT …) → slippage retry.
+ * Everything else passes through verbatim (ERC20 allowance/balance strings…).
+ */
+function friendlyStringRevert(reason: string): string {
+  if (/search range overflow|APPROX_EXHAUSTED|INVALID_APPROX_PARAMS/i.test(reason)) {
+    return TRADE_TOO_LARGE_MSG
+  }
+  if (/INSUFFICIENT_[A-Z_]*OUT/.test(reason)) return SLIPPAGE_MOVED_MSG
+  return reason
+}
+
 /** Pendle custom-error name → friendly message (PLAN §3.4 decoding table). */
 const FRIENDLY_ERRORS: Record<string, FriendlyFn> = {
   MarketExpired: () => 'This market has expired — trading and minting are closed.',
@@ -146,12 +172,18 @@ const FRIENDLY_ERRORS: Record<string, FriendlyFn> = {
     'A PT/YT pair for this SY and expiry already exists.',
   YCFactoryInvalidExpiry: () =>
     'Invalid expiry — it must be in the future and aligned to the factory expiry divisor (daily 00:00 UTC).',
+  // M3: ApproxFail-family custom errors (V2 approx lib — belt-and-braces; the
+  // deployed Arbitrum contracts revert the string forms mapped above).
+  ApproxFail: () => TRADE_TOO_LARGE_MSG,
+  ApproxParamsInvalid: () => TRADE_TOO_LARGE_MSG,
+  ApproxBinarySearchInputInvalid: () => TRADE_TOO_LARGE_MSG,
 }
 
 /**
  * Decode raw revert bytes: Pendle custom errors → friendly message;
- * Error(string) → the string itself (passes through 'Slippage: …' and ERC20
- * allowance/balance reverts); unknown selector → undefined.
+ * Error(string) → friendlyStringRevert of the string (approx-failure and
+ * min-out families rewritten, ERC20 allowance/balance reverts pass through);
+ * unknown selector → undefined.
  */
 export function decodeRevertData(data: Hex): string | undefined {
   if (!data || data === '0x') return undefined
@@ -163,7 +195,7 @@ export function decodeRevertData(data: Hex): string | undefined {
       args?: readonly unknown[]
     }
     if (decoded.errorName === 'Error') {
-      return String(decoded.args?.[0] ?? 'Execution reverted.')
+      return friendlyStringRevert(String(decoded.args?.[0] ?? 'Execution reverted.'))
     }
     if (decoded.errorName === 'Panic') {
       return `Panic (code ${String(decoded.args?.[0] ?? '?')}) — arithmetic or assertion failure.`
@@ -177,8 +209,9 @@ export function decodeRevertData(data: Hex): string | undefined {
 
 /**
  * Walk a viem error chain and produce a human-readable message:
- * 1. string reverts (Error(string)) pass through verbatim ('Slippage: …',
- *    ERC20 allowance/balance strings);
+ * 1. string reverts (Error(string)) → friendlyStringRevert (approx-failure /
+ *    min-out families rewritten; other strings — e.g. ERC20 allowance/balance
+ *    reverts — pass through verbatim);
  * 2. Pendle custom-error selectors map to friendly messages (FRIENDLY_ERRORS);
  * 3. anything else falls back to viem's shortMessage / the raw message.
  */
@@ -186,8 +219,9 @@ export function decodePendleError(err: unknown): string {
   if (err instanceof BaseError) {
     const revert = err.walk((e) => e instanceof ContractFunctionRevertedError)
     if (revert instanceof ContractFunctionRevertedError) {
-      // Error(string) reverts decoded by viem itself.
-      if (revert.reason) return revert.reason
+      // Error(string) reverts decoded by viem itself (M3: friendly rewrites
+      // for the approx-failure and min-out families, pass-through otherwise).
+      if (revert.reason) return friendlyStringRevert(revert.reason)
       // Custom errors: viem exposes the raw revert bytes on `raw` (and the
       // decoded form on `data` only when the call ABI contained the error —
       // ours deliberately does not; pendleErrorsAbi is the decode table).
