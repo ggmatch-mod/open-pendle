@@ -26,7 +26,7 @@ function Spinner() {
   return (
     <span
       aria-hidden
-      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-400 align-[-2px]"
+      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-hairline-strong border-t-accent align-[-2px]"
     />
   )
 }
@@ -43,7 +43,7 @@ function ClassificationFeedback({
 
   if (input.length === 0 || status.status === 'idle') {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-faint">
         Paste any Pendle V2 market (PLP) address on {chain.name} — it loads
         straight from the chain.
       </p>
@@ -52,7 +52,7 @@ function ClassificationFeedback({
 
   if (status.status === 'loading') {
     return (
-      <p className="flex items-center justify-center gap-2 text-sm text-zinc-400">
+      <p className="flex items-center justify-center gap-2 text-sm text-muted">
         <Spinner /> checking address on-chain…
       </p>
     )
@@ -60,9 +60,9 @@ function ClassificationFeedback({
 
   if (status.status === 'error') {
     return (
-      <p className="text-sm text-red-400">
+      <p className="text-sm text-danger">
         Couldn't check that address — the RPC may be rate-limiting.{' '}
-        {status.error ? <span className="text-red-500/80">({status.error})</span> : null}
+        {status.error ? <span className="text-danger">({status.error})</span> : null}
       </p>
     )
   }
@@ -73,13 +73,13 @@ function ClassificationFeedback({
   switch (c.kind) {
     case 'invalid':
       return (
-        <p className="text-sm text-red-400">
+        <p className="text-sm text-danger">
           {c.message || 'That is not a valid address (0x + 40 hex characters).'}
         </p>
       )
     case 'eoa':
       return (
-        <p className="text-sm text-red-400">
+        <p className="text-sm text-danger">
           {c.message || "That's a wallet address, not a contract."}
         </p>
       )
@@ -87,11 +87,11 @@ function ClassificationFeedback({
     case 'yt':
     case 'sy':
       return (
-        <div className="mx-auto max-w-lg rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-left">
-          <p className="text-sm text-zinc-200">
+        <div className="mx-auto max-w-lg rounded-lg border border-hairline-strong bg-surface p-3 text-left">
+          <p className="text-sm text-fg">
             {c.message}
             {c.symbol && !c.message.includes(c.symbol) && (
-              <span className="ml-1.5 rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-zinc-400">
+              <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
                 {clampLabel(c.symbol)}
               </span>
             )}
@@ -99,7 +99,7 @@ function ClassificationFeedback({
           {c.resolvedMarket && (
             <button
               onClick={() => navigate(`/market/${c.resolvedMarket}`)}
-              className="mt-2.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+              className="mt-2.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
             >
               Open its market →
             </button>
@@ -109,15 +109,15 @@ function ClassificationFeedback({
     case 'contract':
       if (c.unvalidatedMarketShape) {
         return (
-          <div className="mx-auto max-w-lg rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-left">
-            <p className="text-sm text-amber-300">{c.message}</p>
+          <div className="mx-auto max-w-lg rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-3 text-left">
+            <p className="text-sm text-warn">{c.message}</p>
           </div>
         )
       }
-      return <p className="text-sm text-red-400">{c.message}</p>
+      return <p className="text-sm text-danger">{c.message}</p>
     case 'market':
       return (
-        <p className="flex items-center justify-center gap-2 text-sm text-emerald-400">
+        <p className="flex items-center justify-center gap-2 text-sm text-accent-ink">
           <Spinner /> Valid Pendle market — opening…
         </p>
       )
@@ -154,7 +154,7 @@ function MarketPasteBox() {
         placeholder="Paste a Pendle market (PLP) address — 0x…"
         spellCheck={false}
         autoComplete="off"
-        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 font-mono text-sm text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+        className="w-full rounded-xl border border-hairline-strong bg-surface px-4 py-3.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none transition focus:border-accent focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.2)]"
       />
       <div aria-live="polite" className="mt-2.5 min-h-5">
         <ClassificationFeedback status={classify} input={trimmed} />
@@ -183,9 +183,9 @@ function SavedPoolsPreview() {
   return (
     <section>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-100">Your pools</h2>
+        <h2 className="text-lg font-semibold text-fg">Your pools</h2>
         {pools.length > 0 && (
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-faint">
             {pools.length} remembered · stored locally
           </span>
         )}
@@ -198,7 +198,7 @@ function SavedPoolsPreview() {
           <div className="mt-4 text-sm">
             <Link
               to="/pools"
-              className="font-medium text-emerald-400 hover:text-emerald-300"
+              className="font-medium text-accent-ink hover:text-accent-ink"
             >
               See all your saved Pools
               {hidden > 0 ? ` (${hidden} more)` : ''} →
@@ -233,8 +233,8 @@ function StarterMarkets() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold text-zinc-100">Examples</h2>
-      <p className="mb-3 mt-0.5 text-xs text-zinc-500">
+      <h2 className="text-lg font-semibold text-fg">Examples</h2>
+      <p className="mb-3 mt-0.5 text-xs text-faint">
         Active community pools (unvetted)
         {list?.generatedAt ? `, as of ${list.generatedAt}` : ''} — listed for
         convenience, not endorsement.
@@ -244,13 +244,13 @@ function StarterMarkets() {
           <Link
             key={m.address}
             to={`/market/${m.address}`}
-            className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 transition hover:border-zinc-700"
+            className="rounded-xl border border-hairline bg-surface p-3.5 transition hover:border-hairline-strong"
           >
-            <p className="truncate text-sm font-medium text-zinc-100">{m.name}</p>
-            <p className="mt-1 font-mono text-xs text-zinc-500" title={m.address}>
+            <p className="truncate text-sm font-medium text-fg">{m.name}</p>
+            <p className="mt-1 font-mono text-xs text-faint" title={m.address}>
               {shortAddress(m.address)}
             </p>
-            <p className="mt-1.5 text-xs text-zinc-400">
+            <p className="mt-1.5 text-xs text-muted">
               Expiry {formatDate(m.expiry)}
               {m.assetSymbol ? ` · ${m.assetSymbol}` : ''}
             </p>
@@ -271,10 +271,10 @@ function CollapsedProtocolStatus() {
 
   return (
     <details
-      className="group rounded-xl border border-zinc-800 bg-zinc-900/40"
+      className="group rounded-xl border border-hairline bg-surface"
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
     >
-      <summary className="cursor-pointer select-none px-5 py-4 text-sm font-medium text-zinc-300 hover:text-zinc-100">
+      <summary className="cursor-pointer select-none px-5 py-4 text-sm font-medium text-muted hover:text-fg">
         Protocol status — live from {chain.name}
       </summary>
       <div className="px-3 pb-3">{open && <ProtocolStatus />}</div>
@@ -292,26 +292,26 @@ export default function Home() {
     <div className="pb-14">
       <section className="py-12 text-center sm:py-14">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Pendle community pools, <span className="text-emerald-400">no whitelist</span>
+          Pendle community pools, <span className="text-accent-ink">no whitelist</span>
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-400 sm:text-base">
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-muted sm:text-base">
           Load any Pendle V2 market on {chain.name} by address. No backend, no
           curation — just the chain.
         </p>
         <div className="mt-8">
           <MarketPasteBox />
         </div>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm text-faint">
           <span>Want your own pool?</span>
           <Link
             to="/create"
-            className="rounded-md border border-emerald-800 px-3 py-1.5 font-medium text-emerald-400 transition hover:border-emerald-600 hover:text-emerald-300"
+            className="rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] px-3 py-1.5 font-medium text-accent-ink transition hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
           >
             Create a community pool →
           </Link>
           <Link
             to="/create-sy"
-            className="rounded-md border border-zinc-700 px-3 py-1.5 font-medium text-zinc-300 transition hover:border-emerald-700 hover:text-emerald-300"
+            className="rounded-md border border-hairline-strong px-3 py-1.5 font-medium text-muted transition hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
           >
             Create an SY adapter →
           </Link>

@@ -161,7 +161,7 @@ export function WrapUnwrapPanel({
 
   if (sy.tokensIn.length === 0 && sy.tokensOut.length === 0) {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-faint">
         This SY reports no deposit or withdrawal tokens — wrap/unwrap isn't
         possible through the standard interface.
       </p>
@@ -171,7 +171,7 @@ export function WrapUnwrapPanel({
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+        <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
           {(
             [
               ['wrap', 'Wrap · token → SY'],
@@ -188,8 +188,8 @@ export function WrapUnwrapPanel({
               }}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 direction === dir
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-surface-2 text-fg'
+                  : 'text-muted hover:text-fg'
               }`}
             >
               {label}
@@ -198,7 +198,7 @@ export function WrapUnwrapPanel({
         </div>
 
         {tokenList.length > 0 && (
-          <label className="flex items-center gap-2 text-xs text-zinc-500">
+          <label className="flex items-center gap-2 text-xs text-faint">
             {direction === 'wrap' ? 'Deposit token' : 'Receive token'}
             <select
               value={token ?? ''}
@@ -207,7 +207,7 @@ export function WrapUnwrapPanel({
                 setTokenChoice((prev) => ({ ...prev, [direction]: e.target.value as Address }))
                 setAmountText('')
               }}
-              className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-hairline-strong bg-bg px-2.5 py-1.5 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {tokenList.map((t) => {
                 const m = metas[t.toLowerCase()]
@@ -223,7 +223,7 @@ export function WrapUnwrapPanel({
       </div>
 
       {tokenList.length === 0 ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-faint">
           This SY reports no {direction === 'wrap' ? 'deposit (tokensIn)' : 'withdrawal (tokensOut)'}{' '}
           tokens for this direction.
         </p>

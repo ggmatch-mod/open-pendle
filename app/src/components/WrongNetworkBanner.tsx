@@ -28,7 +28,7 @@ export function WrongNetworkBanner() {
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-900/60 bg-amber-950/70 px-4 py-2.5 text-sm text-amber-200"
+      className="flex flex-wrap items-center justify-center gap-3 border-b border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-4 py-2.5 text-sm text-warn"
     >
       <span>
         Your wallet is on {walletChainLabel} — switch to {activeChain.name} to
@@ -37,7 +37,7 @@ export function WrongNetworkBanner() {
       <button
         onClick={() => switchChain({ chainId: activeChainId })}
         disabled={isPending}
-        className="rounded-md bg-amber-500 px-3 py-1 font-medium text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md bg-warn px-3 py-1 font-medium text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? 'Switching…' : `Switch to ${activeChain.name}`}
       </button>

@@ -33,7 +33,7 @@ function VintageBadge({ vintage, validated }: { vintage: Vintage; validated: boo
     return (
       <span
         title="No known Pendle factory recognizes this address — possibly fake, or a newer factory generation than this build knows"
-        className="rounded-full border border-red-800 bg-red-950/70 px-2.5 py-0.5 text-xs font-semibold text-red-400"
+        className="rounded-full border border-[var(--op-danger-bd)] bg-red-950/70 px-2.5 py-0.5 text-xs font-semibold text-danger"
       >
         not validated
       </span>
@@ -49,8 +49,8 @@ function VintageBadge({ vintage, validated }: { vintage: Vintage; validated: boo
       }
       className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
         isActive
-          ? 'border-emerald-900 bg-emerald-950/60 text-emerald-400'
-          : 'border-zinc-700 bg-zinc-800/80 text-zinc-400'
+          ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+          : 'border-hairline-strong bg-surface-2 text-muted'
       }`}
     >
       {isActive ? 'active gen' : `legacy ${vintage}`}
@@ -65,8 +65,8 @@ function VintageBadge({ vintage, validated }: { vintage: Vintage; validated: boo
  */
 function UnvalidatedBanner() {
   return (
-    <div role="alert" className="rounded-xl border border-red-800 bg-red-950/50 p-4">
-      <p className="text-sm font-semibold text-red-300">
+    <div role="alert" className="rounded-xl border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-4">
+      <p className="text-sm font-semibold text-danger">
         Not validated by any Pendle factory
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-red-200/80">
@@ -84,7 +84,7 @@ function UnvalidatedBanner() {
 
 function MaturedBadge() {
   return (
-    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+    <span className="rounded-full border border-hairline-strong bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-muted">
       Matured
     </span>
   )
@@ -101,9 +101,9 @@ function ActionsPlaceholder() {
     { label: 'Liquidity', arrives: 'disabled — market not validated' },
   ]
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-      <h2 className="text-base font-semibold text-zinc-100">Actions</h2>
-      <p className="mt-1 text-xs text-zinc-500">
+    <section className="rounded-xl border border-hairline bg-surface p-5">
+      <h2 className="text-base font-semibold text-fg">Actions</h2>
+      <p className="mt-1 text-xs text-faint">
         Transactions are never offered on markets no known Pendle factory
         validates.
       </p>
@@ -112,10 +112,10 @@ function ActionsPlaceholder() {
           <div
             key={tab.label}
             aria-disabled="true"
-            className="cursor-not-allowed rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-3.5 text-center"
+            className="cursor-not-allowed rounded-lg border border-hairline bg-bg-2 px-4 py-3.5 text-center"
           >
-            <p className="text-sm font-medium text-zinc-500">{tab.label}</p>
-            <p className="mt-0.5 text-xs text-zinc-600">{tab.arrives}</p>
+            <p className="text-sm font-medium text-faint">{tab.label}</p>
+            <p className="mt-0.5 text-xs text-faint">{tab.arrives}</p>
           </div>
         ))}
       </div>
@@ -130,14 +130,14 @@ function TokenStrip({ snapshot }: { snapshot: MarketSnapshot }) {
     { role: 'SY', symbol: snapshot.sy.symbol, address: snapshot.sy.address },
   ]
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+    <section className="rounded-xl border border-hairline bg-surface p-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
         {tokens.map((t) => (
           <div key={t.role} className="flex items-center gap-2">
-            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-semibold text-zinc-400">
+            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs font-semibold text-muted">
               {t.role}
             </span>
-            <span className="text-sm text-zinc-200">{t.symbol ? clampLabel(t.symbol) : '—'}</span>
+            <span className="text-sm text-fg">{t.symbol ? clampLabel(t.symbol) : '—'}</span>
             <AddressChip address={t.address} />
           </div>
         ))}
@@ -155,17 +155,17 @@ function PageSkeleton() {
     <div className="space-y-5 py-8" aria-busy="true" aria-label="Loading market">
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-2.5">
-          <div className="h-6 w-64 max-w-[60vw] animate-pulse rounded bg-zinc-800" />
-          <div className="h-3.5 w-40 animate-pulse rounded bg-zinc-800" />
+          <div className="h-6 w-64 max-w-[60vw] animate-pulse rounded bg-surface-2" />
+          <div className="h-3.5 w-40 animate-pulse rounded bg-surface-2" />
         </div>
-        <div className="h-10 w-44 animate-pulse rounded-xl bg-zinc-800" />
+        <div className="h-10 w-44 animate-pulse rounded-xl bg-surface-2" />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-xl bg-zinc-900" />
+          <div key={i} className="h-24 animate-pulse rounded-xl bg-surface" />
         ))}
       </div>
-      <div className="h-40 animate-pulse rounded-xl bg-zinc-900" />
+      <div className="h-40 animate-pulse rounded-xl bg-surface" />
     </div>
   )
 }
@@ -173,14 +173,14 @@ function PageSkeleton() {
 function BadAddress({ raw }: { raw: string }) {
   return (
     <div className="py-16 text-center">
-      <h1 className="text-xl font-semibold text-zinc-100">Not a valid address</h1>
-      <p className="mx-auto mt-2 max-w-md break-all text-sm text-zinc-400">
-        <span className="font-mono text-xs text-zinc-500">{raw || '(empty)'}</span>{' '}
+      <h1 className="text-xl font-semibold text-fg">Not a valid address</h1>
+      <p className="mx-auto mt-2 max-w-md break-all text-sm text-muted">
+        <span className="font-mono text-xs text-faint">{raw || '(empty)'}</span>{' '}
         isn't a valid Ethereum address, so there's no market to load.
       </p>
       <Link
         to="/"
-        className="mt-6 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+        className="mt-6 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
       >
         ← Back home
       </Link>
@@ -191,8 +191,8 @@ function BadAddress({ raw }: { raw: string }) {
 function LoadError({ message, onRetry }: { message?: string; onRetry: () => void }) {
   return (
     <div className="mx-auto max-w-lg py-16">
-      <div className="rounded-xl border border-red-900/60 bg-red-950/40 p-5 text-center">
-        <h1 className="text-base font-semibold text-red-300">Couldn't load this market</h1>
+      <div className="rounded-xl border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-5 text-center">
+        <h1 className="text-base font-semibold text-danger">Couldn't load this market</h1>
         <p className="mt-2 text-sm text-red-200/80">
           {message ||
             'The RPC read failed — public endpoints rate-limit. Retrying usually fixes it, or set a custom RPC in settings.'}
@@ -200,11 +200,11 @@ function LoadError({ message, onRetry }: { message?: string; onRetry: () => void
         <div className="mt-4 flex items-center justify-center gap-3">
           <button
             onClick={onRetry}
-            className="rounded-md border border-red-800 px-4 py-1.5 text-sm text-red-300 hover:bg-red-900/40"
+            className="rounded-md border border-[var(--op-danger-bd)] px-4 py-1.5 text-sm text-danger hover:bg-[var(--op-danger-soft)]"
           >
             Retry
           </button>
-          <Link to="/" className="text-sm text-zinc-400 hover:text-zinc-200">
+          <Link to="/" className="text-sm text-muted hover:text-fg">
             ← Back home
           </Link>
         </div>
@@ -237,7 +237,7 @@ function MarketView({ address }: { address: Address }) {
 
   return (
     <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-zinc-400 hover:text-zinc-200">
+      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
         ← Home
       </Link>
 
@@ -251,7 +251,7 @@ function MarketView({ address }: { address: Address }) {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="min-w-0 max-w-full break-words text-xl font-bold tracking-tight text-zinc-100 sm:text-2xl">
+            <h1 className="min-w-0 max-w-full break-words text-xl font-bold tracking-tight text-fg sm:text-2xl">
               {clampLabel(snapshot.displayName)}
             </h1>
             <VintageBadge vintage={snapshot.vintage} validated={snapshot.validated} />

@@ -58,12 +58,12 @@ export function DeployRecovery() {
   }
 
   return (
-    <details className="group rounded-xl border border-zinc-800 bg-zinc-900/40">
-      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-zinc-300 hover:text-zinc-100">
+    <details className="group rounded-xl border border-hairline bg-surface">
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted hover:text-fg">
         Recover a deployment
       </summary>
-      <div className="border-t border-zinc-800 px-4 py-3">
-        <p className="text-xs leading-relaxed text-zinc-400">
+      <div className="border-t border-hairline px-4 py-3">
+        <p className="text-xs leading-relaxed text-muted">
           Deployed a pool but lost the address (closed tab, RPC dropped)? Paste
           the deploy transaction hash and we'll pull the market out of its
           receipt.
@@ -76,34 +76,34 @@ export function DeployRecovery() {
             placeholder="0x… (66-character tx hash)"
             spellCheck={false}
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500"
+            className="min-w-0 flex-1 rounded-lg border border-hairline-strong bg-bg px-3 py-2 font-mono text-xs text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent"
           />
           <button
             type="button"
             onClick={() => void recover()}
             disabled={!validHash || busy || !client}
-            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-faint"
           >
             {busy ? 'Recovering…' : 'Recover'}
           </button>
         </div>
         {trimmed.length > 0 && !validHash && (
-          <p className="mt-1.5 text-xs text-amber-400/80">
+          <p className="mt-1.5 text-xs text-warn">
             A transaction hash is 0x followed by 64 hex characters.
           </p>
         )}
-        {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+        {error && <p className="mt-2 text-xs text-danger">{error}</p>}
         {result && (
-          <div className="mt-2.5 rounded-lg border border-emerald-800 bg-emerald-950/40 px-3 py-2.5">
-            <p className="text-xs text-emerald-200/90">
+          <div className="mt-2.5 rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-3 py-2.5">
+            <p className="text-xs text-accent-ink/90">
               Found market{' '}
-              <span className="font-mono text-emerald-300" title={result.market}>
+              <span className="font-mono text-accent-ink" title={result.market}>
                 {shortAddress(result.market)}
               </span>
             </p>
             <Link
               to={`/market/${result.market}`}
-              className="mt-2 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+              className="mt-2 inline-block rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110"
             >
               Open the pool →
             </Link>

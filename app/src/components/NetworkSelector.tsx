@@ -49,12 +49,12 @@ export function NetworkSelector() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:border-zinc-700 hover:bg-zinc-900"
+        className="flex items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:border-hairline-strong hover:bg-surface"
         title="Active network — switches what the whole app reads"
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" aria-hidden="true" />
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
         <span className="max-w-[7.5rem] truncate">{chain.name}</span>
-        <span aria-hidden="true" className="text-zinc-500">
+        <span aria-hidden="true" className="text-faint">
           ▾
         </span>
       </button>
@@ -63,9 +63,9 @@ export function NetworkSelector() {
         <div
           role="menu"
           aria-label="Select active network"
-          className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl shadow-black/50"
+          className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-hairline bg-surface shadow-xl shadow-black/50"
         >
-          <p className="border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
+          <p className="border-b border-hairline px-3 py-2 text-xs text-faint">
             Active network — reads & transactions
           </p>
           <ul className="py-1">
@@ -82,20 +82,20 @@ export function NetworkSelector() {
                     }}
                     className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
                       isActive
-                        ? 'bg-emerald-950/40 text-emerald-300'
-                        : 'text-zinc-300 hover:bg-zinc-800/70 hover:text-zinc-100'
+                        ? 'bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                        : 'text-muted hover:bg-surface-2 hover:text-fg'
                     }`}
                   >
                     <span className="flex items-center gap-2">
                       <span
                         className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                          isActive ? 'bg-emerald-400' : 'bg-zinc-600'
+                          isActive ? 'bg-accent' : 'bg-[var(--op-faint)]'
                         }`}
                         aria-hidden="true"
                       />
                       <span className="truncate">{c.name}</span>
                     </span>
-                    <span className="shrink-0 font-mono text-xs text-zinc-500">
+                    <span className="shrink-0 font-mono text-xs text-faint">
                       {c.nativeSymbol}
                     </span>
                   </button>

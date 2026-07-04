@@ -21,14 +21,14 @@ export default function PoolsPage() {
     <div className="py-8">
       <div className="mb-6 flex items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Saved pools</h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <h1 className="text-2xl font-bold tracking-tight text-fg">Saved pools</h1>
+          <p className="mt-1 text-sm text-muted">
             Every pool you've remembered, across all networks — stored locally in
             your browser, nowhere else.
           </p>
         </div>
         {pools.length > 0 && (
-          <span className="shrink-0 text-xs text-zinc-500">
+          <span className="shrink-0 text-xs text-faint">
             {pools.length} remembered
           </span>
         )}
@@ -41,7 +41,7 @@ export default function PoolsPage() {
       )}
 
       <p className="mt-8 text-sm">
-        <Link to="/" className="text-emerald-400 hover:text-emerald-300">
+        <Link to="/" className="text-accent-ink hover:text-accent-ink">
           ← Back home
         </Link>
       </p>

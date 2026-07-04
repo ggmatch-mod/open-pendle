@@ -60,21 +60,21 @@ export function AmountInput({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <label className="text-xs text-zinc-500">{label}</label>
-        <p className="text-xs text-zinc-500">
+        <label className="text-xs text-faint">{label}</label>
+        <p className="text-xs text-faint">
           Balance:{' '}
-          <span className="text-zinc-400">
+          <span className="text-muted">
             {balance !== undefined && decimals !== undefined
               ? `${formatAmount(balance, decimals)} ${clampLabel(symbol, 16)}`
               : '—'}
           </span>
-          {balanceHint && <span className="text-zinc-600"> · {balanceHint}</span>}
+          {balanceHint && <span className="text-faint"> · {balanceHint}</span>}
         </p>
       </div>
 
       <div
-        className={`mt-1.5 flex items-center gap-2 rounded-lg border bg-zinc-950 px-3 py-2.5 focus-within:border-emerald-500 ${
-          error ? 'border-red-800' : 'border-zinc-700'
+        className={`mt-1.5 flex items-center gap-2 rounded-lg border bg-bg px-3 py-2.5 focus-within:border-accent ${
+          error ? 'border-[var(--op-danger-bd)]' : 'border-hairline-strong'
         } ${inputDisabled ? 'opacity-60' : ''}`}
       >
         <input
@@ -94,30 +94,30 @@ export function AmountInput({
             // Block anything that isn't a decimal-in-progress ('.' or ',').
             if (next === '' || /^\d*[.,]?\d*$/.test(next)) onChange(next)
           }}
-          className="min-w-0 flex-1 bg-transparent text-xl font-semibold text-zinc-100 placeholder-zinc-600 outline-none disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 bg-transparent text-xl font-semibold text-fg placeholder-[color:var(--op-faint)] outline-none disabled:cursor-not-allowed"
           aria-label={`${label} amount in ${symbol}`}
         />
-        <span className="shrink-0 text-sm font-medium text-zinc-400" title={symbol}>
+        <span className="shrink-0 text-sm font-medium text-muted" title={symbol}>
           {clampLabel(symbol, 16)}
         </span>
         <button
           type="button"
           onClick={setMax}
           disabled={inputDisabled || maxAmount === undefined}
-          className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-xs font-medium text-zinc-300 hover:border-emerald-600 hover:text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-md border border-hairline-strong px-2 py-1 text-xs font-medium text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40"
         >
           Max
         </button>
       </div>
 
       {error ? (
-        <p className="mt-1 text-xs text-red-400">{error}</p>
+        <p className="mt-1 text-xs text-danger">{error}</p>
       ) : isNative ? (
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 text-xs text-faint">
           Max leaves ~{formatUnits(gasBuffer, 18)} {clampLabel(symbol, 16)} for gas.
         </p>
       ) : decimals === undefined ? (
-        <p className="mt-1 text-xs text-amber-400/80">
+        <p className="mt-1 text-xs text-warn">
           Token metadata unavailable — cannot size amounts safely.
         </p>
       ) : null}

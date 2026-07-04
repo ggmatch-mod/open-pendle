@@ -65,14 +65,14 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+    <section className="rounded-xl border border-hairline bg-surface p-4">
       <div className="flex items-baseline gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950 text-xs font-semibold text-zinc-400">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg text-xs font-semibold text-muted">
           {step}
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-zinc-100">{title}</h2>
-          {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
+          <h2 className="text-sm font-semibold text-fg">{title}</h2>
+          {subtitle && <p className="text-xs text-faint">{subtitle}</p>}
         </div>
       </div>
       <div className="mt-3">{children}</div>
@@ -82,7 +82,7 @@ function Section({
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null
-  return <p className="mt-1 text-xs text-red-400">{msg}</p>
+  return <p className="mt-1 text-xs text-danger">{msg}</p>
 }
 
 function PercentField({
@@ -104,10 +104,10 @@ function PercentField({
 }) {
   return (
     <div>
-      <label className="text-xs text-zinc-500">{label}</label>
+      <label className="text-xs text-faint">{label}</label>
       <div
-        className={`mt-1 flex items-center gap-2 rounded-lg border bg-zinc-950 px-3 py-2 focus-within:border-emerald-500 ${
-          error ? 'border-red-800' : 'border-zinc-700'
+        className={`mt-1 flex items-center gap-2 rounded-lg border bg-bg px-3 py-2 focus-within:border-accent ${
+          error ? 'border-[var(--op-danger-bd)]' : 'border-hairline-strong'
         } ${disabled ? 'opacity-60' : ''}`}
       >
         <input
@@ -122,12 +122,12 @@ function PercentField({
             const next = e.target.value
             if (next === '' || /^\d*[.,]?\d*$/.test(next)) onChange(next)
           }}
-          className="min-w-0 flex-1 bg-transparent text-base font-medium text-zinc-100 placeholder-zinc-600 outline-none disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 bg-transparent text-base font-medium text-fg placeholder-[color:var(--op-faint)] outline-none disabled:cursor-not-allowed"
         />
-        <span className="shrink-0 text-sm text-zinc-500">%</span>
+        <span className="shrink-0 text-sm text-faint">%</span>
       </div>
       {error ? <FieldError msg={error} /> : hint ? (
-        <p className="mt-1 text-[11px] text-zinc-600">{hint}</p>
+        <p className="mt-1 text-[11px] text-faint">{hint}</p>
       ) : null}
     </div>
   )
@@ -363,15 +363,15 @@ export default function CreatePoolPage() {
 
   return (
     <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-zinc-400 hover:text-zinc-200">
+      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
         ← Home
       </Link>
 
       <header>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-100 sm:text-2xl">
+        <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">
           Create a community pool
         </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-zinc-400">
+        <p className="mt-1.5 max-w-2xl text-sm text-muted">
           Deploy a Pendle V2 market for an existing SY and seed its first
           liquidity — one transaction through Pendle's canonical{' '}
           <span className="font-mono text-xs">commonDeploy</span> helper. You can
@@ -397,20 +397,20 @@ export default function CreatePoolPage() {
           spellCheck={false}
           autoComplete="off"
           disabled={inputsFrozen}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500 disabled:opacity-60"
+          className="w-full rounded-lg border border-hairline-strong bg-bg px-3 py-2.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent disabled:opacity-60"
         />
         <div aria-live="polite" className="mt-2 min-h-5 text-xs">
           {syMeta.status === 'loading' && (
-            <span className="text-zinc-500">checking SY on-chain…</span>
+            <span className="text-faint">checking SY on-chain…</span>
           )}
           {syMeta.status === 'error' && (
-            <span className="text-red-400">
+            <span className="text-danger">
               That address doesn't implement IStandardizedYield (no
               name/symbol/getTokensIn). Paste an SY contract.
             </span>
           )}
           {syMeta.status === 'success' && syMeta.meta && (
-            <span className="text-emerald-400">
+            <span className="text-accent-ink">
               Valid SY: {clampLabel(syMeta.meta.name)} (
               {clampLabel(syMeta.meta.symbol)}) · {syMeta.meta.decimals} decimals ·{' '}
               {syMeta.meta.seedTokens.length} seedable token
@@ -418,11 +418,11 @@ export default function CreatePoolPage() {
             </span>
           )}
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-zinc-600">
+        <p className="mt-2 text-[11px] leading-snug text-faint">
           Need an SY first?{' '}
           <Link
             to="/create-sy"
-            className="text-emerald-400 underline decoration-emerald-900 underline-offset-2 hover:text-emerald-300"
+            className="text-accent-ink underline decoration-[rgba(var(--op-accent-rgb),0.5)] underline-offset-2 hover:text-accent-ink"
           >
             Create one in the SY-adapter wizard →
           </Link>
@@ -437,37 +437,37 @@ export default function CreatePoolPage() {
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div>
-            <label className="text-xs text-zinc-500">Maturity date (UTC)</label>
+            <label className="text-xs text-faint">Maturity date (UTC)</label>
             <input
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500 disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block rounded-lg border border-hairline-strong bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-60 [color-scheme:dark]"
             />
           </div>
           <button
             type="button"
             onClick={() => setExpiryDate(unixToDateInput(nextThursdayUtc()))}
             disabled={inputsFrozen}
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:border-emerald-700 hover:text-emerald-400 disabled:opacity-50"
+            className="rounded-lg border border-hairline-strong px-3 py-2 text-xs text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:opacity-50"
           >
             Next Thursday
           </button>
         </div>
         {expiryUnix !== undefined && (
-          <div className="mt-2.5 rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs">
-            <p className="text-zinc-300">
+          <div className="mt-2.5 rounded-md border border-hairline bg-bg-2 px-3 py-2 text-xs">
+            <p className="text-muted">
               Expiry: <span className="font-medium">{formatUtcDateTime(expiryUnix)}</span>{' '}
-              <span className="text-zinc-500">
+              <span className="text-faint">
                 ({daysToExpiry(expiryUnix)} days from now · unix {expiryUnix})
               </span>
             </p>
             {!expiryInFuture && (
-              <p className="mt-1 text-red-400">Expiry must be in the future.</p>
+              <p className="mt-1 text-danger">Expiry must be in the future.</p>
             )}
             {expiryInFuture && !expiryAligned && (
-              <p className="mt-1 text-amber-400/90">
+              <p className="mt-1 text-warn">
                 Snapped to the {expiryDivisor}s boundary required by the factory.
               </p>
             )}
@@ -540,17 +540,17 @@ export default function CreatePoolPage() {
         subtitle="Seeds the pool with an initial position. You receive LP plus YT."
       >
         {syMeta.status !== 'success' ? (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-faint">
             Enter a valid SY above to choose a seed token.
           </p>
         ) : (
           <>
-            <label className="text-xs text-zinc-500">Seed token</label>
+            <label className="text-xs text-faint">Seed token</label>
             <select
               value={activeSeedToken ? `${activeSeedToken.address}:${activeSeedToken.isSy}` : ''}
               onChange={(e) => setSeedTokenAddr(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500 disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block w-full rounded-lg border border-hairline-strong bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-60 [color-scheme:dark]"
             >
               {seedTokens.map((t) => (
                 <option key={`${t.address}:${t.isSy}`} value={`${t.address}:${t.isSy}`}>
@@ -574,7 +574,7 @@ export default function CreatePoolPage() {
                 balanceHint="seed small first, top up later"
               />
             </div>
-            <p className="mt-2 text-[11px] leading-snug text-zinc-600">
+            <p className="mt-2 text-[11px] leading-snug text-faint">
               Pendle's guidance: seed a small amount (under ~$10), confirm the
               pool trades, then add liquidity from the pool page.
             </p>
@@ -597,7 +597,7 @@ export default function CreatePoolPage() {
         subtitle="One transaction: approve the seed token, then create and seed the pool."
       >
         {flow.phase === 'confirmed' ? (
-          <p className="text-xs text-emerald-300">
+          <p className="text-xs text-accent-ink">
             Deployed — see the success card above. Use “Done” to reset the wizard.
           </p>
         ) : null}

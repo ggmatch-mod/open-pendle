@@ -28,12 +28,12 @@ function Stat({
 }) {
   return (
     <div
-      className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
+      className="rounded-xl border border-hairline bg-surface p-4"
       title={title}
     >
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-100">{children}</p>
-      {sub !== undefined && <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>}
+      <p className="text-xs text-faint">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-fg">{children}</p>
+      {sub !== undefined && <p className="mt-0.5 text-xs text-faint">{sub}</p>}
     </div>
   )
 }
@@ -48,10 +48,10 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
       {metrics.nearRangeEdge && (
         <div
           role="status"
-          className="rounded-xl border border-amber-900/60 bg-amber-950/40 p-4"
+          className="rounded-xl border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-4"
         >
-          <p className="text-sm font-medium text-amber-300">Near rate-range edge</p>
-          <p className="mt-1 text-xs leading-relaxed text-amber-200/70">
+          <p className="text-sm font-medium text-warn">Near rate-range edge</p>
+          <p className="mt-1 text-xs leading-relaxed text-warn">
             This pool is near the edge of its immutable rate range — trading may
             be constrained or one-sided.
           </p>
@@ -80,7 +80,7 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
 
         <Stat label="TVL" sub={`in ${assetSymbol} terms`}>
           {formatCompact(metrics.tvlAsset)}{' '}
-          <span className="text-sm font-normal text-zinc-400">{assetSymbol}</span>
+          <span className="text-sm font-normal text-muted">{assetSymbol}</span>
         </Stat>
 
         <Stat
@@ -88,7 +88,7 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
           sub={
             isExpired ? (
               <>
-                <span className="text-zinc-400">Matured</span> ·{' '}
+                <span className="text-muted">Matured</span> ·{' '}
                 {formatRelative(expiry)}
               </>
             ) : (
@@ -104,9 +104,9 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
         <Stat
           label="PT proportion"
           sub={
-            <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+            <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
               <span
-                className="block h-full rounded-full bg-emerald-600/80"
+                className="block h-full rounded-full bg-accent/80"
                 style={{ width: `${proportionPct}%` }}
               />
             </span>

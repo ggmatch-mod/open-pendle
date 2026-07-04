@@ -17,11 +17,11 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
   if (!snapshot.validated) {
     return (
       <div className="max-w-56">
-        <label className="flex cursor-not-allowed select-none items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-zinc-500">
+        <label className="flex cursor-not-allowed select-none items-center gap-2.5 rounded-xl border border-hairline bg-surface px-4 py-2.5 text-faint">
           <input type="checkbox" checked={false} disabled readOnly className="h-4 w-4" />
           <span className="text-sm font-medium">Remember this pool</span>
         </label>
-        <p className="mt-1.5 text-xs text-zinc-500">
+        <p className="mt-1.5 text-xs text-faint">
           unvalidated markets can't be remembered
         </p>
       </div>
@@ -33,8 +33,8 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
       <label
         className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-4 py-2.5 transition ${
           saved
-            ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
-            : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-emerald-800 hover:text-zinc-100'
+            ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+            : 'border-hairline-strong bg-surface text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-fg'
         }`}
       >
         <input
@@ -44,7 +44,7 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
             if (e.target.checked) save(snapshot)
             else forget(snapshot.address)
           }}
-          className="h-4 w-4 accent-emerald-500"
+          className="h-4 w-4 accent-[var(--op-accent)]"
         />
         <span className="text-sm font-medium">
           {saved ? 'Remembered' : 'Remember this pool'}
@@ -52,13 +52,13 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
       </label>
       {/* Nudge for pool creators — incentivize this pool's LPs via Merkl (v1.5
           will surface active campaigns in-app; for now this deep-links out). */}
-      <p className="mt-1.5 text-xs text-zinc-500">
+      <p className="mt-1.5 text-xs text-faint">
         Is this your Pool? You can add incentives over at{' '}
         <a
           href="https://studio.merkl.xyz/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-emerald-400 underline decoration-dotted underline-offset-2 hover:text-emerald-300"
+          className="text-accent-ink underline decoration-dotted underline-offset-2 hover:text-accent-ink"
         >
           Merkl
         </a>

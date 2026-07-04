@@ -80,7 +80,7 @@ export function SlippageControl({
             ? 'Locked while a transaction is in flight'
             : 'Slippage & approval settings'
         }
-        className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-zinc-800 disabled:hover:bg-transparent disabled:hover:text-zinc-400"
+        className="flex items-center gap-1.5 rounded-md border border-hairline px-2.5 py-1.5 text-xs text-muted hover:border-hairline-strong hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-hairline disabled:hover:bg-transparent disabled:hover:text-muted"
       >
         <span aria-hidden>⚙</span>
         {formatPercent(slippage)} slippage
@@ -96,10 +96,10 @@ export function SlippageControl({
         <div
           role="dialog"
           aria-label="Transaction settings"
-          className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-hairline bg-surface p-4 shadow-xl shadow-black/50"
         >
-          <h3 className="text-sm font-semibold text-zinc-100">Slippage tolerance</h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <h3 className="text-sm font-semibold text-fg">Slippage tolerance</h3>
+          <p className="mt-1 text-xs text-faint">
             Min received = quote × (1 − slippage). The transaction reverts if the
             outcome would be worse.
           </p>
@@ -114,20 +114,20 @@ export function SlippageControl({
                 }}
                 className={`rounded-md border px-2.5 py-1.5 text-xs font-medium ${
                   slippage === p
-                    ? 'border-emerald-600 bg-emerald-950/60 text-emerald-300'
-                    : 'border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                    ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                    : 'border-hairline-strong text-muted hover:border-hairline-strong'
                 }`}
               >
                 {formatPercent(p)}
               </button>
             ))}
             <div
-              className={`flex flex-1 items-center rounded-md border bg-zinc-950 px-2 py-1.5 focus-within:border-emerald-500 ${
+              className={`flex flex-1 items-center rounded-md border bg-bg px-2 py-1.5 focus-within:border-accent ${
                 customInvalid
-                  ? 'border-red-800'
+                  ? 'border-[var(--op-danger-bd)]'
                   : !isPreset
-                    ? 'border-emerald-600'
-                    : 'border-zinc-700'
+                    ? 'border-[rgba(var(--op-accent-rgb),0.4)]'
+                    : 'border-hairline-strong'
               }`}
             >
               <input
@@ -136,20 +136,20 @@ export function SlippageControl({
                 value={customText}
                 onChange={(e) => applyCustom(e.target.value)}
                 placeholder="custom"
-                className="w-full min-w-0 bg-transparent text-right text-xs text-zinc-200 placeholder-zinc-600 outline-none"
+                className="w-full min-w-0 bg-transparent text-right text-xs text-fg placeholder-[color:var(--op-faint)] outline-none"
                 aria-label="Custom slippage percent"
               />
-              <span className="ml-1 text-xs text-zinc-500">%</span>
+              <span className="ml-1 text-xs text-faint">%</span>
             </div>
           </div>
           {customInvalid && (
-            <p className="mt-1 text-xs text-red-400">Enter 0–50 (percent).</p>
+            <p className="mt-1 text-xs text-danger">Enter 0–50 (percent).</p>
           )}
 
-          <div className="mt-4 border-t border-zinc-800 pt-3.5">
+          <div className="mt-4 border-t border-hairline pt-3.5">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-zinc-100">Approvals</h3>
-              <div className="inline-flex rounded-md border border-zinc-700 p-0.5">
+              <h3 className="text-sm font-semibold text-fg">Approvals</h3>
+              <div className="inline-flex rounded-md border border-hairline-strong p-0.5">
                 {(['exact', 'infinite'] as const).map((mode) => (
                   <button
                     key={mode}
@@ -158,9 +158,9 @@ export function SlippageControl({
                     className={`rounded px-2 py-1 text-xs font-medium ${
                       approvalMode === mode
                         ? mode === 'infinite'
-                          ? 'bg-amber-950/70 text-amber-300'
-                          : 'bg-emerald-950/70 text-emerald-300'
-                        : 'text-zinc-400 hover:text-zinc-200'
+                          ? 'bg-[var(--op-warn-soft)] text-warn'
+                          : 'bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                        : 'text-muted hover:text-fg'
                     }`}
                   >
                     {mode === 'exact' ? 'Exact' : 'Unlimited'}
@@ -168,10 +168,10 @@ export function SlippageControl({
                 ))}
               </div>
             </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
-              <span className="text-zinc-400">Exact</span> approves only the amount
+            <p className="mt-1.5 text-xs leading-relaxed text-faint">
+              <span className="text-muted">Exact</span> approves only the amount
               being traded — worst-case loss is capped, at the cost of one approval
-              tx per action. <span className="text-zinc-400">Unlimited</span> saves
+              tx per action. <span className="text-muted">Unlimited</span> saves
               gas on repeat actions but leaves the contract approved to spend this
               token forever; revoke it yourself if the SY turns out to be hostile.
             </p>

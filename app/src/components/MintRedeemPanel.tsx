@@ -198,7 +198,7 @@ export function MintRedeemPanel({
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+        <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
           {(
             [
               ['mint', 'Mint PT + YT'],
@@ -215,8 +215,8 @@ export function MintRedeemPanel({
               }}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 direction === dir
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-surface-2 text-fg'
+                  : 'text-muted hover:text-fg'
               }`}
             >
               {label}
@@ -224,7 +224,7 @@ export function MintRedeemPanel({
           ))}
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-zinc-500">
+        <label className="flex items-center gap-2 text-xs text-faint">
           {direction === 'mint' ? 'Mint from' : 'Redeem to'}
           <select
             value={choiceIsSy ? SY_CHOICE : token}
@@ -233,7 +233,7 @@ export function MintRedeemPanel({
               setChoiceByDir((prev) => ({ ...prev, [direction]: e.target.value }))
               setAmountText('')
             }}
-            className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-hairline-strong bg-bg px-2.5 py-1.5 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value={SY_CHOICE}>{clampLabel(sy.symbol, 24)} (SY)</option>
             {tokenList.map((t) => {
@@ -248,8 +248,8 @@ export function MintRedeemPanel({
         </label>
       </div>
 
-      <p className="text-xs leading-relaxed text-zinc-500">
-        Minting splits SY into <span className="text-zinc-300">equal amounts of PT and YT</span>;
+      <p className="text-xs leading-relaxed text-faint">
+        Minting splits SY into <span className="text-muted">equal amounts of PT and YT</span>;
         redeeming recombines them 1:1 back into SY.
       </p>
 

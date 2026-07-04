@@ -36,16 +36,16 @@ function Spinner() {
   return (
     <span
       aria-hidden
-      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-100"
+      className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-hairline-strong border-t-fg"
     />
   )
 }
 
 const BASE =
   'flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors'
-const PRIMARY = `${BASE} bg-emerald-600 text-white hover:bg-emerald-500`
-const DISABLED = `${BASE} cursor-not-allowed bg-zinc-800 text-zinc-500`
-const BUSY = `${BASE} cursor-wait bg-zinc-800 text-zinc-300`
+const PRIMARY = `${BASE} bg-accent text-white hover:brightness-110`
+const DISABLED = `${BASE} cursor-not-allowed bg-surface-2 text-faint`
+const BUSY = `${BASE} cursor-wait bg-surface-2 text-muted`
 
 export function TxButton({
   flow,
@@ -92,7 +92,7 @@ export function TxButton({
           type="button"
           onClick={() => switchChain({ chainId: activeChainId })}
           disabled={isSwitching}
-          className={`${BASE} bg-amber-600 text-white hover:bg-amber-500 disabled:cursor-wait disabled:opacity-70`}
+          className={`${BASE} bg-warn text-white hover:bg-warn disabled:cursor-wait disabled:opacity-70`}
         >
           {isSwitching && <Spinner />}
           Switch to {activeChain.name}
@@ -145,7 +145,7 @@ export function TxButton({
         <button
           type="button"
           onClick={onDone}
-          className={`${BASE} border border-emerald-700 bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900/60`}
+          className={`${BASE} border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink hover:bg-[rgba(var(--op-accent-rgb),0.12)]`}
         >
           Done
         </button>
@@ -155,7 +155,7 @@ export function TxButton({
         <button
           type="button"
           onClick={onRetry ?? flow.reset}
-          className={`${BASE} border border-amber-800 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50`}
+          className={`${BASE} border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] text-warn hover:bg-amber-900/50`}
         >
           Retry
         </button>

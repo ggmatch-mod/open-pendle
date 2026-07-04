@@ -39,16 +39,16 @@ function AddressRow({
   chainId: SupportedChainId
 }) {
   return (
-    <div className="rounded-lg border border-emerald-800 bg-emerald-950/50 p-3">
-      <p className="text-xs text-emerald-200/80">{label}</p>
-      <p className="mt-0.5 break-all font-mono text-sm text-emerald-100" title={address}>
+    <div className="rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] p-3">
+      <p className="text-xs text-accent-ink/80">{label}</p>
+      <p className="mt-0.5 break-all font-mono text-sm text-fg" title={address}>
         {address}
       </p>
       <a
         href={explorerAddressUrl(chainId, address)}
         target="_blank"
         rel="noreferrer"
-        className="mt-1.5 inline-block text-xs text-emerald-300/80 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
+        className="mt-1.5 inline-block text-xs text-accent-ink/80 underline decoration-[rgba(var(--op-accent-rgb),0.5)] underline-offset-2 hover:text-accent-ink"
       >
         View on {explorerName(chainId)} ↗
       </a>
@@ -98,23 +98,23 @@ export function SyDeploySuccess({
   const combined = result?.market !== undefined
 
   return (
-    <section className="rounded-xl border border-emerald-700 bg-emerald-950/40 p-5">
+    <section className="rounded-xl border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] p-5">
       <div className="flex items-center gap-2">
         <span className="text-lg" aria-hidden>
           ✓
         </span>
-        <h2 className="text-base font-semibold text-emerald-200">
+        <h2 className="text-base font-semibold text-accent-ink">
           {combined ? 'SY and pool deployed' : 'SY deployed'}
         </h2>
       </div>
 
-      <p className="mt-2 text-xs text-emerald-200/80">
+      <p className="mt-2 text-xs text-accent-ink/80">
         Your deploy transaction confirmed:{' '}
         <a
           href={explorerTxUrl(chainId, txHash)}
           target="_blank"
           rel="noreferrer"
-          className="font-mono text-emerald-300 underline decoration-emerald-800 underline-offset-2 hover:text-emerald-200"
+          className="font-mono text-accent-ink underline decoration-[rgba(var(--op-accent-rgb),0.5)] underline-offset-2 hover:text-accent-ink"
         >
           {txHash.slice(0, 10)}…{txHash.slice(-6)} ↗
         </a>
@@ -132,7 +132,7 @@ export function SyDeploySuccess({
           )}
 
           {upgradeable && (
-            <p className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-amber-200/90">
+            <p className="rounded-md border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-warn">
               This SY is a TransparentUpgradeableProxy under Pendle's proxyAdmin.
               Its implementation can be upgraded by Pendle governance — disclose
               this to anyone using the pool.
@@ -143,28 +143,28 @@ export function SyDeploySuccess({
             {result.market ? (
               <Link
                 to={`/market/${result.market}`}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
               >
                 Open the pool →
               </Link>
             ) : (
               <Link
                 to={`/create?sy=${result.sy}`}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
               >
                 Create a pool for this SY →
               </Link>
             )}
           </div>
-          <p className="text-[11px] text-emerald-300/70">
+          <p className="text-[11px] text-accent-ink/70">
             {result.market
               ? 'Opening the pool loads it live — tick “Remember this pool” there to save it to your local registry.'
               : 'This SY has no market yet. Create one to make it tradeable; the create wizard opens with the SY prefilled.'}
           </p>
         </div>
       ) : decodeFailed ? (
-        <div className="mt-3 rounded-lg border border-amber-800/60 bg-amber-950/30 p-3">
-          <p className="text-xs text-amber-200/90">
+        <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-amber-950/30 p-3">
+          <p className="text-xs text-warn">
             The transaction confirmed, but the deployed address couldn't be read
             from the receipt automatically. Open the transaction on{' '}
             {explorerName(chainId)} (link above) to find the new SY (and market)
@@ -172,7 +172,7 @@ export function SyDeploySuccess({
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-xs text-emerald-200/70">
+        <p className="mt-3 text-xs text-accent-ink/70">
           Reading the new SY address from the receipt…
         </p>
       )}

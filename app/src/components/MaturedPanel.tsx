@@ -118,13 +118,13 @@ function TokenSelect({
   disabled: boolean
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-zinc-500">
+    <label className="flex items-center gap-2 text-xs text-faint">
       {label}
       <select
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md border border-hairline-strong bg-bg px-2.5 py-1.5 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         <option value={SY_CHOICE}>{clampLabel(sySymbol, 24)} (SY)</option>
         {tokens.map((t) => {
@@ -168,8 +168,8 @@ function LegacyCantRedeemNotice({
     vintage !== 'active'
   if (!show) return null
   return (
-    <div className="rounded-lg border border-amber-800 bg-amber-950/50 px-3 py-2.5 text-xs leading-relaxed text-amber-200/90">
-      <span className="font-semibold text-amber-300">Legacy market:</span> This
+    <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2.5 text-xs leading-relaxed text-warn">
+      <span className="font-semibold text-warn">Legacy market:</span> This
       legacy market couldn't be redeemed through OpenPendle — its rescue paths
       are out of scope. Nothing was sent.
     </div>
@@ -186,11 +186,11 @@ function DepegBanner({
 }) {
   if (info === undefined || !info.depegged) return null
   return (
-    <div role="alert" className="mt-3 rounded-xl border border-amber-700 bg-amber-950/60 p-4">
-      <p className="text-sm font-semibold text-amber-300">
+    <div role="alert" className="mt-3 rounded-xl border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-4">
+      <p className="text-sm font-semibold text-warn">
         SY exchange rate below the redemption index
       </p>
-      <p className="mt-1.5 text-xs leading-relaxed text-amber-200/90">
+      <p className="mt-1.5 text-xs leading-relaxed text-warn">
         The SY's live exchange rate has fallen below the redemption index —
         each PT still redeems at the stored index, but the SY you receive is
         worth less than 1 {assetLabel} when unwrapped. Value the output via
@@ -340,7 +340,7 @@ function RedeemPtSection({
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <h3 className="text-sm font-semibold text-zinc-100">Redeem PT</h3>
+        <h3 className="text-sm font-semibold text-fg">Redeem PT</h3>
         <TokenSelect
           label="Redeem to"
           value={choiceIsSy ? SY_CHOICE : choice}
@@ -409,7 +409,7 @@ function RedeemPtSection({
             : undefined
         }
       />
-      <p className="text-[11px] leading-snug text-zinc-600">
+      <p className="text-[11px] leading-snug text-faint">
         No YT needed after maturity.
       </p>
     </div>
@@ -594,7 +594,7 @@ function ExitLpSection({
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <h3 className="text-sm font-semibold text-zinc-100">Exit LP</h3>
+        <h3 className="text-sm font-semibold text-fg">Exit LP</h3>
         <TokenSelect
           label="Receive"
           value={choiceIsSy ? SY_CHOICE : choice}
@@ -606,7 +606,7 @@ function ExitLpSection({
         />
       </div>
 
-      <p className="text-xs leading-relaxed text-zinc-500">
+      <p className="text-xs leading-relaxed text-faint">
         One transaction: burns your LP and redeems the PT — no swap, no price
         impact.
       </p>
@@ -628,11 +628,11 @@ function ExitLpSection({
           checked={includePt}
           disabled={inputsFrozen || positions === undefined || loosePt === 0n}
           onChange={(e) => setIncludePt(e.target.checked)}
-          className="mt-0.5 accent-emerald-500 disabled:cursor-not-allowed"
+          className="mt-0.5 accent-[var(--op-accent)] disabled:cursor-not-allowed"
         />
         <span className="leading-snug">
-          <span className="font-medium text-zinc-300">Include my loose PT</span>{' '}
-          <span className="text-zinc-600">
+          <span className="font-medium text-muted">Include my loose PT</span>{' '}
+          <span className="text-faint">
             — folds your wallet PT (
             {positions !== undefined
               ? `${formatAmount(loosePt, sy.assetDecimals)} ${clampLabel(ptSymbol, 16)}`
@@ -642,10 +642,10 @@ function ExitLpSection({
         </span>
       </label>
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 text-xs">
+      <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5 text-xs">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">SY from LP burn</span>
-          <span className="font-medium text-zinc-200">
+          <span className="text-faint">SY from LP burn</span>
+          <span className="font-medium text-fg">
             {previewValue(
               preview !== undefined
                 ? `${formatAmount(preview.syFromLpBurn, sy.decimals)} SY`
@@ -654,16 +654,16 @@ function ExitLpSection({
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">
+          <span className="text-faint">
             PT redeemed at index
             {preview !== undefined && preview.ptIncluded > 0n && (
-              <span className="text-zinc-600">
+              <span className="text-faint">
                 {' '}
                 (incl. {formatAmount(preview.ptIncluded, sy.assetDecimals)} loose)
               </span>
             )}
           </span>
-          <span className="font-medium text-zinc-200">
+          <span className="font-medium text-fg">
             {previewValue(
               preview !== undefined && ptRedeemed !== undefined
                 ? `${formatAmount(ptRedeemed, sy.assetDecimals)} PT → ${formatAmount(preview.syFromPtRedeem, sy.decimals)} SY`
@@ -671,9 +671,9 @@ function ExitLpSection({
             )}
           </span>
         </div>
-        <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-zinc-800/80 pt-1">
-          <span className="text-zinc-400">Total SY out</span>
-          <span className="font-semibold text-zinc-100">
+        <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-hairline pt-1">
+          <span className="text-muted">Total SY out</span>
+          <span className="font-semibold text-fg">
             {previewValue(
               preview !== undefined
                 ? `${formatAmount(preview.totalSyOut, sy.decimals)} ${clampLabel(sy.symbol, 16)}`
@@ -684,12 +684,12 @@ function ExitLpSection({
 
         {!choiceIsSy && outDecimals !== undefined && (
           <div className="mt-1 flex items-baseline justify-between gap-3">
-            <span className="text-zinc-500">After unwrap</span>
-            <span className="font-medium text-zinc-200">
+            <span className="text-faint">After unwrap</span>
+            <span className="font-medium text-fg">
               {unwrapLoading ? (
-                <span className="text-zinc-500">…</span>
+                <span className="text-faint">…</span>
               ) : unwrapUnavailable ? (
-                <span className="text-amber-400/90">quote unavailable</span>
+                <span className="text-warn">quote unavailable</span>
               ) : tokenEstimate !== undefined ? (
                 `${formatAmount(tokenEstimate, outDecimals)} ${clampLabel(outSymbol, 16)}`
               ) : (
@@ -700,16 +700,16 @@ function ExitLpSection({
         )}
 
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">
+          <span className="text-faint">
             {/* Label must match the slippage actually applied to the shown
                 min-out: the SY path uses the capped index-drift slippage; the
                 token path (previewRedeem can move more) uses full slippage. */}
             Min after {formatPercent(choiceIsSy ? effectiveSlippage : fullSlippage)} slippage
             {choiceIsSy && capped && (
-              <span className="text-zinc-500"> (capped — index drift only)</span>
+              <span className="text-faint"> (capped — index drift only)</span>
             )}
           </span>
-          <span className="text-zinc-400">
+          <span className="text-muted">
             {choiceIsSy
               ? minSyOut !== undefined
                 ? `${formatAmount(minSyOut, sy.decimals)} ${clampLabel(sy.symbol, 16)}`
@@ -720,15 +720,15 @@ function ExitLpSection({
           </span>
         </div>
 
-        <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+        <p className="mt-1.5 text-[11px] leading-snug text-faint">
           Exact — pro-rata LP burn plus PT redemption at the stored index; no
           swap anywhere. The binding number is simulated before you confirm.
         </p>
       </div>
 
       {previewUnavailable && previewError && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-          <span className="font-semibold text-amber-300">Preview failed:</span>{' '}
+        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+          <span className="font-semibold text-warn">Preview failed:</span>{' '}
           {previewError}
         </div>
       )}
@@ -802,15 +802,15 @@ export function MaturedPanel({
   const showClaimPointer = isConnected && (positions === undefined || hasClaimables)
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="rounded-xl border border-hairline bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-base font-semibold text-zinc-100">Matured market</h2>
+          <h2 className="text-base font-semibold text-fg">Matured market</h2>
         </div>
         <SlippageControl disabled={flowBusy} />
       </div>
 
-      <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+      <p className="mt-2 text-xs leading-relaxed text-faint">
         This market has matured. Swaps, minting and adding liquidity are
         disabled by the protocol. PT redeems 1:1 for the accounting asset; YT
         no longer accrues — any residual interest and rewards remain
@@ -828,7 +828,7 @@ export function MaturedPanel({
           siblingBusy={exitBusy}
         />
 
-        <div className="border-t border-zinc-800 pt-4">
+        <div className="border-t border-hairline pt-4">
           <ExitLpSection
             snapshot={snapshot}
             positions={positions}
@@ -839,11 +839,11 @@ export function MaturedPanel({
         </div>
 
         {showClaimPointer && (
-          <div className="border-t border-zinc-800 pt-4">
-            <h3 className="text-sm font-semibold text-zinc-100">Claimables</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
+          <div className="border-t border-hairline pt-4">
+            <h3 className="text-sm font-semibold text-fg">Claimables</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-faint">
               Residual interest &amp; rewards are in{' '}
-              <span className="text-zinc-300">Your positions</span> above —
+              <span className="text-muted">Your positions</span> above —
               claim from there.
             </p>
           </div>

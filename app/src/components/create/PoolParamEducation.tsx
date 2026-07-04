@@ -47,39 +47,39 @@ function BandBar({
     <div className="mt-3">
       <div className="relative h-10">
         {/* the band track */}
-        <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-900/40 via-emerald-700/40 to-emerald-900/40 ring-1 ring-inset ring-emerald-800/60" />
+        <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-gradient-to-r from-[rgba(var(--op-accent-rgb),0.15)] via-[rgba(var(--op-accent-rgb),0.32)] to-[rgba(var(--op-accent-rgb),0.15)] ring-1 ring-inset ring-[rgba(var(--op-accent-rgb),0.4)]" />
         {/* desired marker */}
         <div
           className="absolute top-0 flex -translate-x-1/2 flex-col items-center"
           style={{ left: leftPct }}
         >
           <div
-            className={`h-6 w-0.5 ${inBand ? 'bg-emerald-300' : 'bg-red-400'}`}
+            className={`h-6 w-0.5 ${inBand ? 'bg-accent' : 'bg-danger'}`}
             aria-hidden
           />
           <span
             className={`mt-0.5 whitespace-nowrap text-[10px] font-semibold ${
-              inBand ? 'text-emerald-300' : 'text-red-400'
+              inBand ? 'text-accent-ink' : 'text-danger'
             }`}
           >
             {pct(desiredFrac)}
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between text-[11px] text-zinc-400">
+      <div className="flex items-center justify-between text-[11px] text-muted">
         <span>
-          <span className="text-zinc-500">min </span>
+          <span className="text-faint">min </span>
           {pct(minFrac)}
         </span>
-        <span className="text-zinc-500">immutable trading range</span>
+        <span className="text-faint">immutable trading range</span>
         <span>
-          <span className="text-zinc-500">max </span>
+          <span className="text-faint">max </span>
           {pct(maxFrac)}
         </span>
       </div>
-      <div className="mt-2 rounded-md border border-zinc-800 bg-zinc-950/60 px-2.5 py-1.5 text-[11px] text-zinc-400">
+      <div className="mt-2 rounded-md border border-hairline bg-bg-2 px-2.5 py-1.5 text-[11px] text-muted">
         Launch PT proportion:{' '}
-        <span className="font-medium text-zinc-200">
+        <span className="font-medium text-fg">
           {proportion !== undefined ? pct(proportion) : 'computed on preview'}
         </span>{' '}
         of the pool starts as PT.
@@ -91,10 +91,10 @@ function BandBar({
 function DerivedRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-xs text-zinc-500" title={hint}>
+      <span className="text-xs text-faint" title={hint}>
         {label}
       </span>
-      <span className="font-mono text-xs text-zinc-300">{value}</span>
+      <span className="font-mono text-xs text-muted">{value}</span>
     </div>
   )
 }
@@ -122,8 +122,8 @@ export function PoolParamEducation({
     maxFrac > minFrac
 
   return (
-    <section className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
-      <h2 className="text-sm font-semibold text-emerald-300">
+    <section className="rounded-xl border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] p-4">
+      <h2 className="text-sm font-semibold text-accent-ink">
         Read this before you deploy
       </h2>
 
@@ -135,14 +135,14 @@ export function PoolParamEducation({
           proportion={derived?.initialProportion}
         />
       ) : (
-        <p className="mt-3 rounded-md border border-dashed border-zinc-800 bg-zinc-950/50 px-3 py-4 text-center text-xs text-zinc-500">
+        <p className="mt-3 rounded-md border border-dashed border-hairline bg-bg/50 px-3 py-4 text-center text-xs text-faint">
           Enter a rate band and a launch APY to see the immutable trading range.
         </p>
       )}
 
-      <div className="mt-4 space-y-2.5 text-xs leading-relaxed text-emerald-100/80">
+      <div className="mt-4 space-y-2.5 text-xs leading-relaxed text-fg/80">
         <p>
-          <span className="font-semibold text-amber-300">
+          <span className="font-semibold text-warn">
             This rate band is PERMANENT.
           </span>{' '}
           If the pool's implied APY ever leaves the range above, the pool goes
@@ -151,24 +151,24 @@ export function PoolParamEducation({
           never be changed.
         </p>
         <p>
-          <span className="font-semibold text-emerald-300">
+          <span className="font-semibold text-accent-ink">
             Seeding mints PT + YT and gives you the LP plus the YT.
           </span>{' '}
           You'll be long yield until you sell the YT — the YT lands in your
           wallet alongside the LP position. That's expected; it's how the seed
           liquidity is created.
         </p>
-        <p className="text-emerald-200/60">
+        <p className="text-accent-ink/60">
           Pendle's own guidance: seed a small amount first (under ~$10), confirm
           the pool lists and trades, then top up liquidity from the pool page.
         </p>
       </div>
 
-      <details className="group mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50">
-        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200">
+      <details className="group mt-3 rounded-lg border border-hairline bg-bg/50">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted hover:text-fg">
           Advanced: derived on-chain parameters
         </summary>
-        <div className="border-t border-zinc-800 px-3 py-2">
+        <div className="border-t border-hairline px-3 py-2">
           {derived ? (
             <>
               <DerivedRow
@@ -190,13 +190,13 @@ export function PoolParamEducation({
                 label="years to expiry"
                 value={derived.yearsToExpiry.toFixed(4)}
               />
-              <p className="mt-2 text-[11px] leading-snug text-zinc-600">
+              <p className="mt-2 text-[11px] leading-snug text-faint">
                 These are a client-side floating-point mirror for preview only.
                 The deploy transaction recomputes them on-chain from your inputs.
               </p>
             </>
           ) : (
-            <p className="py-1 text-xs text-zinc-500">
+            <p className="py-1 text-xs text-faint">
               Derived parameters appear once the live preview computes them from
               a complete, valid configuration.
             </p>

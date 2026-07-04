@@ -30,20 +30,20 @@ export function DegradedBanner({
     <div
       role="status"
       className={`rounded-xl border p-4 ${
-        legacy ? 'border-amber-900/60 bg-amber-950/40' : 'border-zinc-700 bg-zinc-900/70'
+        legacy ? 'border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)]' : 'border-hairline-strong bg-surface/70'
       }`}
     >
-      <p className={`text-sm font-medium ${legacy ? 'text-amber-300' : 'text-zinc-200'}`}>
+      <p className={`text-sm font-medium ${legacy ? 'text-warn' : 'text-fg'}`}>
         {legacy ? 'Legacy market — limited support' : 'Some data unavailable'}
       </p>
-      <p className={`mt-1 text-xs ${legacy ? 'text-amber-200/70' : 'text-zinc-400'}`}>
+      <p className={`mt-1 text-xs ${legacy ? 'text-warn' : 'text-muted'}`}>
         {legacy
           ? 'Some on-chain probes failed, so parts of this page are incomplete. Older market generations load best-effort:'
           : 'Some on-chain probes failed, so parts of this page are incomplete:'}
       </p>
       <ul
         className={`mt-2 list-inside list-disc space-y-0.5 text-xs ${
-          legacy ? 'text-amber-200/80' : 'text-zinc-400'
+          legacy ? 'text-warn' : 'text-muted'
         }`}
       >
         {degraded.map((item) => (

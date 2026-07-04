@@ -44,18 +44,18 @@ function useFirstVisit(market: Address): boolean {
 
 function TrustRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-zinc-800 py-2.5 last:border-b-0">
-      <span className="text-sm text-zinc-400">{label}</span>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-hairline py-2.5 last:border-b-0">
+      <span className="text-sm text-muted">{label}</span>
       <span className="text-right text-sm">{children}</span>
     </div>
   )
 }
 
 const tone = {
-  good: 'text-emerald-400',
-  warn: 'text-amber-400',
-  bad: 'text-red-400',
-  neutral: 'text-zinc-300',
+  good: 'text-accent-ink',
+  warn: 'text-warn',
+  bad: 'text-danger',
+  neutral: 'text-muted',
 } as const
 
 export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address; trust: TrustInfo }) {
@@ -63,25 +63,25 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60">
+    <section className="rounded-xl border border-hairline bg-surface">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
       >
         <span className="flex items-center gap-2.5">
-          <h2 className="text-base font-semibold text-zinc-100">Trust panel</h2>
-          <span className="rounded-full border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-400">
+          <h2 className="text-base font-semibold text-fg">Trust panel</h2>
+          <span className="rounded-full border border-hairline-strong bg-surface-2 px-2 py-0.5 text-xs text-muted">
             valid market ≠ safe SY
           </span>
         </span>
-        <span aria-hidden className="text-zinc-500">
+        <span aria-hidden className="text-faint">
           {open ? '▾' : '▸'}
         </span>
       </button>
 
       {open && (
-        <div className="border-t border-zinc-800 px-5 pb-4 pt-1">
+        <div className="border-t border-hairline px-5 pb-4 pt-1">
           <TrustRow label="SY contract">
             <AddressChip address={sy} />
           </TrustRow>
@@ -89,7 +89,7 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
           <TrustRow label="SY owner">
             {trust.syOwner ? (
               <span className="inline-flex flex-wrap items-center justify-end gap-x-2">
-                <span className="font-mono text-xs text-zinc-400" title={trust.syOwner}>
+                <span className="font-mono text-xs text-muted" title={trust.syOwner}>
                   {shortAddress(trust.syOwner)}
                 </span>
                 {trust.ownerIsPendleGovernance ? (
@@ -133,10 +133,10 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
           </TrustRow>
 
           {trust.notes.length > 0 && (
-            <ul className="mt-3 space-y-1 text-xs text-zinc-400">
+            <ul className="mt-3 space-y-1 text-xs text-muted">
               {trust.notes.map((note) => (
                 <li key={note} className="flex gap-1.5">
-                  <span aria-hidden className="text-zinc-600">
+                  <span aria-hidden className="text-faint">
                     •
                   </span>
                   {note}
@@ -145,7 +145,7 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
             </ul>
           )}
 
-          <p className="mt-4 border-t border-zinc-800 pt-3 text-xs text-zinc-500">
+          <p className="mt-4 border-t border-hairline pt-3 text-xs text-faint">
             OpenPendle verifies market provenance, not the safety of the SY or its
             assets.
           </p>

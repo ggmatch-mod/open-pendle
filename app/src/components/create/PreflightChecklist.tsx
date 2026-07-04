@@ -14,12 +14,12 @@ import { shortAddress } from '../format'
 function Dot({ tone }: { tone: 'ok' | 'bad' | 'warn' | 'idle' }) {
   const cls =
     tone === 'ok'
-      ? 'bg-emerald-400'
+      ? 'bg-accent'
       : tone === 'bad'
-        ? 'bg-red-400'
+        ? 'bg-danger'
         : tone === 'warn'
           ? 'bg-amber-400'
-          : 'bg-zinc-600'
+          : 'bg-[var(--op-faint)]'
   return <span className={`mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${cls}`} aria-hidden />
 }
 
@@ -32,12 +32,12 @@ function Line({
 }) {
   const text =
     tone === 'ok'
-      ? 'text-emerald-200/90'
+      ? 'text-accent-ink/90'
       : tone === 'bad'
         ? 'text-red-200/90'
         : tone === 'warn'
-          ? 'text-amber-200/90'
-          : 'text-zinc-400'
+          ? 'text-warn'
+          : 'text-muted'
   return (
     <li className="flex items-start gap-2">
       <Dot tone={tone} />
@@ -80,27 +80,27 @@ export function PreflightChecklist({
   incomplete?: boolean
 }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+    <section className="rounded-xl border border-hairline bg-surface p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-zinc-100">Preflight</h2>
+        <h2 className="text-sm font-semibold text-fg">Preflight</h2>
         {status === 'loading' && (
-          <span className="text-xs text-zinc-500">checking…</span>
+          <span className="text-xs text-faint">checking…</span>
         )}
       </div>
 
       {incomplete && status === 'idle' ? (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-faint">
           Fill in the SY, expiry, rate band, launch APY, fee and a seed amount to
           run the live checks and the binding on-chain simulation.
         </p>
       ) : status === 'idle' ? (
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-faint">
           The live preflight is not available yet — the checklist and binding
           simulation will run here once the deploy data layer is wired. Deploy
           stays disabled until every hard check passes.
         </p>
       ) : status === 'error' ? (
-        <p className="mt-2 text-xs text-red-300">
+        <p className="mt-2 text-xs text-danger">
           Couldn't run preflight: {error ?? 'the RPC read failed.'} Deploy stays
           disabled.
         </p>
@@ -122,7 +122,7 @@ export function PreflightChecklist({
 
           {/* Extra hard errors the keyword map didn't attribute to a line. */}
           {preflight.errors.length > 0 && (
-            <ul className="space-y-1.5 border-t border-zinc-800 pt-2.5">
+            <ul className="space-y-1.5 border-t border-hairline pt-2.5">
               {preflight.errors.map((e, i) => (
                 <Line key={i} tone="bad">
                   {e}
@@ -135,7 +135,7 @@ export function PreflightChecklist({
           {(preflight.ptExistsOnActive ||
             preflight.legacyParallelPts.length > 0 ||
             preflight.warnings.length > 0) && (
-            <ul className="space-y-1.5 border-t border-zinc-800 pt-2.5">
+            <ul className="space-y-1.5 border-t border-hairline pt-2.5">
               {preflight.ptExistsOnActive && (
                 <Line tone="warn">
                   A PT already exists for this SY + expiry on the active factory —
@@ -165,7 +165,7 @@ export function PreflightChecklist({
               gate: an ERC20/SY seed token not yet approved makes it revert with
               an allowance error, which is the expected pre-approval state — the
               Deploy button still reaches Approve → Confirm (FIX A). */}
-          <div className="border-t border-zinc-800 pt-2.5">
+          <div className="border-t border-hairline pt-2.5">
             {preflight.simulated ? (
               <Line tone="ok">
                 Binding simulation passed — the exact deploy call succeeds from
@@ -190,8 +190,8 @@ export function PreflightChecklist({
           <div
             className={`rounded-md px-3 py-2 text-xs font-medium ${
               hardBlocked
-                ? 'border border-zinc-800 bg-zinc-950/60 text-zinc-400'
-                : 'border border-emerald-800 bg-emerald-950/40 text-emerald-300'
+                ? 'border border-hairline bg-bg-2 text-muted'
+                : 'border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
             }`}
           >
             {hardBlocked

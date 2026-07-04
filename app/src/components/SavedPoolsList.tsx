@@ -86,13 +86,13 @@ export function SavedPoolGroups({
           <div key={chainId}>
             <div className="mb-2 flex items-center gap-2">
               <span
-                className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-zinc-600'}`}
+                className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-accent' : 'bg-[var(--op-faint)]'}`}
                 aria-hidden="true"
               />
-              <h3 className="text-sm font-medium text-zinc-300">
+              <h3 className="text-sm font-medium text-muted">
                 {chain?.name ?? `Chain ${chainId}`}
               </h3>
-              <span className="text-xs text-zinc-600">
+              <span className="text-xs text-faint">
                 {chainPools.length} pool{chainPools.length === 1 ? '' : 's'}
                 {isActive ? ' · active' : ''}
               </span>
@@ -108,16 +108,16 @@ export function SavedPoolGroups({
 /** First-visit / nothing-remembered explainer, shared by both views. */
 export function RegistryEmptyState() {
   return (
-    <section className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6">
-      <h2 className="text-base font-semibold text-zinc-100">No remembered pools yet</h2>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+    <section className="rounded-xl border border-dashed border-hairline bg-surface p-6">
+      <h2 className="text-base font-semibold text-fg">No remembered pools yet</h2>
+      <p className="mt-2 text-sm leading-relaxed text-muted">
         The paste box on the home page is the way in — OpenPendle has no listing
         page by design. Load a market by address, tick{' '}
-        <span className="text-emerald-400">Remember this pool</span> on its page,
+        <span className="text-accent-ink">Remember this pool</span> on its page,
         and it will live here (stored locally in your browser, nowhere else).
       </p>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-        <span className="text-zinc-200">Where do I find a market address?</span>{' '}
+      <p className="mt-3 text-sm leading-relaxed text-muted">
+        <span className="text-fg">Where do I find a market address?</span>{' '}
         Community pool creators share their market (PLP) address — in Discord, on
         X, or as a block-explorer link. It's the address of the{' '}
         <span className="font-mono text-xs">PendleMarket</span> contract itself,

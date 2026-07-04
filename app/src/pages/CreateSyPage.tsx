@@ -107,14 +107,14 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+    <section className="rounded-xl border border-hairline bg-surface p-4">
       <div className="flex items-baseline gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950 text-xs font-semibold text-zinc-400">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg text-xs font-semibold text-muted">
           {step}
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-zinc-100">{title}</h2>
-          {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
+          <h2 className="text-sm font-semibold text-fg">{title}</h2>
+          {subtitle && <p className="text-xs text-faint">{subtitle}</p>}
         </div>
       </div>
       <div className="mt-3">{children}</div>
@@ -124,7 +124,7 @@ function Section({
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null
-  return <p className="mt-1 text-xs text-red-400">{msg}</p>
+  return <p className="mt-1 text-xs text-danger">{msg}</p>
 }
 
 function PercentField({
@@ -146,10 +146,10 @@ function PercentField({
 }) {
   return (
     <div>
-      <label className="text-xs text-zinc-500">{label}</label>
+      <label className="text-xs text-faint">{label}</label>
       <div
-        className={`mt-1 flex items-center gap-2 rounded-lg border bg-zinc-950 px-3 py-2 focus-within:border-emerald-500 ${
-          error ? 'border-red-800' : 'border-zinc-700'
+        className={`mt-1 flex items-center gap-2 rounded-lg border bg-bg px-3 py-2 focus-within:border-accent ${
+          error ? 'border-[var(--op-danger-bd)]' : 'border-hairline-strong'
         } ${disabled ? 'opacity-60' : ''}`}
       >
         <input
@@ -164,12 +164,12 @@ function PercentField({
             const next = e.target.value
             if (next === '' || /^\d*[.,]?\d*$/.test(next)) onChange(next)
           }}
-          className="min-w-0 flex-1 bg-transparent text-base font-medium text-zinc-100 placeholder-zinc-600 outline-none disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 bg-transparent text-base font-medium text-fg placeholder-[color:var(--op-faint)] outline-none disabled:cursor-not-allowed"
         />
-        <span className="shrink-0 text-sm text-zinc-500">%</span>
+        <span className="shrink-0 text-sm text-faint">%</span>
       </div>
       {error ? <FieldError msg={error} /> : hint ? (
-        <p className="mt-1 text-[11px] text-zinc-600">{hint}</p>
+        <p className="mt-1 text-[11px] text-faint">{hint}</p>
       ) : null}
     </div>
   )
@@ -196,7 +196,7 @@ function TextField({
 }) {
   return (
     <div>
-      <label className="text-xs text-zinc-500">{label}</label>
+      <label className="text-xs text-faint">{label}</label>
       <input
         type="text"
         value={value}
@@ -205,12 +205,12 @@ function TextField({
         spellCheck={false}
         autoComplete="off"
         disabled={disabled}
-        className={`mt-1 w-full rounded-lg border bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500 disabled:opacity-60 ${
-          error ? 'border-red-800' : 'border-zinc-700'
+        className={`mt-1 w-full rounded-lg border bg-bg px-3 py-2 text-sm text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent disabled:opacity-60 ${
+          error ? 'border-[var(--op-danger-bd)]' : 'border-hairline-strong'
         } ${mono ? 'font-mono' : ''}`}
       />
       {error ? <FieldError msg={error} /> : hint ? (
-        <p className="mt-1 text-[11px] text-zinc-600">{hint}</p>
+        <p className="mt-1 text-[11px] text-faint">{hint}</p>
       ) : null}
     </div>
   )
@@ -223,10 +223,10 @@ function TextField({
 function VerdictPill({ label, verdict }: { label: string; verdict: 'ok' | 'suspected' | 'unknown' }) {
   const cls =
     verdict === 'ok'
-      ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300'
+      ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
       : verdict === 'suspected'
-        ? 'border-red-800 bg-red-950/40 text-red-300'
-        : 'border-zinc-700 bg-zinc-950/60 text-zinc-400'
+        ? 'border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] text-danger'
+        : 'border-hairline-strong bg-bg-2 text-muted'
   const word = verdict === 'ok' ? 'clear' : verdict === 'suspected' ? 'suspected' : 'unknown'
   return (
     <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${cls}`}>
@@ -587,15 +587,15 @@ export default function CreateSyPage() {
 
   return (
     <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-zinc-400 hover:text-zinc-200">
+      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
         ← Home
       </Link>
 
       <header>
-        <h1 className="text-xl font-bold tracking-tight text-zinc-100 sm:text-2xl">
+        <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">
           Create an SY adapter
         </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-zinc-400">
+        <p className="mt-1.5 max-w-2xl text-sm text-muted">
           Deploy a Pendle-audited Standardized Yield (SY) wrapper for any ERC-20
           or ERC-4626 asset through Pendle's canonical{' '}
           <span className="font-mono text-xs">syFactory</span> — optionally with
@@ -622,29 +622,29 @@ export default function CreateSyPage() {
           spellCheck={false}
           autoComplete="off"
           disabled={inputsFrozen}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 font-mono text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500 disabled:opacity-60"
+          className="w-full rounded-lg border border-hairline-strong bg-bg px-3 py-2.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent disabled:opacity-60"
         />
         <div aria-live="polite" className="mt-2 space-y-2 text-xs">
           {trimmedAsset.length > 0 && !assetValid && (
-            <span className="text-red-400">That is not a valid address (0x + 40 hex).</span>
+            <span className="text-danger">That is not a valid address (0x + 40 hex).</span>
           )}
           {assetValid && probeResult.status === 'loading' && (
-            <span className="text-zinc-500">probing the token on-chain…</span>
+            <span className="text-faint">probing the token on-chain…</span>
           )}
           {assetValid && probeResult.status === 'idle' && (
-            <span className="text-zinc-500">
+            <span className="text-faint">
               Token probing runs here once the data layer is wired. You can still
               pick a template and configure the deploy below.
             </span>
           )}
           {probeResult.status === 'error' && (
-            <span className="text-red-400">
+            <span className="text-danger">
               Couldn't probe that token: {probeResult.error ?? 'the RPC read failed.'}
             </span>
           )}
           {probeResult.status === 'success' && probe && (
             <div className="space-y-2">
-              <p className="text-emerald-400">
+              <p className="text-accent-ink">
                 Detected: {clampLabel(probe.symbol)} · {probe.decimals} decimals ·{' '}
                 {probe.isErc4626 ? 'ERC-4626 vault' : 'plain ERC-20'}
                 {probe.isErc4626 && probe.underlyingSymbol
@@ -656,7 +656,7 @@ export default function CreateSyPage() {
                 <VerdictPill label="rebasing" verdict={probe.rebasing} />
               </div>
               {probe.notes.length > 0 && (
-                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-zinc-500">
+                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-faint">
                   {probe.notes.map((n, i) => (
                     <li key={i}>{n}</li>
                   ))}
@@ -668,8 +668,8 @@ export default function CreateSyPage() {
 
         {/* RED blocker banner — FOT / rebasing → deploy blocked, no override. */}
         {blocked && (
-          <div className="mt-3 rounded-lg border border-red-700 bg-red-950/50 p-3">
-            <p className="text-sm font-semibold text-red-300">
+          <div className="mt-3 rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-3">
+            <p className="text-sm font-semibold text-danger">
               This token can't be wrapped safely — deploying is blocked.
             </p>
             <p className="mt-1 text-xs text-red-200/90">
@@ -690,8 +690,8 @@ export default function CreateSyPage() {
         {/* AMBER gate — SY-only unseeded basic deploy whose screen didn't pass
             (FIX 1). Blocks by default; an explicit override checkbox is required. */}
         {needsScreenOverride && (
-          <div className="mt-3 rounded-lg border border-amber-600 bg-amber-950/40 p-3">
-            <p className="text-sm font-semibold text-amber-200">
+          <div className="mt-3 rounded-lg border border-amber-600 bg-[var(--op-warn-soft)] p-3">
+            <p className="text-sm font-semibold text-warn">
               This token wasn't fully screened — an SY-only deploy is blocked by default.
             </p>
             <p className="mt-1 text-xs text-amber-100/90">
@@ -725,8 +725,8 @@ export default function CreateSyPage() {
         {/* Advisory (combined flow) — screen didn't pass, but the on-chain
             seeding revert is the backstop, so no hard override is required. */}
         {showCombinedScreenWarning && (
-          <div className="mt-3 rounded-lg border border-amber-800/60 bg-amber-950/25 p-3 text-[11px] leading-snug text-amber-200/90">
-            <span className="font-semibold text-amber-300">Heads up:</span>{' '}
+          <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-3 text-[11px] leading-snug text-warn">
+            <span className="font-semibold text-warn">Heads up:</span>{' '}
             {probe && probe.feeOnTransfer === 'suspected'
               ? 'the fee-on-transfer screen flagged this token'
               : "the fee-on-transfer screen couldn't fully complete on this RPC"}
@@ -757,29 +757,29 @@ export default function CreateSyPage() {
               <label
                 key={t.id}
                 className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
-                  selected ? 'border-emerald-700 bg-emerald-950/30' : 'border-zinc-800 bg-zinc-950/40'
-                } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-zinc-700'}`}
+                  selected ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)]' : 'border-hairline bg-bg/40'
+                } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-hairline-strong'}`}
               >
                 <input
                   type="radio"
                   name="sy-template"
-                  className="mt-0.5 accent-emerald-500"
+                  className="mt-0.5 accent-[var(--op-accent)]"
                   checked={selected}
                   disabled={disabled}
                   onChange={() => setTemplateOverride(t.id)}
                 />
                 <div>
-                  <p className="text-sm font-medium text-zinc-100">
+                  <p className="text-sm font-medium text-fg">
                     {t.label}
                     {isSuggested && (
-                      <span className="ml-2 rounded bg-emerald-900/60 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                      <span className="ml-2 rounded bg-[rgba(var(--op-accent-rgb),0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink">
                         suggested
                       </span>
                     )}
                   </p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{t.description}</p>
+                  <p className="mt-0.5 text-xs text-faint">{t.description}</p>
                   {disabled && t.requiresErc4626 && probe && !probe.isErc4626 && (
-                    <p className="mt-1 text-[11px] text-amber-400/80">
+                    <p className="mt-1 text-[11px] text-warn">
                       Needs an ERC-4626 vault — this asset probed as a plain ERC-20.
                     </p>
                   )}
@@ -791,15 +791,15 @@ export default function CreateSyPage() {
 
         {/* Advanced (upgradeable / adapter) templates behind a disclosure. */}
         <details
-          className="group mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40"
+          className="group mt-3 rounded-lg border border-hairline bg-bg/40"
           open={advancedOpen}
           onToggle={(e) => setAdvancedOpen((e.target as HTMLDetailsElement).open)}
         >
-          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-zinc-300 hover:text-zinc-100">
+          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted hover:text-fg">
             Advanced: upgradeable / adapter templates
           </summary>
-          <div className="space-y-2 border-t border-zinc-800 px-3 py-3">
-            <div className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-amber-200/90">
+          <div className="space-y-2 border-t border-hairline px-3 py-3">
+            <div className="rounded-md border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-warn">
               These templates deploy a{' '}
               <span className="font-medium">TransparentUpgradeableProxy under Pendle's proxyAdmin</span>{' '}
               — the SY implementation can later be upgraded by Pendle governance.
@@ -815,20 +815,20 @@ export default function CreateSyPage() {
                 <label
                   key={t.id}
                   className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
-                    selected ? 'border-emerald-700 bg-emerald-950/30' : 'border-zinc-800 bg-zinc-950/40'
-                  } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-zinc-700'}`}
+                    selected ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)]' : 'border-hairline bg-bg/40'
+                  } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-hairline-strong'}`}
                 >
                   <input
                     type="radio"
                     name="sy-template"
-                    className="mt-0.5 accent-emerald-500"
+                    className="mt-0.5 accent-[var(--op-accent)]"
                     checked={selected}
                     disabled={disabled}
                     onChange={() => setTemplateOverride(t.id)}
                   />
                   <div>
-                    <p className="text-sm font-medium text-zinc-100">{t.label}</p>
-                    <p className="mt-0.5 text-xs text-zinc-500">{t.description}</p>
+                    <p className="text-sm font-medium text-fg">{t.label}</p>
+                    <p className="mt-0.5 text-xs text-faint">{t.description}</p>
                   </div>
                 </label>
               )
@@ -894,7 +894,7 @@ export default function CreateSyPage() {
               setNameInput(`SY ${probe.symbol}`)
               setSymbolInput(`SY-${probe.symbol}`)
             }}
-            className="mt-2 rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-emerald-700 hover:text-emerald-400 disabled:opacity-50"
+            className="mt-2 rounded-md border border-hairline-strong px-2.5 py-1 text-[11px] text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:opacity-50"
           >
             Reset to suggested (SY {clampLabel(probe.symbol)} / SY-{clampLabel(probe.symbol)})
           </button>
@@ -911,26 +911,26 @@ export default function CreateSyPage() {
           <label
             className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
               ownerChoice === 'governance'
-                ? 'border-emerald-700 bg-emerald-950/30'
-                : 'border-zinc-800 bg-zinc-950/40 hover:border-zinc-700'
+                ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)]'
+                : 'border-hairline bg-bg/40 hover:border-hairline-strong'
             } ${inputsFrozen ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <input
               type="radio"
               name="sy-owner"
-              className="mt-0.5 accent-emerald-500"
+              className="mt-0.5 accent-[var(--op-accent)]"
               checked={ownerChoice === 'governance'}
               disabled={inputsFrozen}
               onChange={() => setOwnerChoice('governance')}
             />
             <div>
-              <p className="text-sm font-medium text-zinc-100">
+              <p className="text-sm font-medium text-fg">
                 Pendle governance{' '}
-                <span className="rounded bg-emerald-900/60 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                <span className="rounded bg-[rgba(var(--op-accent-rgb),0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink">
                   recommended
                 </span>
               </p>
-              <p className="mt-0.5 text-xs text-zinc-500">
+              <p className="mt-0.5 text-xs text-faint">
                 Ownership goes to Pendle governance ({shortAddress(PENDLE_GOVERNANCE)}) —
                 the same trust profile as Pendle's own SYs. Traders can verify the
                 owner is Pendle rather than an unknown deployer.
@@ -941,8 +941,8 @@ export default function CreateSyPage() {
           <label
             className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
               ownerChoice === 'self'
-                ? 'border-amber-700 bg-amber-950/20'
-                : 'border-zinc-800 bg-zinc-950/40 hover:border-zinc-700'
+                ? 'border-[var(--op-warn-bd)] bg-amber-950/20'
+                : 'border-hairline bg-bg/40 hover:border-hairline-strong'
             } ${inputsFrozen ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <input
@@ -954,13 +954,13 @@ export default function CreateSyPage() {
               onChange={() => setOwnerChoice('self')}
             />
             <div>
-              <p className="text-sm font-medium text-zinc-100">
+              <p className="text-sm font-medium text-fg">
                 Keep ownership{' '}
-                <span className="rounded bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                <span className="rounded bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-warn">
                   advanced
                 </span>
               </p>
-              <p className="mt-0.5 text-xs text-zinc-500">
+              <p className="mt-0.5 text-xs text-faint">
                 Your connected wallet
                 {user ? ` (${shortAddress(user)})` : ''} owns the SY.
               </p>
@@ -968,8 +968,8 @@ export default function CreateSyPage() {
           </label>
 
           {ownerChoice === 'self' && (
-            <div className="rounded-lg border border-amber-800/60 bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-amber-200/90">
-              <span className="font-semibold text-amber-300">Trust flag:</span> as
+            <div className="rounded-lg border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-warn">
+              <span className="font-semibold text-warn">Trust flag:</span> as
               owner you can <span className="font-medium">pause</span> the SY at
               any time (freezing wraps/unwraps for everyone holding it)
               {tmeta.takesAdapter || upgradeable
@@ -979,7 +979,7 @@ export default function CreateSyPage() {
               warning to its users. Keep ownership only if you understand and want
               that responsibility.
               {!user && (
-                <span className="mt-1 block text-amber-400">
+                <span className="mt-1 block text-warn">
                   Connect a wallet to use your address as the owner.
                 </span>
               )}
@@ -1001,12 +1001,12 @@ export default function CreateSyPage() {
             onClick={() => setMode('sy-only')}
             className={`rounded-lg border p-3 text-left ${
               mode === 'sy-only'
-                ? 'border-emerald-700 bg-emerald-950/30'
-                : 'border-zinc-800 bg-zinc-950/40 hover:border-zinc-700'
+                ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)]'
+                : 'border-hairline bg-bg/40 hover:border-hairline-strong'
             } disabled:opacity-60`}
           >
-            <p className="text-sm font-medium text-zinc-100">SY only</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <p className="text-sm font-medium text-fg">SY only</p>
+            <p className="mt-0.5 text-xs text-faint">
               Deploy just the SY wrapper. No approval needed. You can create a
               pool for it afterwards.
             </p>
@@ -1017,12 +1017,12 @@ export default function CreateSyPage() {
             onClick={() => setMode('sy-and-market')}
             className={`rounded-lg border p-3 text-left ${
               mode === 'sy-and-market'
-                ? 'border-emerald-700 bg-emerald-950/30'
-                : 'border-zinc-800 bg-zinc-950/40 hover:border-zinc-700'
+                ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)]'
+                : 'border-hairline bg-bg/40 hover:border-hairline-strong'
             } disabled:opacity-60`}
           >
-            <p className="text-sm font-medium text-zinc-100">SY + pool in one transaction</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <p className="text-sm font-medium text-fg">SY + pool in one transaction</p>
+            <p className="mt-0.5 text-xs text-faint">
               Deploy the SY, a PT/YT pair and an AMM market, and seed its first
               liquidity — all in one tx.
             </p>
@@ -1041,37 +1041,37 @@ export default function CreateSyPage() {
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div>
-                <label className="text-xs text-zinc-500">Maturity date (UTC)</label>
+                <label className="text-xs text-faint">Maturity date (UTC)</label>
                 <input
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
                   disabled={inputsFrozen}
-                  className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500 disabled:opacity-60 [color-scheme:dark]"
+                  className="mt-1 block rounded-lg border border-hairline-strong bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-60 [color-scheme:dark]"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setExpiryDate(unixToDateInput(nextThursdayUtc()))}
                 disabled={inputsFrozen}
-                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:border-emerald-700 hover:text-emerald-400 disabled:opacity-50"
+                className="rounded-lg border border-hairline-strong px-3 py-2 text-xs text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:opacity-50"
               >
                 Next Thursday
               </button>
             </div>
             {expiryUnix !== undefined && (
-              <div className="mt-2.5 rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs">
-                <p className="text-zinc-300">
+              <div className="mt-2.5 rounded-md border border-hairline bg-bg-2 px-3 py-2 text-xs">
+                <p className="text-muted">
                   Expiry: <span className="font-medium">{formatUtcDateTime(expiryUnix)}</span>{' '}
-                  <span className="text-zinc-500">
+                  <span className="text-faint">
                     ({daysToExpiry(expiryUnix)} days from now · unix {expiryUnix})
                   </span>
                 </p>
                 {!expiryInFuture && (
-                  <p className="mt-1 text-red-400">Expiry must be in the future.</p>
+                  <p className="mt-1 text-danger">Expiry must be in the future.</p>
                 )}
                 {expiryInFuture && !expiryAligned && (
-                  <p className="mt-1 text-amber-400/90">
+                  <p className="mt-1 text-warn">
                     Snapped to the {expiryDivisor}s boundary required by the factory.
                   </p>
                 )}
@@ -1141,7 +1141,7 @@ export default function CreateSyPage() {
             subtitle="Seeds the pool with an initial position. You receive LP plus YT."
           >
             {probeResult.status !== 'success' ? (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-faint">
                 Enter a valid asset above to size the seed amount.
               </p>
             ) : (
@@ -1157,7 +1157,7 @@ export default function CreateSyPage() {
                   error={seedError}
                   balanceHint="seed small first, top up later"
                 />
-                <p className="mt-2 text-[11px] leading-snug text-zinc-600">
+                <p className="mt-2 text-[11px] leading-snug text-faint">
                   The pool is seeded with the asset the SY wraps. Pendle's
                   guidance: seed a small amount (under ~$10), confirm the pool
                   trades, then add liquidity from the pool page.
@@ -1179,7 +1179,7 @@ export default function CreateSyPage() {
         }
       >
         {flow.phase === 'confirmed' ? (
-          <p className="mb-2 text-xs text-emerald-300">
+          <p className="mb-2 text-xs text-accent-ink">
             Deployed — see the success card above. Use “Done” to reset the wizard.
           </p>
         ) : null}

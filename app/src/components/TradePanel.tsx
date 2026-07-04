@@ -310,14 +310,14 @@ export function TradePanel({
 
   const toggleClass = (active: boolean) =>
     `rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-      active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      active ? 'bg-surface-2 text-fg' : 'text-muted hover:text-fg'
     }`
 
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+          <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
             {(
               [
                 ['buy', 'Buy'],
@@ -338,7 +338,7 @@ export function TradePanel({
               </button>
             ))}
           </div>
-          <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+          <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
             {(
               [
                 ['pt', 'PT'],
@@ -362,7 +362,7 @@ export function TradePanel({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-zinc-500">
+        <label className="flex items-center gap-2 text-xs text-faint">
           {action === 'buy' ? 'Pay with' : 'Receive'}
           <select
             value={choiceIsSy ? SY_CHOICE : token}
@@ -371,7 +371,7 @@ export function TradePanel({
               setChoiceByAction((prev) => ({ ...prev, [action]: e.target.value }))
               setAmountText('')
             }}
-            className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-hairline-strong bg-bg px-2.5 py-1.5 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value={SY_CHOICE}>{clampLabel(sy.symbol, 24)} (SY)</option>
             {tokenList.map((t) => {
@@ -386,7 +386,7 @@ export function TradePanel({
         </label>
       </div>
 
-      <p className="text-xs leading-relaxed text-zinc-500">{MODE_COPY[`${action}-${side}`]}</p>
+      <p className="text-xs leading-relaxed text-faint">{MODE_COPY[`${action}-${side}`]}</p>
 
       <AmountInput
         label={action === 'buy' ? 'You pay' : 'You sell'}
@@ -403,14 +403,14 @@ export function TradePanel({
       {/* No quote card when the output token's decimals are unknown — a
           fallback of 18 would render confidently wrong numbers. */}
       {outDecimals !== undefined && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 text-xs">
+        <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5 text-xs">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-zinc-500">You receive (estimated)</span>
-            <span className="font-medium text-zinc-200">
+            <span className="text-faint">You receive (estimated)</span>
+            <span className="font-medium text-fg">
               {quoteLoading ? (
-                <span className="text-zinc-500">…</span>
+                <span className="text-faint">…</span>
               ) : quoteUnavailable ? (
-                <span className="text-amber-400/90">quote unavailable</span>
+                <span className="text-warn">quote unavailable</span>
               ) : quote !== undefined ? (
                 `~${formatAmount(quote.amountOut, outDecimals)} ${clampLabel(outSymbol, 16)}`
               ) : (
@@ -420,11 +420,11 @@ export function TradePanel({
           </div>
 
           <div className="mt-1 flex items-baseline justify-between gap-3">
-            <span className="text-zinc-600">
+            <span className="text-faint">
               Min after {formatPercent(effectiveSlippage)} slippage
-              {slippageFloored && <span className="text-zinc-500"> (min 0.05%)</span>}
+              {slippageFloored && <span className="text-faint"> (min 0.05%)</span>}
             </span>
-            <span className="text-zinc-400">
+            <span className="text-muted">
               {!quoteLoading && !quoteUnavailable && minOut !== undefined
                 ? `${formatAmount(minOut, outDecimals)} ${clampLabel(outSymbol, 16)}`
                 : '—'}
@@ -433,14 +433,14 @@ export function TradePanel({
 
           {quote !== undefined && (
             <div className="mt-1 flex items-baseline justify-between gap-3">
-              <span className="text-zinc-600">Price impact</span>
+              <span className="text-faint">Price impact</span>
               <span
                 className={
                   impactTier === 'neutral'
-                    ? 'text-zinc-400'
+                    ? 'text-muted'
                     : impactTier === 'red-banner'
-                      ? 'font-medium text-red-400'
-                      : 'font-medium text-amber-400'
+                      ? 'font-medium text-danger'
+                      : 'font-medium text-warn'
                 }
               >
                 {formatPercent(quote.priceImpact)}
@@ -450,25 +450,25 @@ export function TradePanel({
 
           {quote?.impliedApyAfter !== undefined && (
             <div className="mt-1 flex items-baseline justify-between gap-3">
-              <span className="text-zinc-600">Implied APY after trade</span>
-              <span className="text-zinc-400">
+              <span className="text-faint">Implied APY after trade</span>
+              <span className="text-muted">
                 {formatPercent(snapshot.metrics.impliedApy)}{' '}
-                <span aria-hidden className="text-zinc-600">→</span>{' '}
-                <span className="text-zinc-300">{formatPercent(quote.impliedApyAfter)}</span>
+                <span aria-hidden className="text-faint">→</span>{' '}
+                <span className="text-muted">{formatPercent(quote.impliedApyAfter)}</span>
               </span>
             </div>
           )}
 
           {quote !== undefined && (
             <div className="mt-1 flex items-baseline justify-between gap-3">
-              <span className="text-zinc-600">Market swap fee</span>
-              <span className="text-zinc-400">
+              <span className="text-faint">Market swap fee</span>
+              <span className="text-muted">
                 {formatAmount(quote.netSyFee, sy.decimals)} {clampLabel(sy.symbol, 16)}
               </span>
             </div>
           )}
 
-          <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+          <p className="mt-1.5 text-[11px] leading-snug text-faint">
             Estimated from RouterStatic — the final number is simulated before you confirm.
             {slippageFloored &&
               ' Your slippage setting is below the 0.05% floor applied to static-derived minimums.'}
@@ -480,18 +480,18 @@ export function TradePanel({
           revert families arrive pre-translated (e.g. "Trade too large… or the
           quote went stale" from 'search range overflow' / APPROX_EXHAUSTED). */}
       {quoteUnavailable && quoteError && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-          <span className="font-semibold text-amber-300">Quote failed:</span> {quoteError}
+        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+          <span className="font-semibold text-warn">Quote failed:</span> {quoteError}
         </div>
       )}
 
       {/* PT-proportion cap projection (primary guard); the TVL-fraction note
           below stays as a secondary heuristic. */}
       {projectedProportion !== undefined && projectedProportion > PROPORTION_WARN && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
+        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
           {capBlocked ? (
             <>
-              <span className="font-semibold text-amber-300">
+              <span className="font-semibold text-warn">
                 Exceeds the pool's PT-proportion cap:
               </span>{' '}
               this trade would push the pool's PT share to ~
@@ -500,7 +500,7 @@ export function TradePanel({
             </>
           ) : (
             <>
-              <span className="font-semibold text-amber-300">
+              <span className="font-semibold text-warn">
                 Approaching the pool's PT-proportion cap:
               </span>{' '}
               this trade would push the pool's PT share to ~{formatPercent(projectedProportion)},
@@ -511,8 +511,8 @@ export function TradePanel({
       )}
 
       {largeTrade && largeTradeRatio !== undefined && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-          <span className="font-semibold text-amber-300">
+        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+          <span className="font-semibold text-warn">
             Large trade for this pool's liquidity
           </span>{' '}
           — roughly {formatPercent(Math.min(largeTradeRatio, 9.99))} of pool TVL. Expect heavy
@@ -521,15 +521,15 @@ export function TradePanel({
       )}
 
       {impactTier === 'amber-banner' && quote !== undefined && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-          <span className="font-semibold text-amber-300">High price impact:</span> this trade
+        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+          <span className="font-semibold text-warn">High price impact:</span> this trade
           moves the pool price by {formatPercent(quote.priceImpact)}. Consider a smaller size.
         </div>
       )}
 
       {impactTier === 'red-banner' && quote !== undefined && (
-        <div className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200/90">
-          <span className="font-semibold text-red-300">
+        <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-xs text-red-200/90">
+          <span className="font-semibold text-danger">
             Very high price impact ({formatPercent(quote.priceImpact)}):
           </span>{' '}
           you will likely lose money to price impact. Reduce the trade size — this pool is too

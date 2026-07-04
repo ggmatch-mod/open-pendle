@@ -166,13 +166,13 @@ function TokenSelect({
   disabled: boolean
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs text-zinc-500">
+    <label className="flex items-center gap-2 text-xs text-faint">
       {label}
       <select
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md border border-hairline-strong bg-bg px-2.5 py-1.5 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         <option value={SY_CHOICE}>{clampLabel(sySymbol, 24)} (SY)</option>
         {tokens.map((t) => {
@@ -192,8 +192,8 @@ function TokenSelect({
 function QuoteFailedBanner({ label, error }: { label: string; error?: string }) {
   if (!error) return null
   return (
-    <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-      <span className="font-semibold text-amber-300">{label}:</span> {error}
+    <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+      <span className="font-semibold text-warn">{label}:</span> {error}
     </div>
   )
 }
@@ -204,8 +204,8 @@ function ImpactBanners({ quote }: { quote?: SwapQuote }) {
   const tier = impactTierOf(quote.priceImpact)
   if (tier === 'amber-banner') {
     return (
-      <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-200/90">
-        <span className="font-semibold text-amber-300">High price impact:</span> this zap moves
+      <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+        <span className="font-semibold text-warn">High price impact:</span> this zap moves
         the pool price by {formatPercent(quote.priceImpact)}. Consider a smaller size — or a
         balanced add/remove, which has none.
       </div>
@@ -213,8 +213,8 @@ function ImpactBanners({ quote }: { quote?: SwapQuote }) {
   }
   if (tier === 'red-banner') {
     return (
-      <div className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200/90">
-        <span className="font-semibold text-red-300">
+      <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-xs text-red-200/90">
+        <span className="font-semibold text-danger">
           Very high price impact ({formatPercent(quote.priceImpact)}):
         </span>{' '}
         you will likely lose money to price impact. Reduce the size — or use the balanced flow,
@@ -254,14 +254,14 @@ function ZapQuoteCard({
 }) {
   const impactTier = quote !== undefined ? impactTierOf(quote.priceImpact) : undefined
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 text-xs">
+    <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5 text-xs">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-zinc-500">You receive (estimated)</span>
-        <span className="font-medium text-zinc-200">
+        <span className="text-faint">You receive (estimated)</span>
+        <span className="font-medium text-fg">
           {loading ? (
-            <span className="text-zinc-500">…</span>
+            <span className="text-faint">…</span>
           ) : unavailable ? (
-            <span className="text-amber-400/90">quote unavailable</span>
+            <span className="text-warn">quote unavailable</span>
           ) : quote !== undefined ? (
             `~${formatAmount(quote.amountOut, outDecimals)} ${clampLabel(outSymbol, 16)}`
           ) : (
@@ -272,8 +272,8 @@ function ZapQuoteCard({
 
       {ytRow && (
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">YT kept (estimated)</span>
-          <span className="font-medium text-zinc-200">
+          <span className="text-faint">YT kept (estimated)</span>
+          <span className="font-medium text-fg">
             {!loading && !unavailable && quote?.ytOut !== undefined
               ? `~${formatAmount(quote.ytOut, ytRow.decimals)} ${clampLabel(ytRow.symbol, 16)}`
               : '—'}
@@ -282,11 +282,11 @@ function ZapQuoteCard({
       )}
 
       <div className="mt-1 flex items-baseline justify-between gap-3">
-        <span className="text-zinc-600">
+        <span className="text-faint">
           Min after {formatPercent(effectiveSlippage)} slippage
-          {slippageFloored && <span className="text-zinc-500"> (min 0.05%)</span>}
+          {slippageFloored && <span className="text-faint"> (min 0.05%)</span>}
         </span>
-        <span className="text-zinc-400">
+        <span className="text-muted">
           {!loading && !unavailable && minOut !== undefined
             ? `${formatAmount(minOut, outDecimals)} ${clampLabel(outSymbol, 16)}`
             : '—'}
@@ -295,14 +295,14 @@ function ZapQuoteCard({
 
       {quote !== undefined && (
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">Price impact</span>
+          <span className="text-faint">Price impact</span>
           <span
             className={
               impactTier === 'neutral'
-                ? 'text-zinc-400'
+                ? 'text-muted'
                 : impactTier === 'red-banner'
-                  ? 'font-medium text-red-400'
-                  : 'font-medium text-amber-400'
+                  ? 'font-medium text-danger'
+                  : 'font-medium text-warn'
             }
           >
             {formatPercent(quote.priceImpact)}
@@ -312,14 +312,14 @@ function ZapQuoteCard({
 
       {quote !== undefined && (
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">Market swap fee</span>
-          <span className="text-zinc-400">
+          <span className="text-faint">Market swap fee</span>
+          <span className="text-muted">
             {formatAmount(quote.netSyFee, syDecimals)} {clampLabel(sySymbol, 16)}
           </span>
         </div>
       )}
 
-      <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+      <p className="mt-1.5 text-[11px] leading-snug text-faint">
         Estimated from RouterStatic — the final number is simulated before you confirm.
         {slippageFloored &&
           ' Your slippage setting is below the 0.05% floor applied to static-derived minimums.'}
@@ -542,14 +542,14 @@ function BalancedAddForm({ snapshot, positions, refetchPositions, onBusyChange }
         balanceHint={ptEditable ? undefined : 'auto — derived from the pay side'}
       />
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 text-xs">
+      <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5 text-xs">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">LP out (estimated)</span>
-          <span className="font-medium text-zinc-200">
+          <span className="text-faint">LP out (estimated)</span>
+          <span className="font-medium text-fg">
             {previewLoading ? (
-              <span className="text-zinc-500">…</span>
+              <span className="text-faint">…</span>
             ) : previewUnavailable ? (
-              <span className="text-amber-400/90">preview unavailable</span>
+              <span className="text-warn">preview unavailable</span>
             ) : preview !== undefined ? (
               `~${formatAmount(preview.lpOutEstimate, LP_DECIMALS)} ${LP_SYMBOL}`
             ) : (
@@ -558,25 +558,25 @@ function BalancedAddForm({ snapshot, positions, refetchPositions, onBusyChange }
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">
+          <span className="text-faint">
             Min after {formatPercent(effectiveSlippage)} slippage
-            {slippageFloored && <span className="text-zinc-500"> (min 0.05%)</span>}
+            {slippageFloored && <span className="text-faint"> (min 0.05%)</span>}
           </span>
-          <span className="text-zinc-400">
+          <span className="text-muted">
             {!previewLoading && !previewUnavailable && minLpOut !== undefined
               ? `${formatAmount(minLpOut, LP_DECIMALS)} ${LP_SYMBOL}`
               : '—'}
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">{shareLabel}</span>
-          <span className="text-zinc-400">
+          <span className="text-faint">{shareLabel}</span>
+          <span className="text-muted">
             {!previewLoading && !previewUnavailable && shareValue !== undefined
               ? formatPercent(shareValue)
               : '—'}
           </span>
         </div>
-        <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+        <p className="mt-1.5 text-[11px] leading-snug text-faint">
           Balanced adds have no price impact — both sides go in at the pool's current ratio.
         </p>
       </div>
@@ -751,11 +751,11 @@ function ZapInForm({
           checked={keepYt}
           disabled={flowBusy}
           onChange={(e) => onKeepYtChange(e.target.checked)}
-          className="mt-0.5 accent-emerald-500 disabled:cursor-not-allowed"
+          className="mt-0.5 accent-[var(--op-accent)] disabled:cursor-not-allowed"
         />
         <span className="leading-snug">
-          <span className="font-medium text-zinc-300">Keep YT</span>{' '}
-          <span className="text-zinc-600">
+          <span className="font-medium text-muted">Keep YT</span>{' '}
+          <span className="text-faint">
             — part of your deposit is minted into PT + YT; untick to sell the YT into more LP,
             tick to keep the YT position alongside your LP.
           </span>
@@ -903,41 +903,41 @@ function BalancedRemoveForm({ snapshot, positions, refetchPositions, onBusyChang
         error={parsed.error}
       />
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5 text-xs">
+      <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5 text-xs">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">SY out (estimated)</span>
-          <span className="font-medium text-zinc-200">
+          <span className="text-faint">SY out (estimated)</span>
+          <span className="font-medium text-fg">
             {preview !== undefined
               ? `~${formatAmount(preview.syOut, sy.decimals)} ${clampLabel(sy.symbol, 16)}`
               : '—'}
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-500">PT out (estimated)</span>
-          <span className="font-medium text-zinc-200">
+          <span className="text-faint">PT out (estimated)</span>
+          <span className="font-medium text-fg">
             {preview !== undefined
               ? `~${formatAmount(preview.ptOut, sy.assetDecimals)} ${clampLabel(ptSymbol, 16)}`
               : '—'}
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">
+          <span className="text-faint">
             Min after {formatPercent(effectiveSlippage)} slippage
-            {slippageFloored && <span className="text-zinc-500"> (min 0.05%)</span>}
+            {slippageFloored && <span className="text-faint"> (min 0.05%)</span>}
           </span>
-          <span className="text-zinc-400">
+          <span className="text-muted">
             {minSyOut !== undefined && minPtOut !== undefined
               ? `${formatAmount(minSyOut, sy.decimals)} SY · ${formatAmount(minPtOut, sy.assetDecimals)} PT`
               : '—'}
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <span className="text-zinc-600">Share of pool burned</span>
-          <span className="text-zinc-400">
+          <span className="text-faint">Share of pool burned</span>
+          <span className="text-muted">
             {preview !== undefined ? formatPercent(preview.shareBurned) : '—'}
           </span>
         </div>
-        <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+        <p className="mt-1.5 text-[11px] leading-snug text-faint">
           Pro-rata burn — no swap, no price impact. You receive SY + PT; unwrap the SY on the
           Wrap / Unwrap tab.
         </p>
@@ -1174,7 +1174,7 @@ export function LiquidityPanel({
 
   const toggleClass = (active: boolean) =>
     `rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-      active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      active ? 'bg-surface-2 text-fg' : 'text-muted hover:text-fg'
     }`
 
   const formProps: FormProps = {
@@ -1187,7 +1187,7 @@ export function LiquidityPanel({
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+        <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
           {(
             [
               ['add', 'Add'],
@@ -1205,7 +1205,7 @@ export function LiquidityPanel({
             </button>
           ))}
         </div>
-        <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950/60 p-0.5">
+        <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
           {subModes.map(([s, label]) => (
             <button
               key={s}
@@ -1220,7 +1220,7 @@ export function LiquidityPanel({
         </div>
       </div>
 
-      <p className="text-xs leading-relaxed text-zinc-500">
+      <p className="text-xs leading-relaxed text-faint">
         {mode === 'add' && subMode === 'zap' && keepYt
           ? ADD_ZAP_KEEP_YT_COPY
           : MODE_COPY[`${mode}-${subMode}`]}

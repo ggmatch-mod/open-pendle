@@ -41,16 +41,16 @@ export function AddressChip({
 
   return (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
-      <span className="font-mono text-xs text-zinc-400" title={address}>
+      <span className="font-mono text-xs text-muted" title={address}>
         {shortAddress(address)}
       </span>
       <button
         onClick={copy}
         title={copied ? 'Copied!' : 'Copy address'}
         aria-label={copied ? 'Copied' : `Copy address ${address}`}
-        className="rounded p-0.5 text-xs leading-none text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+        className="rounded p-0.5 text-xs leading-none text-faint hover:bg-surface-2 hover:text-muted"
       >
-        {copied ? <span className="text-emerald-400">✓</span> : <span aria-hidden>⧉</span>}
+        {copied ? <span className="text-accent-ink">✓</span> : <span aria-hidden>⧉</span>}
       </button>
       <a
         href={explorerAddressUrl(chainId, address)}
@@ -58,7 +58,7 @@ export function AddressChip({
         rel="noreferrer"
         title={`View on ${explorerName(chainId)}`}
         aria-label={`View ${address} on ${explorerName(chainId)}`}
-        className="rounded p-0.5 text-xs leading-none text-zinc-500 hover:bg-zinc-800 hover:text-emerald-400"
+        className="rounded p-0.5 text-xs leading-none text-faint hover:bg-surface-2 hover:text-accent-ink"
       >
         <span aria-hidden>↗</span>
       </a>

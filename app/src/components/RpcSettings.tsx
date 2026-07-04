@@ -62,14 +62,14 @@ export function RpcSettings() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900"
+        className="flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1.5 text-sm text-muted hover:border-hairline-strong hover:bg-surface"
         title={`RPC settings (${chain.name})`}
       >
         <span aria-hidden="true">⚙</span>
         RPC
         {isCustom && (
           <span
-            className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+            className="h-1.5 w-1.5 rounded-full bg-accent"
             title={`Custom ${chain.name} RPC active`}
           />
         )}
@@ -79,12 +79,12 @@ export function RpcSettings() {
         <div
           role="dialog"
           aria-label="RPC settings"
-          className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-zinc-800 bg-zinc-900 p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-hairline bg-surface p-4 shadow-xl shadow-black/50"
         >
-          <h3 className="text-sm font-semibold text-zinc-100">
+          <h3 className="text-sm font-semibold text-fg">
             Custom RPC endpoint — {chain.name}
           </h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-faint">
             All {chain.name} reads go through this RPC. Public endpoints
             rate-limit; a personal endpoint (Alchemy, Infura, dRPC…) is smoother.
             Each network has its own override. Saving reloads the app.
@@ -98,22 +98,22 @@ export function RpcSettings() {
             }}
             placeholder={defaultUrl}
             spellCheck={false}
-            className="mt-3 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500"
+            className="mt-3 w-full rounded-md border border-hairline-strong bg-bg px-3 py-2 font-mono text-xs text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent"
           />
           {!isValidUrl && trimmed.length > 0 && (
-            <p className="mt-1 text-xs text-red-400">Must be an http(s) URL.</p>
+            <p className="mt-1 text-xs text-danger">Must be an http(s) URL.</p>
           )}
           <div className="mt-3 flex items-center justify-between gap-2">
             <button
               onClick={reset}
-              className="rounded-md px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+              className="rounded-md px-2 py-1.5 text-xs text-muted hover:text-fg"
             >
               Reset to default
             </button>
             <button
               onClick={save}
               disabled={!isValidUrl}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save &amp; reload
             </button>

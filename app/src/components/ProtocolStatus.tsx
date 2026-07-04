@@ -65,7 +65,7 @@ function AddressValue({
       target="_blank"
       rel="noreferrer"
       title={address}
-      className="font-mono text-sm text-emerald-400 hover:text-emerald-300 hover:underline"
+      className="font-mono text-sm text-accent-ink hover:text-accent-ink hover:underline"
     >
       {shortAddr(address)}
     </a>
@@ -74,8 +74,8 @@ function AddressValue({
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-zinc-800 py-2.5 last:border-b-0">
-      <span className="text-sm text-zinc-400">{label}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-hairline py-2.5 last:border-b-0">
+      <span className="text-sm text-muted">{label}</span>
       <span className="text-right">{children}</span>
     </div>
   )
@@ -87,10 +87,10 @@ function SkeletonRows({ count }: { count: number }) {
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="flex items-center justify-between gap-4 border-b border-zinc-800 py-3 last:border-b-0"
+          className="flex items-center justify-between gap-4 border-b border-hairline py-3 last:border-b-0"
         >
-          <div className="h-3.5 w-36 animate-pulse rounded bg-zinc-800" />
-          <div className="h-3.5 w-28 animate-pulse rounded bg-zinc-800" />
+          <div className="h-3.5 w-36 animate-pulse rounded bg-surface-2" />
+          <div className="h-3.5 w-28 animate-pulse rounded bg-surface-2" />
         </div>
       ))}
     </div>
@@ -152,30 +152,30 @@ export function ProtocolStatus() {
   }
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="rounded-xl border border-hairline bg-surface p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-zinc-100">Protocol status</h2>
-        <span className="rounded-full border border-emerald-900 bg-emerald-950/60 px-2 py-0.5 text-xs text-emerald-400">
+        <h2 className="text-base font-semibold text-fg">Protocol status</h2>
+        <span className="rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2 py-0.5 text-xs text-accent-ink">
           live from {chain.name}
         </span>
       </div>
-      <p className="mb-4 text-xs text-zinc-500">
+      <p className="mb-4 text-xs text-faint">
         Active factories are resolved from commonDeploy's immutables at runtime; fee
         parameters are governance-mutable and read live, never hardcoded.
       </p>
 
       {error ? (
-        <div className="rounded-lg border border-red-900/60 bg-red-950/40 p-4">
-          <p className="text-sm text-red-400">
+        <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-4">
+          <p className="text-sm text-danger">
             Couldn't read protocol state from the RPC. Public endpoints rate-limit —
             retrying usually fixes it, or set a custom RPC in settings.
           </p>
-          <p className="mt-1 break-all font-mono text-xs text-red-500/70">
+          <p className="mt-1 break-all font-mono text-xs text-danger">
             {error.message.split('\n')[0]}
           </p>
           <button
             onClick={refetch}
-            className="mt-3 rounded-md border border-red-800 px-3 py-1.5 text-sm text-red-300 hover:bg-red-900/40"
+            className="mt-3 rounded-md border border-[var(--op-danger-bd)] px-3 py-1.5 text-sm text-danger hover:bg-[var(--op-danger-soft)]"
           >
             Retry
           </button>
@@ -199,12 +199,12 @@ export function ProtocolStatus() {
             {syFactory && <AddressValue address={syFactory} chainId={activeChainId} />}
           </Row>
           <Row label="Expiry divisor">
-            <span className="font-mono text-sm text-zinc-200">
+            <span className="font-mono text-sm text-fg">
               {expiryDivisor !== undefined && formatExpiryDivisor(expiryDivisor)}
             </span>
           </Row>
           <Row label="YT interest fee">
-            <span className="font-mono text-sm text-zinc-200">
+            <span className="font-mono text-sm text-fg">
               {interestFeeRate !== undefined && formatRate1e18(interestFeeRate)}
             </span>
           </Row>
@@ -212,7 +212,7 @@ export function ProtocolStatus() {
             {ycfTreasury && <AddressValue address={ycfTreasury} chainId={activeChainId} />}
           </Row>
           <Row label="Max swap fee (cap)">
-            <span className="font-mono text-sm text-zinc-200">
+            <span className="font-mono text-sm text-fg">
               {maxLnFeeRateRoot !== undefined && formatLnFeeCap(maxLnFeeRateRoot)}
             </span>
           </Row>

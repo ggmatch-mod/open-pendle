@@ -33,8 +33,8 @@ function StatLine({
   if (sweepStatus === 'idle' || sweepStatus === 'loading') {
     return (
       <div className="flex items-center gap-3" aria-busy="true" aria-label="Loading pool stats">
-        <span className="h-3.5 w-20 animate-pulse rounded bg-zinc-800" />
-        <span className="h-3.5 w-24 animate-pulse rounded bg-zinc-800" />
+        <span className="h-3.5 w-20 animate-pulse rounded bg-surface-2" />
+        <span className="h-3.5 w-24 animate-pulse rounded bg-surface-2" />
       </div>
     )
   }
@@ -42,7 +42,7 @@ function StatLine({
   // Whole sweep errored, or this market's reads failed inside the batch —
   // render '—' placeholders, never crash the card.
   if (sweepStatus === 'error' || !stats) {
-    return <p className="text-xs text-zinc-500">live stats unavailable — open the pool to retry</p>
+    return <p className="text-xs text-faint">live stats unavailable — open the pool to retry</p>
   }
 
   // Legacy is a provenance fact — key it off the validated factory's vintage
@@ -53,21 +53,21 @@ function StatLine({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-      <span className="text-zinc-400">
+      <span className="text-muted">
         APY{' '}
-        <span className="font-medium text-emerald-400">
+        <span className="font-medium text-accent-ink">
           {stats.isExpired ? '—' : formatPercent(stats.impliedApy, 2)}
         </span>
       </span>
-      <span className="text-zinc-400">
+      <span className="text-muted">
         TVL{' '}
-        <span className="font-medium text-zinc-200">
+        <span className="font-medium text-fg">
           {stats.tvlAsset !== undefined
             ? `${formatCompact(stats.tvlAsset)} ${assetSymbol}`
             : '—'}
         </span>
       </span>
-      {isLegacy && <span className="text-amber-400/90">legacy — limited support</span>}
+      {isLegacy && <span className="text-warn">legacy — limited support</span>}
     </div>
   )
 }
@@ -100,7 +100,7 @@ export function SavedPoolCard({
   }
 
   return (
-    <div className="relative rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-zinc-700">
+    <div className="relative rounded-xl border border-hairline bg-surface p-4 transition hover:border-hairline-strong">
       {/* Whole card is click-through; the checkbox + explicit buttons sit above it. */}
       <button
         type="button"
@@ -116,22 +116,22 @@ export function SavedPoolCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold text-zinc-100">
+            <p className="truncate text-sm font-semibold text-fg">
               {clampLabel(pool.label)}
             </p>
             <span
-              className="relative z-10 shrink-0 rounded-full border border-zinc-700 bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-300"
+              className="relative z-10 shrink-0 rounded-full border border-hairline-strong bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted"
               title={`On ${chainName}`}
             >
               {chainShort}
             </span>
           </div>
-          <p className="mt-0.5 font-mono text-xs text-zinc-500" title={pool.market}>
+          <p className="mt-0.5 font-mono text-xs text-faint" title={pool.market}>
             {shortAddress(pool.market)}
           </p>
         </div>
         <label
-          className="relative z-10 flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md border border-emerald-900/70 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-400"
+          className="relative z-10 flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2 py-1 text-xs text-accent-ink"
           title="Untick to forget this pool"
           onClick={(e) => e.stopPropagation()}
         >
@@ -139,16 +139,16 @@ export function SavedPoolCard({
             type="checkbox"
             checked
             onChange={() => forgetOn(pool.chainId, pool.market)}
-            className="h-3.5 w-3.5 accent-emerald-500"
+            className="h-3.5 w-3.5 accent-[var(--op-accent)]"
           />
           Remembered
         </label>
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
+      <div className="mt-2 flex items-center gap-2 text-xs text-muted">
         <span>Expiry {formatDate(pool.expiry)}</span>
         {matured && (
-          <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-zinc-300">
+          <span className="rounded-full border border-hairline-strong bg-surface-2 px-2 py-0.5 text-muted">
             Matured
           </span>
         )}
@@ -162,7 +162,7 @@ export function SavedPoolCard({
         <button
           type="button"
           onClick={open}
-          className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-md border border-emerald-800 bg-emerald-950/40 px-2.5 py-1 text-xs font-medium text-emerald-300 hover:border-emerald-600 hover:text-emerald-200"
+          className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
         >
           Switch to {chainName} to open →
         </button>

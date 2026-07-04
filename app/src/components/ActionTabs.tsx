@@ -39,16 +39,16 @@ export function ActionTabs({
   const [flowBusy, setFlowBusy] = useState(false)
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="rounded-xl border border-hairline bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-zinc-100">Actions</h2>
+        <h2 className="text-base font-semibold text-fg">Actions</h2>
         <SlippageControl disabled={flowBusy} />
       </div>
 
       <div
         role="tablist"
         aria-label="Market actions"
-        className="mt-3.5 flex flex-wrap items-center gap-1.5 border-b border-zinc-800 pb-2.5"
+        className="mt-3.5 flex flex-wrap items-center gap-1.5 border-b border-hairline pb-2.5"
       >
         {LIVE_TABS.map((t) => (
           <button
@@ -59,8 +59,8 @@ export function ActionTabs({
             onClick={() => setTab(t.id)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               tab === t.id
-                ? 'bg-emerald-950/70 text-emerald-300'
-                : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200'
+                ? 'bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                : 'text-muted hover:bg-surface-2 hover:text-fg'
             }`}
           >
             {t.label}

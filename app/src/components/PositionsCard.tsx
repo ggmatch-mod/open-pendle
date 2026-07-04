@@ -58,18 +58,18 @@ function BalanceCell({
   sub?: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
-      <p className="text-xs text-zinc-500">
-        <span className="mr-1.5 rounded bg-zinc-800 px-1 py-px text-[10px] font-semibold text-zinc-400">
+    <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5">
+      <p className="text-xs text-faint">
+        <span className="mr-1.5 rounded bg-surface-2 px-1 py-px text-[10px] font-semibold text-muted">
           {role}
         </span>
         <span title={symbol}>{clampLabel(symbol, 18)}</span>
       </p>
-      <p className="mt-1 text-sm font-semibold text-zinc-100">
+      <p className="mt-1 text-sm font-semibold text-fg">
         {formatAmount(amount, decimals)}
       </p>
       {sub != null && (
-        <p className="mt-0.5 text-[11px] leading-snug text-zinc-600">{sub}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-faint">{sub}</p>
       )}
     </div>
   )
@@ -79,8 +79,8 @@ function RewardList({ label, rewards }: { label: string; rewards: TokenAmount[] 
   const nonZero = rewards.filter((r) => r.amount > 0n)
   if (nonZero.length === 0) return null
   return (
-    <p className="text-xs text-zinc-400">
-      <span className="text-zinc-500">{label}:</span>{' '}
+    <p className="text-xs text-muted">
+      <span className="text-faint">{label}:</span>{' '}
       {nonZero.map((r, i) => (
         <span key={r.token}>
           {i > 0 && ' · '}
@@ -93,8 +93,8 @@ function RewardList({ label, rewards }: { label: string; rewards: TokenAmount[] 
 
 function CardShell({ children }: { children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-      <h2 className="text-base font-semibold text-zinc-100">Your positions</h2>
+    <section className="rounded-xl border border-hairline bg-surface p-5">
+      <h2 className="text-base font-semibold text-fg">Your positions</h2>
       {children}
     </section>
   )
@@ -145,13 +145,13 @@ export function PositionsCard({
   if (status === 'error') {
     return (
       <CardShell>
-        <p className="mt-2 text-sm text-red-300/90">
+        <p className="mt-2 text-sm text-danger">
           Couldn't load positions{error ? ` — ${error}` : ''}.
         </p>
         <button
           type="button"
           onClick={refetch}
-          className="mt-2 rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+          className="mt-2 rounded-md border border-hairline-strong px-3 py-1.5 text-xs text-muted hover:bg-surface-2"
         >
           Retry
         </button>
@@ -165,7 +165,7 @@ export function PositionsCard({
       <CardShell>
         <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4" aria-busy="true">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-800/70" />
+            <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-2" />
           ))}
         </div>
       </CardShell>
@@ -240,8 +240,8 @@ export function PositionsCard({
       </div>
 
       {walletNonZero.length > 0 && (
-        <p className="mt-3 text-xs text-zinc-400">
-          <span className="text-zinc-500">Wallet (deposit tokens):</span>{' '}
+        <p className="mt-3 text-xs text-muted">
+          <span className="text-faint">Wallet (deposit tokens):</span>{' '}
           {walletNonZero.map((t, i) => (
             <span key={t.token}>
               {i > 0 && ' · '}
@@ -251,22 +251,22 @@ export function PositionsCard({
         </p>
       )}
 
-      <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3.5">
+      <div className="mt-4 rounded-lg border border-hairline bg-bg-2 p-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1.5">
-            <p className="text-xs font-semibold text-zinc-300">Claimable</p>
+            <p className="text-xs font-semibold text-muted">Claimable</p>
             {positions.ytClaimableInterestSy > 0n ? (
-              <p className="text-xs text-zinc-400">
-                <span className="text-zinc-500">YT interest:</span>{' '}
+              <p className="text-xs text-muted">
+                <span className="text-faint">YT interest:</span>{' '}
                 {formatAmount(positions.ytClaimableInterestSy, sy.decimals)}{' '}
                 {clampLabel(sy.symbol, 16)}{' '}
-                <span className="text-zinc-600">
+                <span className="text-faint">
                   (≈ {Number.isFinite(interestAsset) ? interestAsset.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}{' '}
                   {assetLabel} terms)
                 </span>
               </p>
             ) : (
-              <p className="text-xs text-zinc-600">No YT interest accrued.</p>
+              <p className="text-xs text-faint">No YT interest accrued.</p>
             )}
             <RewardList label="YT rewards" rewards={positions.ytClaimableRewards} />
             <RewardList label="LP rewards" rewards={positions.lpClaimableRewards} />
@@ -285,7 +285,7 @@ export function PositionsCard({
           <TxStatus flow={claimFlow} />
         </div>
         {snapshot.isExpired && (
-          <p className="mt-2 text-[11px] text-zinc-600">
+          <p className="mt-2 text-[11px] text-faint">
             This market has matured — accrual is frozen but residual claims stay
             valid forever.
           </p>
@@ -295,7 +295,7 @@ export function PositionsCard({
       {positions.degraded.length > 0 && (
         <ul className="mt-3 space-y-0.5">
           {positions.degraded.map((note) => (
-            <li key={note} className="text-[11px] text-zinc-600">
+            <li key={note} className="text-[11px] text-faint">
               ⚠ {note}
             </li>
           ))}
