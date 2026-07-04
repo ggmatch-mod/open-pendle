@@ -65,9 +65,9 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-hairline bg-surface p-4">
+    <section className="rounded-[16px] border border-hairline bg-surface p-4">
       <div className="flex items-baseline gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg text-xs font-semibold text-muted">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg font-mono text-[11px] text-accent-ink">
           {step}
         </span>
         <div>
@@ -106,7 +106,7 @@ function PercentField({
     <div>
       <label className="text-xs text-faint">{label}</label>
       <div
-        className={`mt-1 flex items-center gap-2 rounded-lg border bg-bg px-3 py-2 focus-within:border-accent ${
+        className={`mt-1 flex items-center gap-2 rounded-[10px] border bg-bg-2 px-3 py-2 focus-within:border-accent focus-within:ring-4 focus-within:ring-[rgba(var(--op-accent-rgb),0.14)] ${
           error ? 'border-[var(--op-danger-bd)]' : 'border-hairline-strong'
         } ${disabled ? 'opacity-60' : ''}`}
       >
@@ -362,7 +362,8 @@ export default function CreatePoolPage() {
   })()
 
   return (
-    <div className="space-y-5 py-8">
+    <div className="mx-auto max-w-[760px]">
+      <div className="space-y-5 py-8">
       <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
         ← Home
       </Link>
@@ -397,7 +398,7 @@ export default function CreatePoolPage() {
           spellCheck={false}
           autoComplete="off"
           disabled={inputsFrozen}
-          className="w-full rounded-lg border border-hairline-strong bg-bg px-3 py-2.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent disabled:opacity-60"
+          className="w-full rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60"
         />
         <div aria-live="polite" className="mt-2 min-h-5 text-xs">
           {syMeta.status === 'loading' && (
@@ -443,14 +444,14 @@ export default function CreatePoolPage() {
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block rounded-lg border border-hairline-strong bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60 [color-scheme:dark]"
             />
           </div>
           <button
             type="button"
             onClick={() => setExpiryDate(unixToDateInput(nextThursdayUtc()))}
             disabled={inputsFrozen}
-            className="rounded-lg border border-hairline-strong px-3 py-2 text-xs text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:opacity-50"
+            className="rounded-[10px] border border-hairline-strong px-3 py-2 text-xs text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink disabled:opacity-50"
           >
             Next Thursday
           </button>
@@ -550,7 +551,7 @@ export default function CreatePoolPage() {
               value={activeSeedToken ? `${activeSeedToken.address}:${activeSeedToken.isSy}` : ''}
               onChange={(e) => setSeedTokenAddr(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block w-full rounded-lg border border-hairline-strong bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block w-full rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60 [color-scheme:dark]"
             >
               {seedTokens.map((t) => (
                 <option key={`${t.address}:${t.isSy}`} value={`${t.address}:${t.isSy}`}>
@@ -616,6 +617,7 @@ export default function CreatePoolPage() {
 
       {/* Recovery */}
       <DeployRecovery />
+      </div>
     </div>
   )
 }

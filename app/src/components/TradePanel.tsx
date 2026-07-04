@@ -309,15 +309,15 @@ export function TradePanel({
   }
 
   const toggleClass = (active: boolean) =>
-    `rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-      active ? 'bg-surface-2 text-fg' : 'text-muted hover:text-fg'
+    `px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      active ? 'rounded-[8px] bg-surface shadow-[var(--op-shadow)] text-fg' : 'text-muted hover:text-fg'
     }`
 
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
+          <div className="inline-flex rounded-[10px] bg-surface-2 p-0.5">
             {(
               [
                 ['buy', 'Buy'],
@@ -338,7 +338,7 @@ export function TradePanel({
               </button>
             ))}
           </div>
-          <div className="inline-flex rounded-lg border border-hairline bg-bg-2 p-0.5">
+          <div className="inline-flex rounded-[10px] bg-surface-2 p-0.5">
             {(
               [
                 ['pt', 'PT'],

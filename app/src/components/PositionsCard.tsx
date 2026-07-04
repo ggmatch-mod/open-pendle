@@ -58,14 +58,14 @@ function BalanceCell({
   sub?: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-hairline bg-bg-2 px-3 py-2.5">
-      <p className="text-xs text-faint">
+    <div className="rounded-[12px] border border-hairline bg-bg-2 px-3 py-2.5">
+      <p className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">
         <span className="mr-1.5 rounded bg-surface-2 px-1 py-px text-[10px] font-semibold text-muted">
           {role}
         </span>
         <span title={symbol}>{clampLabel(symbol, 18)}</span>
       </p>
-      <p className="mt-1 text-sm font-semibold text-fg">
+      <p className="mt-1 text-sm font-semibold text-fg tabular-nums">
         {formatAmount(amount, decimals)}
       </p>
       {sub != null && (

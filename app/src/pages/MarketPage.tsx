@@ -264,45 +264,53 @@ function MarketView({ address }: { address: Address }) {
         <RememberToggle snapshot={snapshot} />
       </header>
 
-      <OverviewGrid snapshot={snapshot} />
+      <div className="mt-7 grid items-start gap-7 lg:grid-cols-[1.5fr_.96fr]">
+        <div className="space-y-5">
+          <OverviewGrid snapshot={snapshot} />
 
-      <TrustPanel
-        market={snapshot.address}
-        sy={snapshot.sy.address}
-        trust={snapshot.trust}
-      />
+          <TrustPanel
+            market={snapshot.address}
+            sy={snapshot.sy.address}
+            trust={snapshot.trust}
+          />
 
-      {/* Actions area: PositionsCard whenever the market is validated and a
-          wallet is connected (the card gates on connection itself — claims stay
-          valid on expired markets); live tabs on validated non-expired markets;
-          the M5 MaturedPanel (redeem PT / exit LP) on validated expired ones.
-          Unvalidated keeps the no-tx red state, expired or not. */}
-      {snapshot.validated && (
-        <PositionsCard
-          snapshot={snapshot}
-          positions={positions}
-          status={positionsStatus}
-          error={positionsError}
-          refetch={refetchPositions}
-        />
-      )}
-      {snapshot.validated && snapshot.isExpired ? (
-        <MaturedPanel
-          snapshot={snapshot}
-          positions={positions}
-          refetchPositions={refetchPositions}
-        />
-      ) : snapshot.validated ? (
-        <ActionTabs
-          snapshot={snapshot}
-          positions={positions}
-          refetchPositions={refetchPositions}
-        />
-      ) : (
-        <ActionsPlaceholder />
-      )}
+          {/* PositionsCard whenever the market is validated and a wallet is
+              connected (the card gates on connection itself — claims stay valid
+              on expired markets). */}
+          {snapshot.validated && (
+            <PositionsCard
+              snapshot={snapshot}
+              positions={positions}
+              status={positionsStatus}
+              error={positionsError}
+              refetch={refetchPositions}
+            />
+          )}
 
-      <TokenStrip snapshot={snapshot} />
+          <TokenStrip snapshot={snapshot} />
+        </div>
+
+        <div className="lg:sticky lg:top-24">
+          {/* Actions area: live tabs on validated non-expired markets; the M5
+              MaturedPanel (redeem PT / exit LP) on validated expired ones.
+              Unvalidated keeps the no-tx red state, expired or not. */}
+          {snapshot.validated && snapshot.isExpired ? (
+            <MaturedPanel
+              snapshot={snapshot}
+              positions={positions}
+              refetchPositions={refetchPositions}
+            />
+          ) : snapshot.validated ? (
+            <ActionTabs
+              snapshot={snapshot}
+              positions={positions}
+              refetchPositions={refetchPositions}
+            />
+          ) : (
+            <ActionsPlaceholder />
+          )}
+        </div>
+      </div>
     </div>
   )
 }

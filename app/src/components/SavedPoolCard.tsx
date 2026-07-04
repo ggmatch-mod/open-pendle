@@ -100,7 +100,11 @@ export function SavedPoolCard({
   }
 
   return (
-    <div className="relative rounded-xl border border-hairline bg-surface p-4 transition hover:border-hairline-strong">
+    <div className="relative overflow-hidden rounded-[16px] border border-hairline bg-surface p-4 transition hover:-translate-y-0.5 hover:border-hairline-strong">
+      <div
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: 'linear-gradient(90deg, var(--op-accent) 0 60%, var(--op-accent-strong) 60% 100%)' }}
+      />
       {/* Whole card is click-through; the checkbox + explicit buttons sit above it. */}
       <button
         type="button"
@@ -130,19 +134,22 @@ export function SavedPoolCard({
             {shortAddress(pool.market)}
           </p>
         </div>
-        <label
-          className="relative z-10 flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2 py-1 text-xs text-accent-ink"
-          title="Untick to forget this pool"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          type="button"
+          title="Click to forget this pool"
+          onClick={(e) => {
+            e.stopPropagation()
+            forgetOn(pool.chainId, pool.market)
+          }}
+          className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink"
         >
-          <input
-            type="checkbox"
-            checked
-            onChange={() => forgetOn(pool.chainId, pool.market)}
-            className="h-3.5 w-3.5 accent-[var(--op-accent)]"
-          />
+          <span className="inline-flex h-[14px] w-[14px] items-center justify-center rounded-sm bg-accent text-accent-fg">
+            <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 6.5 5 9l4.5-5.5" />
+            </svg>
+          </span>
           Remembered
-        </label>
+        </button>
       </div>
 
       <div className="mt-2 flex items-center gap-2 text-xs text-muted">

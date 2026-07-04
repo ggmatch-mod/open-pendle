@@ -31,8 +31,8 @@ function Stat({
       className="rounded-xl border border-hairline bg-surface p-4"
       title={title}
     >
-      <p className="text-xs text-faint">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-fg">{children}</p>
+      <p className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-fg tabular-nums">{children}</p>
       {sub !== undefined && <p className="mt-0.5 text-xs text-faint">{sub}</p>}
     </div>
   )

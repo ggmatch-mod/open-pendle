@@ -31,7 +31,7 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
   return (
     <div>
       <label
-        className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-4 py-2.5 transition ${
+        className={`flex cursor-pointer select-none items-center gap-2.5 rounded-[16px] border px-4 py-2.5 transition ${
           saved
             ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
             : 'border-hairline-strong bg-surface text-muted hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-fg'
@@ -44,8 +44,20 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
             if (e.target.checked) save(snapshot)
             else forget(snapshot.address)
           }}
-          className="h-4 w-4 accent-[var(--op-accent)]"
+          className="sr-only"
         />
+        <span
+          className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm border transition ${
+            saved
+              ? 'border-transparent bg-accent text-accent-fg'
+              : 'border-hairline-strong bg-surface text-transparent'
+          }`}
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2.5 6.5 5 9l4.5-5.5" />
+          </svg>
+        </span>
         <span className="text-sm font-medium">
           {saved ? 'Remembered' : 'Remember this pool'}
         </span>

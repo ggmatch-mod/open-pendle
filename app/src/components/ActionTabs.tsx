@@ -57,10 +57,10 @@ export function ActionTabs({
             aria-selected={tab === t.id}
             disabled={flowBusy && tab !== t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               tab === t.id
-                ? 'bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
-                : 'text-muted hover:bg-surface-2 hover:text-fg'
+                ? 'rounded-[10px] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                : 'text-muted hover:text-fg'
             }`}
           >
             {t.label}

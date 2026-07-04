@@ -63,7 +63,7 @@ export function NetworkSelector() {
         <div
           role="menu"
           aria-label="Select active network"
-          className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-hairline bg-surface shadow-xl shadow-black/50"
+          className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-[14px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)]"
         >
           <p className="border-b border-hairline px-3 py-2 text-xs text-faint">
             Active network — reads & transactions

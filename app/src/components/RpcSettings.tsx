@@ -79,7 +79,7 @@ export function RpcSettings() {
         <div
           role="dialog"
           aria-label="RPC settings"
-          className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-hairline bg-surface p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 z-20 mt-2 w-80 rounded-[14px] border border-hairline bg-surface p-4 shadow-[var(--op-shadow-lg)]"
         >
           <h3 className="text-sm font-semibold text-fg">
             Custom RPC endpoint — {chain.name}
