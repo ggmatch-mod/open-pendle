@@ -12,10 +12,11 @@
    Default (no data-theme) = dark. Accent default = indigo.
    ========================================================================== */
 
-/* ---- Fonts — must precede @import "tailwindcss" (which expands inline, so any
-   @import after it is illegal CSS and gets dropped). TODO(launch): self-host
-   these to avoid the external Google Fonts fetch (CSP / IPFS / privacy). ----- */
-@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+/* ---- Fonts — self-hosted (no external fetch: CSP / IPFS / privacy). The
+   woff2 live in public/fonts/; fonts.css holds the @font-face rules with local
+   /fonts/ URLs. Both @imports must precede @import "tailwindcss" (which expands
+   inline, so any @import after it is illegal CSS and gets dropped). ---------- */
+@import "./fonts.css";
 
 @import "tailwindcss";
 
