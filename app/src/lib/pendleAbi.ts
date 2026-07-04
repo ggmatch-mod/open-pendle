@@ -529,3 +529,113 @@ export const creationErrorsAbi = parseAbi([
   'error YCFactoryYieldContractExisted()',
   'error YCFactoryInvalidExpiry()',
 ])
+
+// ===========================================================================
+// M7 — SY-adapter creation (PendleCommonSYFactory + the SY+market wrappers on
+// PendleCommonPoolDeployHelperV2). Appended per file-ownership rules; nothing
+// above this line changed.
+//
+// GROUND TRUTH — every item below is VERIFIED against the Arbiscan-verified
+// sources (scratchpad/pendle/PendleCommonSYFactory.sol +
+// PendleCommonPoolDeployHelperV2.sol) and the fork-tested 16/16 suite
+// (research/fork-tests/SYFactoryFork.t.sol), NOT the stale @pendle/core-v2
+// repo interfaces. Corrections vs the stale repo are documented in the M7
+// report and syDeploy.ts's header.
+// ===========================================================================
+
+/**
+ * PendleCommonSYFactory (`syFactory` @ 0x466C…1CF8) — permissionless SY deploys.
+ *
+ * Entrypoint rule (fork-verified): the 3 BASIC template ids go through
+ * `deploySY(id, constructorParams, syOwner)` with
+ * `constructorParams = abi.encode(string name, string symbol, address token)`.
+ * The 4 UPGRADEABLE/adapter ids go through
+ * `deployUpgradableSY(id, constructorParams, initData, syOwner)` with
+ * `constructorParams = abi.encode(address token, address rewardManager)` and a
+ * non-empty `initData` (empty initData reverts). Both return the freshly
+ * deployed SY address.
+ *
+ * `DeployedSY(bytes32 id, bytes constructorParams, address SY)` — topic0
+ * 0x07a80415c524a669398df01e97c487fc00986190468c09e2741b44181c5dc8c3. NONE of
+ * the three fields is `indexed` (verbatim from the verified source: the event
+ * declares no `indexed` keyword), so every field lives in `data` — the decoder
+ * cannot topic-filter beyond topic0.
+ */
+export const syFactoryAbi = parseAbi([
+  'function deploySY(bytes32 id, bytes constructorParams, address syOwner) returns (address SY)',
+  'function deployUpgradableSY(bytes32 id, bytes constructorParams, bytes initData, address syOwner) returns (address SY)',
+  'function creationCodes(bytes32 id) view returns (address creationCodeContractA, uint256 creationCodeSizeA, address creationCodeContractB, uint256 creationCodeSizeB)',
+  'function proxyAdmin() view returns (address)',
+  'function nonce() view returns (uint256)',
+  'event DeployedSY(bytes32 id, bytes constructorParams, address SY)',
+])
+
+/**
+ * PendleCommonPoolDeployHelperV2 (`commonDeploy` @ 0x2Ed4…8aA9) — the combined
+ * SY + PT/YT + market + seed wrappers. Arg order / tuples confirmed against the
+ * Arbiscan-verified source:
+ *
+ * - basic templates: `deployERC20Market` / `deployERC4626Market` /
+ *   `deployERC4626NotRedeemableMarket(bytes constructorParams, PoolConfig,
+ *   address tokenToSeed, uint256 amountToSeed, address syOwner)` (the helper
+ *   internally calls `deploySY`);
+ * - adapter templates: `deployERC20WithAdapterMarket` /
+ *   `deployERC4626WithAdapterMarket` /
+ *   `deployERC4626NoRedeemWithAdapterMarket(bytes constructorParams, bytes
+ *   initData, PoolConfig, …)` (internal `deployUpgradableSY`);
+ * - `PendleERC4626NoRedeemNoDepositUpgSY` has NO dedicated wrapper — its
+ *   combined flow routes through the generic
+ *   `deployCommonMarketById(bytes32 id, bytes constructorParams, bytes initData,
+ *   PoolConfig, address, uint256, address)`.
+ *
+ * The `MarketDeployment(PoolDeploymentAddrs addrs, PoolDeploymentParams params)`
+ * event and its `PoolConfig`/`PoolDeploymentAddrs` structs are already declared
+ * on `commonDeployPoolAbi` above; the combined-flow decoder REUSES
+ * `deploy.ts` `decodeDeploymentResult` for that event. This ABI holds only the
+ * SY+market entrypoints M7 adds.
+ *
+ * STALE-REPO CORRECTION: the repo interface `IPCommonPoolDeployHelperV2` omits
+ * the `initData` param on `deployCommonMarketById` and omits the adapter
+ * wrappers entirely — this ABI is built from the verified source instead.
+ */
+export const commonDeploySyMarketAbi = parseAbi([
+  'struct PoolConfig { uint32 expiry; uint256 rateMin; uint256 rateMax; uint256 desiredImpliedRate; uint256 fee; }',
+  'struct PoolDeploymentAddrs { address SY; address PT; address YT; address market; }',
+  'function deployERC20Market(bytes constructorParams, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployERC4626Market(bytes constructorParams, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployERC4626NotRedeemableMarket(bytes constructorParams, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployERC20WithAdapterMarket(bytes constructorParams, bytes initData, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployERC4626WithAdapterMarket(bytes constructorParams, bytes initData, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployERC4626NoRedeemWithAdapterMarket(bytes constructorParams, bytes initData, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+  'function deployCommonMarketById(bytes32 id, bytes constructorParams, bytes initData, PoolConfig config, address tokenToSeedLiquidity, uint256 amountToSeed, address syOwner) returns (PoolDeploymentAddrs)',
+])
+
+/**
+ * ERC-4626 detection probe for `probeAsset`. `asset()` + `convertToAssets(1e18)`
+ * both succeeding (non-reverting) is the 4626 signal; `previewDeposit` /
+ * `previewRedeem` round out the interface check the basic 4626 templates rely on
+ * (their constructors call `.asset()` and infinite-approve asset→vault). All are
+ * view — multicall-safe with allowFailure (a plain ERC-20 simply fails them).
+ */
+export const erc4626ProbeAbi = parseAbi([
+  'function asset() view returns (address)',
+  'function convertToAssets(uint256 shares) view returns (uint256)',
+  'function previewDeposit(uint256 assets) view returns (uint256)',
+  'function previewRedeem(uint256 shares) view returns (uint256)',
+])
+
+/**
+ * ERC-20 metadata + FOT screening surface for `probeAsset`. `decimals()` MUST
+ * exist (its absence is a hard blocker — the SY templates read token decimals in
+ * their constructor). `balanceOf`/`transfer` back the state-override transfer-
+ * delta FOT probe (inject a balance via `eth_call` state override, simulate a
+ * self-transfer, compare received vs sent); where the RPC rejects overrides the
+ * probe degrades to 'unknown'.
+ */
+export const erc20MetaAbi = parseAbi([
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+])

@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import type { Address } from 'viem'
 import type { ActionPlan, DerivedDeployParams, PoolConfig } from '../lib/types'
@@ -141,8 +141,9 @@ export default function CreatePoolPage() {
   useDocumentTitle('Create a community pool')
   const { address: user } = useAccount()
 
-  // --- SY input ---
-  const [syInput, setSyInput] = useState('')
+  // --- SY input (prefilled from ?sy= when arriving from the M7 SY wizard) ---
+  const [searchParams] = useSearchParams()
+  const [syInput, setSyInput] = useState(() => searchParams.get('sy') ?? '')
   const syMeta = useSyMeta(syInput)
   const sy: Address | undefined = syMeta.meta?.address
 
@@ -419,9 +420,12 @@ export default function CreatePoolPage() {
         </div>
         <p className="mt-2 text-[11px] leading-snug text-zinc-600">
           Need an SY first?{' '}
-          <span className="text-zinc-500">
-            Create one in the SY-adapter wizard (coming in M7).
-          </span>
+          <Link
+            to="/create-sy"
+            className="text-emerald-400 underline decoration-emerald-900 underline-offset-2 hover:text-emerald-300"
+          >
+            Create one in the SY-adapter wizard →
+          </Link>
         </p>
       </Section>
 

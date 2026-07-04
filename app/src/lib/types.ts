@@ -372,3 +372,69 @@ export interface DeployResult {
   pt: Address
   yt: Address
 }
+
+// ---------------------------------------------------------------------------
+// M7 contracts — SY adapter creation (syFactory / commonDeploy combined flows)
+// ---------------------------------------------------------------------------
+
+/**
+ * The registered Pendle SY templates OpenPendle offers. v1 leads with the 3
+ * basic templates (deploySY / commonDeploy combined market wrappers); the
+ * adapter/upgradeable ids are the advanced path (deployUpgradableSY).
+ */
+export type SyTemplateId =
+  | 'erc20' // PendleERC20SY — plain ERC-20, 1:1
+  | 'erc4626' // PendleERC4626SYV2 — ERC-4626 vault
+  | 'erc4626-not-redeemable' // PendleERC4626NotRedeemableToAssetSYV2
+  | 'erc20-adapter' // PendleERC20WithAdapterSY (advanced)
+  | 'erc4626-adapter' // PendleERC4626WithAdapterSY (advanced)
+  | 'erc4626-noredeem-adapter' // PendleERC4626NoRedeemWithAdapterSY (advanced)
+  | 'erc4626-noredeem-nodeposit' // PendleERC4626NoRedeemNoDepositUpgSY (advanced)
+
+/** Risk verdict for a screened token class. */
+export type ScreenVerdict = 'ok' | 'suspected' | 'unknown'
+
+/** Result of probing an asset to suggest a template + screen for broken-token classes. */
+export interface AssetProbe {
+  address: Address
+  symbol: string
+  decimals: number
+  /** True when the asset implements ERC-4626 (asset()/convertToAssets probe). */
+  isErc4626: boolean
+  /** For ERC-4626, the underlying .asset(). */
+  underlying?: Address
+  underlyingSymbol?: string
+  /** Suggested template from the probe (4626 → erc4626; plain ERC-20 → erc20). */
+  suggested: SyTemplateId
+  /** Fee-on-transfer suspicion (transfer-delta / denylist). FOT tokens must be blocked (fork-verified: they under-collateralize). */
+  feeOnTransfer: ScreenVerdict
+  /** Rebasing suspicion (denylist of known classes, e.g. aTokens). Rebasing breaks SY accounting. */
+  rebasing: ScreenVerdict
+  /** Human-readable screening notes / disclosures. */
+  notes: string[]
+  /** Non-empty → a hard block (deploy disabled unless explicitly overridden). */
+  blockers: string[]
+}
+
+/** Config for deploying an SY (and optionally its market in the same tx). */
+export interface SyDeployConfig {
+  template: SyTemplateId
+  /** The yield token (ERC-20) or the ERC-4626 vault. */
+  asset: Address
+  /** SY name — convention "SY <asset name>". */
+  name: string
+  /** SY symbol — convention "SY-<asset symbol>". */
+  symbol: string
+  /** Owner of the deployed SY. Default = Pendle governance (can pause; adapter SYs' owner can setAdapter). */
+  syOwner: Address
+  /** Advanced adapter templates only: a pre-deployed IStandardizedYieldAdapter (address(0) = plain 1:1 wrapper). */
+  adapter?: Address
+}
+
+/** Result of an SY deploy — sy always; market/pt/yt set for the combined SY+market flow. */
+export interface SyDeployResult {
+  sy: Address
+  market?: Address
+  pt?: Address
+  yt?: Address
+}

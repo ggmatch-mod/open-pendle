@@ -9,6 +9,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
 import CreatePoolPage from './pages/CreatePoolPage'
+import CreateSyPage from './pages/CreateSyPage'
 import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
 
@@ -54,6 +55,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreatePoolPage />} />
+          <Route path="/create-sy" element={<CreateSyPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

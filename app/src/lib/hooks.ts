@@ -19,6 +19,7 @@ import type {
 import type { RegistrySweepResult } from './market'
 import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './market'
 import { preflightDeploy } from './deploy'
+import { probeAsset } from './syDeploy'
 import { ARBITRUM_CHAIN_ID } from './addresses'
 import { loadPositions } from './positions'
 import { quoteBuy, quoteSell } from './swaps'
@@ -971,5 +972,45 @@ export function useDeployPreflight(
     return { status: 'error', error: decodePendleError(query.error) }
   }
   if (query.status === 'success') return { status: 'success', preflight: query.data }
+  return { status: 'loading' }
+}
+
+// ---------------------------------------------------------------------------
+// M7 hook contract — STUB body below is replaced by the data-layer work;
+// signature is the contract the UI codes against.
+// ---------------------------------------------------------------------------
+
+/**
+ * Debounced asset probe for the SY-adapter wizard: ERC-4626 detection,
+ * template suggestion, and FOT/rebasing screening. Undefined/invalid (non
+ * 0x-address) asset → 'idle'. Keyed on the lower-cased address; errors are
+ * decoded via decodePendleError. The probe itself is pure (syDeploy.probeAsset)
+ * — this hook only sequences debounce + react-query + idle/loading/error state.
+ */
+export function useAssetProbe(
+  asset: Address | undefined,
+): { status: QueryStatus; probe?: import('./types').AssetProbe; error?: string } {
+  const client = usePublicClient()
+
+  const assetKey = asset?.toLowerCase() ?? ''
+  const isValid = /^0x[0-9a-fA-F]{40}$/.test(assetKey)
+  const debouncedKey = useDebouncedValue(assetKey, CLASSIFY_DEBOUNCE_MS)
+  const enabled = isValid && client !== undefined && debouncedKey === assetKey
+
+  const query = useQuery({
+    queryKey: ['asset-probe', debouncedKey],
+    queryFn: () => probeAsset(client as PublicClient, asset as Address),
+    enabled,
+    staleTime: 60_000,
+    retry: 1,
+  })
+
+  if (!isValid) return { status: 'idle' }
+  // Debounce window still open (or the client not ready yet) → loading.
+  if (!enabled) return { status: 'loading' }
+  if (query.status === 'error') {
+    return { status: 'error', error: decodePendleError(query.error) }
+  }
+  if (query.status === 'success') return { status: 'success', probe: query.data }
   return { status: 'loading' }
 }

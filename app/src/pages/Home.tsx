@@ -309,13 +309,19 @@ export default function Home() {
         <div className="mt-8">
           <MarketPasteBox />
         </div>
-        <div className="mt-6 flex items-center justify-center gap-2 text-sm text-zinc-500">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500">
           <span>Want your own pool?</span>
           <Link
             to="/create"
             className="rounded-md border border-emerald-800 px-3 py-1.5 font-medium text-emerald-400 transition hover:border-emerald-600 hover:text-emerald-300"
           >
             Create a community pool →
+          </Link>
+          <Link
+            to="/create-sy"
+            className="rounded-md border border-zinc-700 px-3 py-1.5 font-medium text-zinc-300 transition hover:border-emerald-700 hover:text-emerald-300"
+          >
+            Create an SY adapter →
           </Link>
         </div>
       </section>
