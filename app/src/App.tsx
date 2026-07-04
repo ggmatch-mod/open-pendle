@@ -1,28 +1,35 @@
 /**
- * OpenPendle app shell (M1) — header, wrong-network banner, hash-routed pages,
- * risk-disclaimer footer. Fully browsable with no wallet connected.
- * HashRouter (set up in main.tsx) keeps the SPA static-host/IPFS-friendly.
+ * OpenPendle app shell (reskin) — ticker + sticky header (split logo, Saved-pools
+ * pill, Create-pool, network/RPC controls, theme toggle, connect), hash-routed
+ * pages, and a footer with the Protocol-status link + license marker.
+ *
+ * Unchanged from the original: the routes/pages, WrongNetworkBanner, and all the
+ * controls' behavior. New: the <Ticker/>, <ThemeToggle/>, the /status route, and
+ * the footer Protocol-status link. Protocol status was removed from Home.
  */
-
 import { Link, Route, Routes } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
+import { Ticker } from './components/Ticker'
+import { Logo } from './components/Logo'
+import { ThemeToggle } from './theme/ThemeToggle'
 import CreatePoolPage from './pages/CreatePoolPage'
 import CreateSyPage from './pages/CreateSyPage'
 import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
 import PoolsPage from './pages/PoolsPage'
+import ProtocolStatusPage from './pages/ProtocolStatusPage'
 
 function NotFound() {
   return (
     <div className="py-16 text-center">
-      <h1 className="text-xl font-semibold text-zinc-100">Page not found</h1>
-      <p className="mt-2 text-sm text-zinc-400">Nothing lives at this route.</p>
+      <h1 className="text-xl font-semibold text-fg">Page not found</h1>
+      <p className="mt-2 text-sm text-muted">Nothing lives at this route.</p>
       <Link
         to="/"
-        className="mt-6 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+        className="mt-6 inline-block rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:brightness-110"
       >
         ← Back home
       </Link>
@@ -32,38 +39,47 @@ function NotFound() {
 
 export default function App() {
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 antialiased">
+    <div className="flex min-h-screen flex-col bg-bg text-fg antialiased">
       <WrongNetworkBanner />
+      <Ticker />
 
-      <header className="border-b border-zinc-800/80">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3.5">
-          <Link to="/" className="text-lg font-bold tracking-tight hover:opacity-90">
-            <span className="text-emerald-400">Open</span>Pendle
-          </Link>
-          <div className="flex items-center gap-2.5">
+      <header
+        className="sticky top-0 z-50 border-b border-hairline backdrop-blur-md"
+        style={{ background: 'var(--op-header)' }}
+      >
+        <div className="mx-auto flex h-16 max-w-[1160px] items-center justify-between gap-4 px-7">
+          <Logo />
+          <div className="flex items-center gap-2">
             <Link
               to="/pools"
-              className="hidden rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-zinc-100 sm:inline-block"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 sm:inline-flex"
             >
+              <span aria-hidden className="text-[12px] text-accent-ink">
+                ★
+              </span>
               Saved pools
             </Link>
             <Link
               to="/create"
-              className="hidden rounded-md border border-emerald-800 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:border-emerald-600 hover:text-emerald-300 sm:inline-block"
+              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] sm:inline-flex"
+              style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
             >
               Create pool
             </Link>
+            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline sm:block" />
             <NetworkSelector />
             <RpcSettings />
+            <ThemeToggle />
             <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4">
+      <main className="mx-auto w-full max-w-[1160px] flex-1 px-7">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/pools" element={<PoolsPage />} />
+          <Route path="/status" element={<ProtocolStatusPage />} />
           <Route path="/create" element={<CreatePoolPage />} />
           <Route path="/create-sy" element={<CreateSyPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
@@ -71,14 +87,29 @@ export default function App() {
         </Routes>
       </main>
 
-      <footer className="border-t border-zinc-800/80">
-        <div className="mx-auto max-w-4xl px-4 py-5 text-center">
-          <p className="text-xs leading-relaxed text-zinc-500">
-            Community pools are permissionless and{' '}
-            <span className="text-amber-400/90">unreviewed — use at your own risk</span>.
-            OpenPendle validates market provenance but cannot vouch for the assets or SY
-            contracts underneath. Not affiliated with Pendle Finance.
-          </p>
+      <footer className="border-t border-hairline bg-bg-2">
+        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-7 py-7">
+          <div className="flex items-center gap-[11px]">
+            <span
+              className="h-[22px] w-[22px] rounded-[7px]"
+              style={{ background: 'linear-gradient(135deg, var(--op-accent) 0 50%, var(--op-accent-strong) 50% 100%)' }}
+            />
+            <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
+              Community pools are permissionless and{' '}
+              <span className="text-warn">unreviewed — use at your own risk</span>. OpenPendle
+              validates market provenance but cannot vouch for the assets or SY contracts underneath.
+              Not affiliated with Pendle Finance.
+            </p>
+          </div>
+          <div className="flex items-center gap-3.5">
+            <Link to="/status" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
+              Protocol status
+            </Link>
+            <span className="h-3 w-px bg-hairline" />
+            <span className="whitespace-nowrap font-mono text-[11px] tracking-[.04em] text-faint">
+              GPL-3.0 · OPEN SOURCE
+            </span>
+          </div>
         </div>
       </footer>
     </div>

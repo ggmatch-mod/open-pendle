@@ -1,11 +1,150 @@
+/* ============================================================================
+   OpenPendle redesign — design tokens (drop-in for app/src/index.css)
+   ----------------------------------------------------------------------------
+   Tailwind v4 project. This replaces the old `:root { color-scheme: dark }`
+   block. It defines light + dark neutral tokens and 5 accent palettes as CSS
+   custom properties, then maps them into Tailwind utilities via `@theme inline`
+   so classes like `bg-surface text-fg border-hairline text-accent` switch with
+   the active theme automatically.
+
+   Wiring:
+     <html data-theme="dark" data-accent="indigo">   (set by the theme hook)
+   Default (no data-theme) = dark. Accent default = indigo.
+   ========================================================================== */
+
+/* ---- Fonts — must precede @import "tailwindcss" (which expands inline, so any
+   @import after it is illegal CSS and gets dropped). TODO(launch): self-host
+   these to avoid the external Google Fonts fetch (CSP / IPFS / privacy). ----- */
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
 @import "tailwindcss";
 
-/* OpenPendle is dark-only for M0. */
-:root {
+/* ---- Neutral tokens: DARK is the default (:root) ------------------------- */
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
+  --op-bg: #0a0b0e;
+  --op-bg-2: #0d0f13;
+  --op-surface: #101319;
+  --op-surface-2: #161a22;
+  --op-surface-3: #1c2230;
+  --op-border: rgba(255, 255, 255, 0.07);
+  --op-border-strong: rgba(255, 255, 255, 0.13);
+  --op-text: #eceef2;
+  --op-muted: #949ba7;
+  --op-faint: #646b78;
+  --op-header: rgba(10, 11, 14, 0.72);
+  --op-grid: rgba(255, 255, 255, 0.05);
+  --op-danger: #f87171;
+  --op-danger-soft: rgba(248, 113, 113, 0.12);
+  --op-danger-bd: rgba(248, 113, 113, 0.30);
+  --op-warn: #fbbf24;
+  --op-warn-soft: rgba(251, 191, 36, 0.10);
+  --op-warn-bd: rgba(251, 191, 36, 0.28);
+  --op-good: #34d399;
+  --op-good-soft: rgba(52, 211, 153, 0.12);
+  --op-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --op-shadow-lg: 0 22px 60px -22px rgba(0, 0, 0, 0.8);
+  --op-glow: 0.20;
+  --op-accent-ink: var(--op-accent-ink-d);
 }
 
-body {
-  margin: 0;
-  background-color: #09090b; /* zinc-950 — matches the app shell */
+[data-theme="light"] {
+  color-scheme: light;
+  --op-bg: #f6f7f9;
+  --op-bg-2: #eef1f5;
+  --op-surface: #ffffff;
+  --op-surface-2: #f4f6f9;
+  --op-surface-3: #e6eaf1;
+  --op-border: rgba(14, 18, 28, 0.09);
+  --op-border-strong: rgba(14, 18, 28, 0.17);
+  --op-text: #12141a;
+  --op-muted: #565d69;
+  --op-faint: #89909c;
+  --op-header: rgba(246, 247, 249, 0.76);
+  --op-grid: rgba(17, 20, 28, 0.055);
+  --op-danger: #dc2626;
+  --op-danger-soft: rgba(220, 38, 38, 0.07);
+  --op-danger-bd: rgba(220, 38, 38, 0.24);
+  --op-warn: #b45309;
+  --op-warn-soft: rgba(180, 83, 9, 0.08);
+  --op-warn-bd: rgba(180, 83, 9, 0.22);
+  --op-good: #059669;
+  --op-good-soft: rgba(5, 150, 105, 0.10);
+  --op-shadow: 0 1px 3px rgba(20, 24, 34, 0.07), 0 1px 2px rgba(20, 24, 34, 0.04);
+  --op-shadow-lg: 0 26px 60px -24px rgba(24, 28, 40, 0.28);
+  --op-glow: 0.13;
+  --op-accent-ink: var(--op-accent-ink-l);
 }
+
+/* ---- Accent palettes (hue only; -ink-d/-ink-l are theme-aware) ----------- */
+/* --op-accent      : solid fills / primary buttons
+   --op-accent-strong: the "YT"/secondary tone in the split motif + gradients
+   --op-accent-fg    : text/icon color that sits ON a solid accent fill
+   --op-accent-ink   : accent used as text/links (resolves to -d in dark, -l in light)
+   --op-accent-rgb   : for rgba(var(--op-accent-rgb), a) soft fills                */
+[data-accent="indigo"]  { --op-accent:#6366f1; --op-accent-strong:#8b5cf6; --op-accent-fg:#ffffff; --op-accent-ink-d:#a5b4fc; --op-accent-ink-l:#4f46e5; --op-accent-rgb:99,102,241; }
+[data-accent="emerald"] { --op-accent:#10b981; --op-accent-strong:#14b8a6; --op-accent-fg:#ffffff; --op-accent-ink-d:#6ee7b7; --op-accent-ink-l:#047857; --op-accent-rgb:16,185,129; }
+[data-accent="violet"]  { --op-accent:#8b5cf6; --op-accent-strong:#6366f1; --op-accent-fg:#ffffff; --op-accent-ink-d:#c4b5fd; --op-accent-ink-l:#6d28d9; --op-accent-rgb:139,92,246; }
+[data-accent="cyan"]    { --op-accent:#06b6d4; --op-accent-strong:#3b82f6; --op-accent-fg:#04252c; --op-accent-ink-d:#67e8f9; --op-accent-ink-l:#0e7490; --op-accent-rgb:6,182,212; }
+[data-accent="amber"]   { --op-accent:#f59e0b; --op-accent-strong:#f97316; --op-accent-fg:#241806; --op-accent-ink-d:#fcd34d; --op-accent-ink-l:#b45309; --op-accent-rgb:245,158,11; }
+/* Fallback so the app renders before data-accent is set */
+:root { --op-accent:#6366f1; --op-accent-strong:#8b5cf6; --op-accent-fg:#ffffff; --op-accent-ink-d:#a5b4fc; --op-accent-ink-l:#4f46e5; --op-accent-rgb:99,102,241; }
+
+/* ---- Map tokens -> Tailwind utilities (v4). `inline` keeps them as var()
+        references so utilities switch with [data-theme]. -------------------- */
+@theme inline {
+  --color-bg: var(--op-bg);
+  --color-bg-2: var(--op-bg-2);
+  --color-surface: var(--op-surface);
+  --color-surface-2: var(--op-surface-2);
+  --color-surface-3: var(--op-surface-3);
+  --color-hairline: var(--op-border);
+  --color-hairline-strong: var(--op-border-strong);
+  --color-fg: var(--op-text);
+  --color-muted: var(--op-muted);
+  --color-faint: var(--op-faint);
+  --color-accent: var(--op-accent);
+  --color-accent-strong: var(--op-accent-strong);
+  --color-accent-fg: var(--op-accent-fg);
+  --color-accent-ink: var(--op-accent-ink);
+  --color-danger: var(--op-danger);
+  --color-warn: var(--op-warn);
+  --color-good: var(--op-good);
+
+  --font-sans: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+}
+
+/* Usage examples after this file is in place:
+     bg-bg  bg-surface  bg-surface-2
+     text-fg  text-muted  text-faint  text-accent-ink
+     border border-hairline   (or border-hairline-strong)
+     bg-accent text-accent-fg     <- primary button
+     font-mono                    <- addresses / figures / labels
+     rounded-lg  shadow-[var(--op-shadow)]
+   For soft accent fills use arbitrary values:
+     bg-[rgba(var(--op-accent-rgb),0.1)]  border-[rgba(var(--op-accent-rgb),0.34)]
+*/
+
+/* ---- Base reset + keyframes --------------------------------------------- */
+* , *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--op-bg);
+  color: var(--op-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@keyframes op-spin    { to { transform: rotate(360deg); } }
+@keyframes op-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes op-pop     { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes op-ticker  { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes op-pulse   { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.6); } }
