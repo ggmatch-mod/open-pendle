@@ -269,6 +269,24 @@ export function forgetPool(chainId: SupportedChainId, market: Address): void {
   writeEnvelope(next)
 }
 
+/** Look up a saved pool by (chainId, market) — used to capture it for undo. */
+export function findPool(chainId: SupportedChainId, market: Address): SavedPool | undefined {
+  const needle = poolKey(chainId, market)
+  return loadPools().find((p) => poolKey(p.chainId, p.market) === needle)
+}
+
+/**
+ * Re-insert a previously-removed pool exactly as it was (undo a forget). Upserts
+ * by (chainId, market), preserving the pool's original savedAt so it returns to
+ * its place in the recency order rather than jumping to the top.
+ */
+export function restorePool(pool: SavedPool): void {
+  const needle = poolKey(pool.chainId, pool.market)
+  const next = loadPools().filter((p) => poolKey(p.chainId, p.market) !== needle)
+  next.push(pool)
+  writeEnvelope(next)
+}
+
 /**
  * Subscribe to registry changes (local mutations + cross-tab `storage`
  * events). Returns an unsubscribe function; usable as a

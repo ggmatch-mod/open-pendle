@@ -5,10 +5,13 @@
  */
 
 import type { MarketSnapshot } from '../lib/types'
-import { useRegistry } from '../lib/hooks'
+import { useActiveChain, useRegistry } from '../lib/hooks'
+import { useForgetWithUndo } from './ForgetUndo'
 
 export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
-  const { isSaved, save, forget } = useRegistry()
+  const { isSaved, save } = useRegistry()
+  const { chainId } = useActiveChain()
+  const forgetWithUndo = useForgetWithUndo()
   const saved = isSaved(snapshot.address)
 
   // Markets no known Pendle factory validates must never enter the registry
@@ -42,7 +45,7 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
           checked={saved}
           onChange={(e) => {
             if (e.target.checked) save(snapshot)
-            else forget(snapshot.address)
+            else forgetWithUndo(chainId, snapshot.address)
           }}
           className="sr-only"
         />

@@ -18,7 +18,8 @@ import type { QueryStatus, SavedPool } from '../lib/types'
 import type { RegistrySweepEntry } from '../lib/market'
 import { vintageFromFactory } from '../lib/market'
 import { supportedChain } from '../lib/addresses'
-import { useActiveChain, useRegistry } from '../lib/hooks'
+import { useActiveChain } from '../lib/hooks'
+import { useForgetWithUndo } from './ForgetUndo'
 import { clampLabel, formatCompact, formatDate, formatPercent, shortAddress } from './format'
 
 function StatLine({
@@ -83,8 +84,9 @@ export function SavedPoolCard({
 }) {
   const navigate = useNavigate()
   const { chainId: activeChainId, setChainId } = useActiveChain()
-  // Chain-explicit forget: a card may belong to a non-active chain.
-  const { forgetOn } = useRegistry()
+  // Forgetting goes through the app-level undo toast; pass the card's own
+  // chainId since it may belong to a non-active chain.
+  const forgetWithUndo = useForgetWithUndo()
   const matured = stats ? stats.isExpired : pool.expiry * 1000 < Date.now()
 
   const poolChain = supportedChain(pool.chainId)
@@ -139,7 +141,7 @@ export function SavedPoolCard({
           title="Click to forget this pool"
           onClick={(e) => {
             e.stopPropagation()
-            forgetOn(pool.chainId, pool.market)
+            forgetWithUndo(pool.chainId, pool.market)
           }}
           className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink"
         >

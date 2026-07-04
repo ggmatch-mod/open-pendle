@@ -12,6 +12,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
+import { ForgetUndoProvider } from './components/ForgetUndo'
 import { Ticker } from './components/Ticker'
 import { Logo } from './components/Logo'
 import { ThemeToggle } from './theme/ThemeToggle'
@@ -39,6 +40,7 @@ function NotFound() {
 
 export default function App() {
   return (
+    <ForgetUndoProvider>
     <div className="flex min-h-screen flex-col bg-bg text-fg antialiased">
       <WrongNetworkBanner />
       <Ticker />
@@ -116,5 +118,6 @@ export default function App() {
         </div>
       </footer>
     </div>
+    </ForgetUndoProvider>
   )
 }
