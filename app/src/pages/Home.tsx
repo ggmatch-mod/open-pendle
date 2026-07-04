@@ -8,12 +8,13 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
 import { useActiveChain, useClassifyAddress, useRegistry, useRegistrySweep } from '../lib/hooks'
-import { ProtocolStatus } from '../components/ProtocolStatus'
 import {
   poolsByRecency,
   RegistryEmptyState,
   SavedPoolGrid,
 } from '../components/SavedPoolsList'
+import { MarketAnatomyCard } from '../components/MarketAnatomyCard'
+import { SectionHeader } from '../components/SectionHeader'
 import { clampLabel, formatDate, shortAddress } from '../components/format'
 import { loadStarterList, type StarterList } from '../components/starterList'
 import { useDocumentTitle } from '../components/useDocumentTitle'
@@ -142,7 +143,7 @@ function MarketPasteBox() {
   }, [classification, trimmed, navigate])
 
   return (
-    <div className="mx-auto w-full max-w-xl">
+    <div className="w-full">
       <label htmlFor="market-address" className="sr-only">
         Market address
       </label>
@@ -154,7 +155,7 @@ function MarketPasteBox() {
         placeholder="Paste a Pendle market (PLP) address — 0x…"
         spellCheck={false}
         autoComplete="off"
-        className="w-full rounded-xl border border-hairline-strong bg-surface px-4 py-3.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none transition focus:border-accent focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.2)]"
+        className="w-full rounded-[15px] border border-hairline-strong bg-surface px-4 py-3.5 font-mono text-sm text-fg placeholder-[color:var(--op-faint)] outline-none transition focus:border-accent focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.2)]"
       />
       <div aria-live="polite" className="mt-2.5 min-h-5">
         <ClassificationFeedback status={classify} input={trimmed} />
@@ -182,14 +183,11 @@ function SavedPoolsPreview() {
 
   return (
     <section>
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold text-fg">Your pools</h2>
-        {pools.length > 0 && (
-          <span className="text-xs text-faint">
-            {pools.length} remembered · stored locally
-          </span>
-        )}
-      </div>
+      <SectionHeader
+        index="01"
+        title="Your pools"
+        meta={pools.length > 0 ? `${pools.length} remembered · local` : undefined}
+      />
       {pools.length === 0 ? (
         <RegistryEmptyState />
       ) : (
@@ -233,8 +231,8 @@ function StarterMarkets() {
 
   return (
     <section>
-      <h2 className="text-lg font-semibold text-fg">Examples</h2>
-      <p className="mb-3 mt-0.5 text-xs text-faint">
+      <SectionHeader index="02" title="Examples" meta="unvetted" />
+      <p className="mb-3 text-xs text-faint">
         Active community pools (unvetted)
         {list?.generatedAt ? `, as of ${list.generatedAt}` : ''} — listed for
         convenience, not endorsement.
@@ -261,67 +259,93 @@ function StarterMarkets() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Protocol status — collapsed by default, mounts (and reads the RPC) on open
-// ---------------------------------------------------------------------------
-
-function CollapsedProtocolStatus() {
-  const [open, setOpen] = useState(false)
-  const { chain } = useActiveChain()
-
-  return (
-    <details
-      className="group rounded-xl border border-hairline bg-surface"
-      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
-    >
-      <summary className="cursor-pointer select-none px-5 py-4 text-sm font-medium text-muted hover:text-fg">
-        Protocol status — live from {chain.name}
-      </summary>
-      <div className="px-3 pb-3">{open && <ProtocolStatus />}</div>
-    </details>
-  )
-}
-
-// ---------------------------------------------------------------------------
-
 export default function Home() {
   useDocumentTitle()
   const { chain } = useActiveChain()
 
   return (
-    <div className="pb-14">
-      <section className="py-12 text-center sm:py-14">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Pendle community pools, <span className="text-accent-ink">no whitelist</span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm text-muted sm:text-base">
-          Load any Pendle V2 market on {chain.name} by address. No backend, no
-          curation — just the chain.
-        </p>
-        <div className="mt-8">
-          <MarketPasteBox />
-        </div>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm text-faint">
-          <span>Want your own pool?</span>
-          <Link
-            to="/create"
-            className="rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] px-3 py-1.5 font-medium text-accent-ink transition hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
-          >
-            Create a community pool →
-          </Link>
-          <Link
-            to="/create-sy"
-            className="rounded-md border border-hairline-strong px-3 py-1.5 font-medium text-muted transition hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
-          >
-            Create an SY adapter →
-          </Link>
+    <div className="pb-16">
+      <section className="relative py-14 sm:py-16">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-5 bottom-0 z-0"
+          style={{
+            backgroundImage: 'radial-gradient(var(--op-grid) 1px, transparent 1px)',
+            backgroundSize: '26px 26px',
+            WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at 40% 30%, #000 30%, transparent 75%)',
+            maskImage: 'radial-gradient(ellipse 80% 70% at 40% 30%, #000 30%, transparent 75%)',
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-16 left-[20%] z-0 h-[460px] w-[640px] max-w-[90%]"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 50% at 50% 40%, rgba(var(--op-accent-rgb),var(--op-glow)), transparent 70%)',
+          }}
+        />
+        <div className="relative z-[1] grid items-center gap-12 lg:grid-cols-[1.08fr_.92fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 font-mono text-[11.5px] uppercase tracking-[.06em] text-muted">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: 'var(--op-accent)', animation: 'op-pulse 2.4s ease-in-out infinite' }}
+              />
+              Permissionless · on-chain
+            </span>
+            <h1 className="mt-[18px] text-[44px] font-extrabold leading-[1.02] tracking-[-.04em] text-fg sm:text-[57px]">
+              Pendle community pools,{' '}
+              <span className="relative whitespace-nowrap text-accent-ink">
+                no whitelist
+                <span
+                  className="absolute inset-x-0 bottom-[.02em] h-[.1em] rounded"
+                  style={{ background: 'var(--op-accent)', opacity: 0.55 }}
+                />
+              </span>
+            </h1>
+            <p className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed text-muted">
+              Load any Pendle V2 market on {chain.name} by address. No backend, no curation, no
+              indexer — the interface reads straight from the chain and simulates every transaction
+              before you sign.
+            </p>
+            <div className="mt-7">
+              <label className="mb-2 block font-mono text-[10.5px] uppercase tracking-[.08em] text-faint">
+                Load any market
+              </label>
+              <MarketPasteBox />
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13.5px]">
+              <Link to="/create" className="font-semibold text-accent-ink no-underline">
+                Create a community pool →
+              </Link>
+              <span className="text-faint">·</span>
+              <Link to="/create-sy" className="font-semibold text-muted no-underline hover:text-fg">
+                Create an SY adapter →
+              </Link>
+            </div>
+            <div className="mt-[18px] flex flex-wrap gap-[7px]">
+              {['Exact-amount approvals', 'Simulated before you sign', 'Registry stays on your device'].map(
+                (c) => (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-[11px] py-1 text-[11.5px] text-muted"
+                  >
+                    <span className="text-accent-ink">✓</span>
+                    {c}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+          <div className="hidden lg:block">
+            <MarketAnatomyCard />
+          </div>
         </div>
       </section>
 
-      <div className="space-y-10">
+      <div className="space-y-12">
         <SavedPoolsPreview />
         <StarterMarkets />
-        <CollapsedProtocolStatus />
       </div>
     </div>
   )
