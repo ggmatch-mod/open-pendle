@@ -22,6 +22,7 @@ import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
 import PoolsPage from './pages/PoolsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
+import AboutPage from './pages/AboutPage'
 
 function NotFound() {
   return (
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/pools" element={<PoolsPage />} />
           <Route path="/status" element={<ProtocolStatusPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/create" element={<CreatePoolPage />} />
           <Route path="/create-sy" element={<CreateSyPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
@@ -107,6 +109,10 @@ export default function App() {
             </p>
           </div>
           <div className="flex items-center gap-3.5">
+            <Link to="/about" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
+              About &amp; risks
+            </Link>
+            <span className="h-3 w-px bg-hairline" />
             <Link to="/status" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
               Protocol status
             </Link>
