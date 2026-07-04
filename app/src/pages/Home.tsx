@@ -8,11 +8,12 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
 import { useActiveChain, useClassifyAddress, useRegistry, useRegistrySweep } from '../lib/hooks'
-import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
-import { sweepKey } from '../lib/market'
-import type { SavedPool, SupportedChainId } from '../lib/types'
 import { ProtocolStatus } from '../components/ProtocolStatus'
-import { SavedPoolCard } from '../components/SavedPoolCard'
+import {
+  poolsByRecency,
+  RegistryEmptyState,
+  SavedPoolGrid,
+} from '../components/SavedPoolsList'
 import { clampLabel, formatDate, shortAddress } from '../components/format'
 import { loadStarterList, type StarterList } from '../components/starterList'
 import { useDocumentTitle } from '../components/useDocumentTitle'
@@ -163,63 +164,21 @@ function MarketPasteBox() {
 }
 
 // ---------------------------------------------------------------------------
-// Saved pools (registry)
+// Saved pools (registry) — landing preview: the most recent couple of pools,
+// with a link to the dedicated /pools tab for the full grouped list. Keeping
+// the whole registry off the landing page avoids clutter (user request).
 // ---------------------------------------------------------------------------
 
-function RegistryEmptyState() {
-  return (
-    <section className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-6">
-      <h2 className="text-base font-semibold text-zinc-100">No remembered pools yet</h2>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-        The paste box above is the way in — OpenPendle has no listing page by
-        design. Load a market by address, tick{' '}
-        <span className="text-emerald-400">Remember this pool</span> on its page,
-        and it will live here (stored locally in your browser, nowhere else).
-      </p>
-      <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-        <span className="text-zinc-200">Where do I find a market address?</span>{' '}
-        Community pool creators share their market (PLP) address — in Discord, on
-        X, or as a block-explorer link. It's the address of the{' '}
-        <span className="font-mono text-xs">PendleMarket</span> contract itself,
-        not the PT, YT or SY. If you paste a PT, YT or SY we'll tell you which it
-        is, so you can ask the pool creator for the market address.
-      </p>
-    </section>
-  )
-}
+/** How many remembered pools the landing page previews before the "See all" link. */
+const PREVIEW_COUNT = 2
 
-/** Group saved pools by their own chainId, active chain first, then by SUPPORTED_CHAINS order. */
-function groupPoolsByChain(
-  pools: SavedPool[],
-  activeChainId: SupportedChainId,
-): { chainId: SupportedChainId; pools: SavedPool[] }[] {
-  const byChain = new Map<SupportedChainId, SavedPool[]>()
-  for (const p of pools) {
-    const arr = byChain.get(p.chainId)
-    if (arr) arr.push(p)
-    else byChain.set(p.chainId, [p])
-  }
-  // Order: active chain first, then the SUPPORTED_CHAINS display order.
-  const order = [
-    activeChainId,
-    ...SUPPORTED_CHAINS.map((c) => c.id).filter((id) => id !== activeChainId),
-  ]
-  return order
-    .filter((id) => byChain.has(id))
-    .map((chainId) => ({
-      chainId,
-      pools: (byChain.get(chainId) ?? []).sort((a, b) => b.savedAt - a.savedAt),
-    }))
-}
-
-function SavedPools() {
+function SavedPoolsPreview() {
   const { pools } = useRegistry()
-  const { chainId: activeChainId } = useActiveChain()
-  // ONE multicall sweep PER CHAIN for the whole grid (PLAN §3.3, M8 groups by
-  // each pool's own chainId) instead of a full market snapshot per card.
-  const sweep = useRegistrySweep(pools)
-
-  const groups = groupPoolsByChain(pools, activeChainId)
+  // Preview the most-recently-saved pools across all chains.
+  const preview = poolsByRecency(pools).slice(0, PREVIEW_COUNT)
+  // Sweep only what we render here — the /pools tab sweeps the full set.
+  const sweep = useRegistrySweep(preview)
+  const hidden = pools.length - preview.length
 
   return (
     <section>
@@ -234,39 +193,18 @@ function SavedPools() {
       {pools.length === 0 ? (
         <RegistryEmptyState />
       ) : (
-        <div className="space-y-5">
-          {groups.map(({ chainId, pools: chainPools }) => {
-            const chain = supportedChain(chainId)
-            const isActive = chainId === activeChainId
-            return (
-              <div key={chainId}>
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-zinc-600'}`}
-                    aria-hidden="true"
-                  />
-                  <h3 className="text-sm font-medium text-zinc-300">
-                    {chain?.name ?? `Chain ${chainId}`}
-                  </h3>
-                  <span className="text-xs text-zinc-600">
-                    {chainPools.length} pool{chainPools.length === 1 ? '' : 's'}
-                    {isActive ? ' · active' : ''}
-                  </span>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {chainPools.map((pool) => (
-                    <SavedPoolCard
-                      key={`${pool.chainId}:${pool.market}`}
-                      pool={pool}
-                      sweepStatus={sweep.status}
-                      stats={sweep.stats[sweepKey(pool.chainId, pool.market)]}
-                    />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          <SavedPoolGrid pools={preview} sweep={sweep} />
+          <div className="mt-4 text-sm">
+            <Link
+              to="/pools"
+              className="font-medium text-emerald-400 hover:text-emerald-300"
+            >
+              See all your saved Pools
+              {hidden > 0 ? ` (${hidden} more)` : ''} →
+            </Link>
+          </div>
+        </>
       )}
     </section>
   )
@@ -381,7 +319,7 @@ export default function Home() {
       </section>
 
       <div className="space-y-10">
-        <SavedPools />
+        <SavedPoolsPreview />
         <StarterMarkets />
         <CollapsedProtocolStatus />
       </div>

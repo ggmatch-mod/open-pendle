@@ -13,6 +13,7 @@ import CreatePoolPage from './pages/CreatePoolPage'
 import CreateSyPage from './pages/CreateSyPage'
 import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
+import PoolsPage from './pages/PoolsPage'
 
 function NotFound() {
   return (
@@ -41,6 +42,12 @@ export default function App() {
           </Link>
           <div className="flex items-center gap-2.5">
             <Link
+              to="/pools"
+              className="hidden rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-zinc-100 sm:inline-block"
+            >
+              Saved pools
+            </Link>
+            <Link
               to="/create"
               className="hidden rounded-md border border-emerald-800 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:border-emerald-600 hover:text-emerald-300 sm:inline-block"
             >
@@ -56,6 +63,7 @@ export default function App() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/pools" element={<PoolsPage />} />
           <Route path="/create" element={<CreatePoolPage />} />
           <Route path="/create-sy" element={<CreateSyPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
