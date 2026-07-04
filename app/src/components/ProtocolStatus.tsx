@@ -1,24 +1,25 @@
 /**
- * ProtocolStatus — live-reads the protocol wiring straight from the ACTIVE
- * chain (M8: was Arbitrum-hardcoded). The commonDeploy entry point and every
- * read are resolved/routed for useActiveChain().chainId, so switching the
- * network dropdown re-reads this card against the new chain.
+ * ProtocolStatus — live-reads one chain's protocol wiring straight from the
+ * chain (takes an explicit `chainId`, so the /status page can render a card per
+ * supported network). The commonDeploy entry point and every read are resolved/
+ * routed for that chainId.
  *
  * Stage 1: resolve active marketFactory / yieldContractFactory / router /
  *          syFactory from commonDeploy's immutables (PLAN F12).
  * Stage 2: read governance-mutable values (expiryDivisor, interestFeeRate,
  *          treasury, maxLnFeeRateRoot) from the resolved factories.
  *
- * All reads go through the active chain's RPC transport (multicall-batched) —
- * no wallet needed. Retries are TanStack Query defaults, which absorb flaky
- * public-RPC hiccups.
+ * All reads go through that chain's RPC transport (multicall-batched) — no
+ * wallet needed. Retries are TanStack Query defaults, which absorb flaky
+ * public-RPC hiccups; each card owns its own loading/error state.
  */
 
 import type { ReactNode } from 'react'
 import { useReadContracts } from 'wagmi'
 import type { Address } from 'viem'
-import { addressBookFor } from '../lib/addresses'
+import { addressBookFor, supportedChain } from '../lib/addresses'
 import { useActiveChain } from '../lib/hooks'
+import type { SupportedChainId } from '../lib/types'
 import { explorerAddressUrl } from './format'
 import {
   commonDeployAbi,
@@ -52,13 +53,7 @@ function shortAddr(addr: Address): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 
-function AddressValue({
-  address,
-  chainId,
-}: {
-  address: Address
-  chainId: import('../lib/types').SupportedChainId
-}) {
+function AddressValue({ address, chainId }: { address: Address; chainId: SupportedChainId }) {
   return (
     <a
       href={explorerAddressUrl(chainId, address)}
@@ -97,22 +92,23 @@ function SkeletonRows({ count }: { count: number }) {
   )
 }
 
-export function ProtocolStatus() {
-  // M8: everything reads the ACTIVE chain. commonDeploy is the same address on
-  // every chain, but we resolve it via the active chain's book (single source
-  // of truth) and route every read with chainId: activeChainId so the wiring/
-  // fee reads land on the selected network.
-  const { chainId: activeChainId, chain } = useActiveChain()
-  const commonDeploy = addressBookFor(activeChainId).commonDeploy
+export function ProtocolStatus({ chainId }: { chainId: SupportedChainId }) {
+  // commonDeploy is the same address on every chain, but we resolve it via this
+  // chain's book (single source of truth) and route every read with `chainId`
+  // so the wiring/fee reads land on this network.
+  const { chainId: activeChainId } = useActiveChain()
+  const isActive = chainId === activeChainId
+  const chain = supportedChain(chainId)
+  const commonDeploy = addressBookFor(chainId).commonDeploy
 
   // Stage 1 — resolve the active wiring from commonDeploy's immutables.
   const wiring = useReadContracts({
     allowFailure: false,
     contracts: [
-      { chainId: activeChainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'marketFactory' },
-      { chainId: activeChainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'yieldContractFactory' },
-      { chainId: activeChainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'router' },
-      { chainId: activeChainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'syFactory' },
+      { chainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'marketFactory' },
+      { chainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'yieldContractFactory' },
+      { chainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'router' },
+      { chainId, address: commonDeploy, abi: commonDeployAbi, functionName: 'syFactory' },
     ],
     query: {
       // Immutables — cache generously (PLAN §3.2: longer staleTime for immutables).
@@ -129,10 +125,10 @@ export function ProtocolStatus() {
     contracts:
       yieldContractFactory && marketFactory
         ? [
-            { chainId: activeChainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'expiryDivisor' },
-            { chainId: activeChainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'interestFeeRate' },
-            { chainId: activeChainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'treasury' },
-            { chainId: activeChainId, address: marketFactory, abi: marketFactoryAbi, functionName: 'maxLnFeeRateRoot' },
+            { chainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'expiryDivisor' },
+            { chainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'interestFeeRate' },
+            { chainId, address: yieldContractFactory, abi: yieldContractFactoryAbi, functionName: 'treasury' },
+            { chainId, address: marketFactory, abi: marketFactoryAbi, functionName: 'maxLnFeeRateRoot' },
           ]
         : undefined,
     query: {
@@ -152,23 +148,32 @@ export function ProtocolStatus() {
   }
 
   return (
-    <section className="rounded-xl border border-hairline bg-surface p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-fg">Protocol status</h2>
-        <span className="rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2 py-0.5 text-xs text-accent-ink">
-          live from {chain.name}
-        </span>
+    <section className="rounded-[16px] border border-hairline bg-surface p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{
+              background: 'var(--op-accent)',
+              animation: isActive ? 'op-pulse 2.4s ease-in-out infinite' : undefined,
+              opacity: isActive ? 1 : 0.5,
+            }}
+            aria-hidden="true"
+          />
+          <h3 className="text-base font-semibold text-fg">{chain?.name ?? `Chain ${chainId}`}</h3>
+        </div>
+        {isActive && (
+          <span className="rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2 py-0.5 text-[11px] font-medium text-accent-ink">
+            active
+          </span>
+        )}
       </div>
-      <p className="mb-4 text-xs text-faint">
-        Active factories are resolved from commonDeploy's immutables at runtime; fee
-        parameters are governance-mutable and read live, never hardcoded.
-      </p>
 
       {error ? (
         <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-4">
           <p className="text-sm text-danger">
-            Couldn't read protocol state from the RPC. Public endpoints rate-limit —
-            retrying usually fixes it, or set a custom RPC in settings.
+            Couldn't read this chain's protocol state from the RPC. Public endpoints
+            rate-limit — retrying usually fixes it, or set a custom RPC in settings.
           </p>
           <p className="mt-1 break-all font-mono text-xs text-danger">
             {error.message.split('\n')[0]}
@@ -185,34 +190,32 @@ export function ProtocolStatus() {
       ) : (
         <div>
           <Row label="Active market factory">
-            {marketFactory && <AddressValue address={marketFactory} chainId={activeChainId} />}
+            {marketFactory && <AddressValue address={marketFactory} chainId={chainId} />}
           </Row>
           <Row label="Active yield contract factory">
-            {yieldContractFactory && (
-              <AddressValue address={yieldContractFactory} chainId={activeChainId} />
-            )}
+            {yieldContractFactory && <AddressValue address={yieldContractFactory} chainId={chainId} />}
           </Row>
           <Row label="Router V4">
-            {router && <AddressValue address={router} chainId={activeChainId} />}
+            {router && <AddressValue address={router} chainId={chainId} />}
           </Row>
           <Row label="SY factory">
-            {syFactory && <AddressValue address={syFactory} chainId={activeChainId} />}
+            {syFactory && <AddressValue address={syFactory} chainId={chainId} />}
           </Row>
           <Row label="Expiry divisor">
-            <span className="font-mono text-sm text-fg">
+            <span className="font-mono text-sm text-fg tabular-nums">
               {expiryDivisor !== undefined && formatExpiryDivisor(expiryDivisor)}
             </span>
           </Row>
           <Row label="YT interest fee">
-            <span className="font-mono text-sm text-fg">
+            <span className="font-mono text-sm text-fg tabular-nums">
               {interestFeeRate !== undefined && formatRate1e18(interestFeeRate)}
             </span>
           </Row>
           <Row label="Treasury">
-            {ycfTreasury && <AddressValue address={ycfTreasury} chainId={activeChainId} />}
+            {ycfTreasury && <AddressValue address={ycfTreasury} chainId={chainId} />}
           </Row>
           <Row label="Max swap fee (cap)">
-            <span className="font-mono text-sm text-fg">
+            <span className="font-mono text-sm text-fg tabular-nums">
               {maxLnFeeRateRoot !== undefined && formatLnFeeCap(maxLnFeeRateRoot)}
             </span>
           </Row>
