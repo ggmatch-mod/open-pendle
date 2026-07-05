@@ -64,19 +64,19 @@ async function fetchPendleStats(): Promise<TickerItem[]> {
   // Order mirrors the curated category list.
   if (tvl.status === 'fulfilled') {
     const v = num(tvl.value)
-    if (v !== undefined) items.push({ label: 'TVL', value: usd(v) })
+    if (v !== undefined) items.push({ label: 'Pendle TVL', value: usd(v) })
   }
   const mc = num(cgP?.usd_market_cap)
-  if (mc !== undefined) items.push({ label: 'Market cap', value: usd(mc) })
+  if (mc !== undefined) items.push({ label: 'Pendle market cap', value: usd(mc) })
 
   const rv = total1y(rev)
-  if (rv !== undefined) items.push({ label: 'Revenue 1y', value: usd(rv) })
+  if (rv !== undefined) items.push({ label: 'Pendle revenue 1y', value: usd(rv) })
 
   const hr = total1y(hrev)
-  if (hr !== undefined) items.push({ label: 'Holder revenue 1y', value: usd(hr) })
+  if (hr !== undefined) items.push({ label: 'Pendle holder revenue 1y', value: usd(hr) })
 
   const fe = total1y(fees)
-  if (fe !== undefined) items.push({ label: 'Fees 1y', value: usd(fe) })
+  if (fe !== undefined) items.push({ label: 'Pendle fees 1y', value: usd(fe) })
 
   const px = num(cgP?.usd)
   const ch = num(cgP?.usd_24h_change)
