@@ -325,13 +325,29 @@ export function supportedChain(id: number | undefined): SupportedChain | undefin
 // settings panel; the M6 recovery scan + M1 acceptance sweep need eth_getLogs.
 // ---------------------------------------------------------------------------
 
+/**
+ * Keyless free public RPC endpoints per chain, PRIMARY FIRST. Multiple so a
+ * viem fallback() transport can skip a rate-limited/down node. All verified
+ * live (eth_chainId). Log-capable where possible (the M6 recovery scan + M1
+ * sweep want eth_getLogs); users still override per chain in the settings panel.
+ */
+export const FALLBACK_RPCS: Record<SupportedChainId, string[]> = {
+  1: ['https://ethereum-rpc.publicnode.com', 'https://cloudflare-eth.com'],
+  56: ['https://bsc-rpc.publicnode.com', 'https://bsc-dataseed.bnbchain.org'],
+  143: ['https://rpc.monad.xyz', 'https://monad.drpc.org'],
+  8453: ['https://base.publicnode.com', 'https://mainnet.base.org'],
+  9745: ['https://plasma.drpc.org', 'https://rpc.plasma.to'],
+  42161: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'],
+}
+
+/** The single primary default RPC per chain (= FALLBACK_RPCS[id][0]). */
 export const DEFAULT_RPCS: Record<SupportedChainId, string> = {
-  1: 'https://ethereum-rpc.publicnode.com',
-  56: 'https://bsc-rpc.publicnode.com',
-  143: 'https://rpc.monad.xyz',
-  8453: 'https://base.publicnode.com',
-  9745: 'https://plasma.drpc.org',
-  42161: 'https://arb1.arbitrum.io/rpc',
+  1: FALLBACK_RPCS[1][0],
+  56: FALLBACK_RPCS[56][0],
+  143: FALLBACK_RPCS[143][0],
+  8453: FALLBACK_RPCS[8453][0],
+  9745: FALLBACK_RPCS[9745][0],
+  42161: FALLBACK_RPCS[42161][0],
 }
 
 /** localStorage key holding a user-supplied RPC URL for a given chain. */
@@ -363,6 +379,16 @@ export function getChainRpcUrl(chainId: SupportedChainId): string {
     // localStorage unavailable (privacy mode) — fall through to the default.
   }
   return DEFAULT_RPCS[chainId]
+}
+
+/**
+ * Effective RPC endpoint LIST for a chain: a user override alone if set, else
+ * the keyless fallback list. wagmi wraps this in a viem fallback() transport so
+ * a flaky/rate-limited primary rolls over to a backup automatically.
+ */
+export function getChainRpcUrls(chainId: SupportedChainId): string[] {
+  const url = getChainRpcUrl(chainId)
+  return url === DEFAULT_RPCS[chainId] ? [...FALLBACK_RPCS[chainId]] : [url]
 }
 
 /** Persist a user RPC override for a chain (empty/whitespace clears it back to the default). */

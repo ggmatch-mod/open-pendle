@@ -19,7 +19,7 @@
 
 import { connectorsForWallets } from '@rainbow-me/rainbowkit'
 import { injectedWallet } from '@rainbow-me/rainbowkit/wallets'
-import { getAddress, isAddress } from 'viem'
+import { fallback, getAddress, isAddress } from 'viem'
 import type { Address, Chain } from 'viem'
 import { createConfig, http } from 'wagmi'
 import { arbitrum, base, bsc, mainnet, monad, plasma } from 'wagmi/chains'
@@ -28,6 +28,7 @@ import {
   DEFAULT_RPC_URL,
   RPC_STORAGE_KEY,
   getChainRpcUrl,
+  getChainRpcUrls,
 } from './addresses'
 
 /**
@@ -127,11 +128,13 @@ const chains = SUPPORTED_VIEM_CHAINS.map((chain) => {
   return chain
 }) as unknown as readonly [Chain, ...Chain[]]
 
-// Per-chain HTTP transports keyed by chain id (user-configurable per chain).
+// Per-chain transports: a viem fallback() over the chain's keyless endpoints
+// (or the user's single override) so a rate-limited/down primary rolls over to
+// a backup automatically (PLAN §3.2 — public RPCs throttle hard).
 const transports = Object.fromEntries(
   SUPPORTED_VIEM_CHAINS.map((chain) => [
     chain.id,
-    http(getChainRpcUrl(chain.id as SupportedChainId)),
+    fallback(getChainRpcUrls(chain.id as SupportedChainId).map((url) => http(url))),
   ]),
 )
 
