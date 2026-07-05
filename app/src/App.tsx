@@ -69,6 +69,14 @@ export default function App() {
             >
               Create pool
             </Link>
+            <a
+              href="https://docs.openpendle.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden h-[34px] items-center rounded-[10px] px-[11px] text-[13px] font-medium text-muted no-underline hover:bg-surface-2 hover:text-fg sm:inline-flex"
+            >
+              Docs
+            </a>
             <span className="mx-0.5 hidden h-[22px] w-px bg-hairline sm:block" />
             <NetworkSelector />
             <RpcSettings />
@@ -113,6 +121,15 @@ export default function App() {
             <Link to="/status" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
               Protocol status
             </Link>
+            <span className="h-3 w-px bg-hairline" />
+            <a
+              href="https://docs.openpendle.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink"
+            >
+              Docs
+            </a>
             <span className="h-3 w-px bg-hairline" />
             <span className="whitespace-nowrap font-mono text-[11px] tracking-[.04em] text-faint">
               GPL-3.0 · OPEN SOURCE

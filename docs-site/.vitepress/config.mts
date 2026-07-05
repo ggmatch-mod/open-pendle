@@ -1,0 +1,84 @@
+import { defineConfig } from 'vitepress'
+
+// OpenPendle documentation site.
+// Deployed as its own Cloudflare Pages project at https://docs.openpendle.com
+// (root dir `docs-site`, build `npm run docs:build`, output `.vitepress/dist`).
+// Kept fully static + self-contained (local search, no external services) to
+// match the app's censorship-resistant, self-hostable posture.
+
+const GITHUB = 'https://github.com/ggmatch-mod/open-pendle'
+const APP = 'https://openpendle.com'
+
+export default defineConfig({
+  title: 'OpenPendle',
+  description:
+    'Documentation for OpenPendle — an open-source, backend-free frontend for Pendle V2 community pools.',
+  lang: 'en-US',
+  cleanUrls: true,
+  lastUpdated: true,
+  ignoreDeadLinks: false,
+
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['meta', { name: 'theme-color', content: '#6366F1' }],
+    ['meta', { property: 'og:title', content: 'OpenPendle Docs' }],
+    ['meta', { property: 'og:description', content: 'How to use OpenPendle — the permissionless frontend for Pendle V2 community pools.' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+  ],
+
+  themeConfig: {
+    logo: '/favicon.svg',
+    siteTitle: 'OpenPendle Docs',
+
+    nav: [
+      { text: 'Guide', link: '/what-is-openpendle', activeMatch: '^/(?!networks|self-hosting|faq)' },
+      { text: 'Reference', link: '/networks-and-contracts' },
+      { text: 'Launch app ↗', link: APP },
+    ],
+
+    sidebar: [
+      {
+        text: 'Introduction',
+        collapsed: false,
+        items: [
+          { text: 'What is OpenPendle', link: '/what-is-openpendle' },
+          { text: 'How community pools work', link: '/how-pools-work' },
+          { text: 'Risks & disclosures', link: '/risks' },
+        ],
+      },
+      {
+        text: 'Using OpenPendle',
+        collapsed: false,
+        items: [
+          { text: 'Browsing & doing actions', link: '/using-openpendle' },
+          { text: 'Creating a pool', link: '/creating-a-pool' },
+          { text: 'Saved pools & privacy', link: '/saved-pools' },
+        ],
+      },
+      {
+        text: 'Reference',
+        collapsed: false,
+        items: [
+          { text: 'Networks & contracts', link: '/networks-and-contracts' },
+          { text: 'Self-hosting', link: '/self-hosting' },
+          { text: 'FAQ', link: '/faq' },
+        ],
+      },
+    ],
+
+    socialLinks: [{ icon: 'github', link: GITHUB }],
+
+    search: { provider: 'local' },
+
+    editLink: {
+      pattern: `${GITHUB}/edit/main/docs-site/:path`,
+      text: 'Edit this page on GitHub',
+    },
+
+    footer: {
+      message: 'Released under the GPL-3.0 License. Not affiliated with Pendle Finance.',
+      copyright: 'OpenPendle is a gift to Pendle\'s community — built by ggmxbt.',
+    },
+  },
+})
