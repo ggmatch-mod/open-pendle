@@ -1,0 +1,13 @@
+{
+  "name": "OpenPendle",
+  "short_name": "OpenPendle",
+  "description": "Backend-free interface for Pendle V2 community pools across six networks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0B0E",
+  "theme_color": "#0A0B0E",
+  "icons": [
+    { "src": "/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

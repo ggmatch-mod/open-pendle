@@ -14,7 +14,7 @@ import { RpcSettings } from './components/RpcSettings'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
 import { ForgetUndoProvider } from './components/ForgetUndo'
 import { Ticker } from './components/Ticker'
-import { Logo } from './components/Logo'
+import { Logo, BrandMark } from './components/Logo'
 import { ThemeToggle } from './theme/ThemeToggle'
 import CreatePoolPage from './pages/CreatePoolPage'
 import CreateSyPage from './pages/CreateSyPage'
@@ -94,10 +94,7 @@ export default function App() {
       <footer className="border-t border-hairline bg-bg-2">
         <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-7 py-7">
           <div className="flex items-center gap-[11px]">
-            <span
-              className="h-[22px] w-[22px] rounded-[7px]"
-              style={{ background: 'linear-gradient(135deg, var(--op-accent) 0 50%, var(--op-accent-strong) 50% 100%)' }}
-            />
+            <BrandMark className="h-[22px] w-[22px] shrink-0" />
             <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
               Community pools are permissionless and{' '}
               <span className="text-warn">unreviewed — use at your own risk</span>. OpenPendle
