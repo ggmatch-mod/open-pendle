@@ -287,6 +287,77 @@ export function restorePool(pool: SavedPool): void {
   writeEnvelope(next)
 }
 
+// ---------------------------------------------------------------------------
+// Export / import / share (M9) — portable backup + a shareable link. Both import
+// paths go through parseSavedPool (shape validation); the market-page provenance
+// gate still applies before any transaction, so importing never launders a
+// market into a transactable state.
+// ---------------------------------------------------------------------------
+
+/** Serialize the current registry to a portable JSON string (the storage envelope). */
+export function exportPoolsJson(): string {
+  return JSON.stringify({ version: 1, pools: loadPools() }, null, 2)
+}
+
+/**
+ * Merge pools from an exported/shared JSON string into the registry. Accepts the
+ * `{ version, pools }` envelope or a bare SavedPool[]. Each entry is
+ * shape-validated (malformed ones skipped); existing (chainId, market) entries
+ * are kept (merge, not overwrite). Returns counts.
+ */
+export function importPools(raw: string): { imported: number; skipped: number; total: number } {
+  const current = loadPools()
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { imported: 0, skipped: 0, total: current.length }
+  }
+  const arr: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { pools?: unknown }).pools)
+      ? (parsed as { pools: unknown[] }).pools
+      : []
+  const valid = arr.map(parseSavedPool).filter((p): p is SavedPool => p !== undefined)
+  const have = new Set(current.map((p) => poolKey(p.chainId, p.market)))
+  const additions = valid.filter((p) => !have.has(poolKey(p.chainId, p.market)))
+  if (additions.length > 0) writeEnvelope([...current, ...additions])
+  return {
+    imported: additions.length,
+    skipped: arr.length - valid.length,
+    total: current.length + additions.length,
+  }
+}
+
+/** URL-safe base64 of a UTF-8 string. */
+function b64urlEncode(s: string): string {
+  const bytes = new TextEncoder().encode(s)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/** Inverse of b64urlEncode; '' on failure. */
+function b64urlDecode(t: string): string {
+  try {
+    const b64 = t.replace(/-/g, '+').replace(/_/g, '/')
+    const bin = atob(b64)
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)))
+  } catch {
+    return ''
+  }
+}
+
+/** Encode pools into a compact, URL-safe share token (base64url of the JSON array). */
+export function encodePoolsShare(pools: SavedPool[]): string {
+  return b64urlEncode(JSON.stringify(pools))
+}
+
+/** Decode a share token back to a JSON string for importPools ('' if invalid). */
+export function decodePoolsShare(token: string): string {
+  return b64urlDecode(token)
+}
+
 /**
  * Subscribe to registry changes (local mutations + cross-tab `storage`
  * events). Returns an unsubscribe function; usable as a
