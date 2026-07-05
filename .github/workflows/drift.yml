@@ -1,0 +1,63 @@
+name: Drift check
+
+# Protocol-drift guard (PLAN M9). Pendle's router facets, factory proxies and
+# fee params are owner-mutable — governance has remapped selectors before. This
+# live-reads Pendle's on-chain wiring on Arbitrum and validates real markets
+# against the app's factory set + plausibility ranges (scripts/sanity-check.mjs).
+# If a factory is rotated, a read changes, or a market OpenPendle expects stops
+# validating, this fails and opens a tracking issue — so drift surfaces as a
+# notification instead of the app silently rejecting valid new markets.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      ARB_RPC_URL: ${{ secrets.ARB_RPC_URL != '' && secrets.ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Live protocol sanity / drift check (Arbitrum)
+        run: node --experimental-strip-types scripts/sanity-check.mjs
+
+      - name: Open a tracking issue on drift
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 })
+            if (open.data.some((i) => i.title.startsWith('Protocol drift detected'))) return
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: `Protocol drift detected — ${new Date().toISOString().slice(0, 10)}`,
+              labels: ['drift'],
+              body: [
+                'The scheduled drift check failed: Pendle\'s live on-chain wiring on Arbitrum no longer',
+                'matches OpenPendle\'s expectations. Likely a factory-generation rotation, a router/read',
+                'change, or (less likely) a flaky RPC — re-run to rule that out.',
+                '',
+                `Failed run: ${runUrl}`,
+                '',
+                'If Pendle shipped a new factory generation, add it to the address book in',
+                '`app/src/lib/addresses.ts` so the app validates markets created by it.',
+              ].join('\n'),
+            })
