@@ -1,0 +1,4 @@
+Contact: https://x.com/ggmxbt
+Expires: 2027-07-05T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://openpendle.com/.well-known/security.txt
