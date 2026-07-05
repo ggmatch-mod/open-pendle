@@ -43,18 +43,11 @@ function OracleCta() {
           liquidity, or quote through the router — those work immediately.
         </p>
         <p className="mt-2 text-[11px] leading-snug text-faint">
-          This optional transaction is a planned follow-up step and isn't wired
-          into this build yet. You can safely deploy and trade without it and
-          initialize the oracle later from the pool page.
+          A one-click initialize step is planned for a later OpenPendle update. If
+          you need it now, call{' '}
+          <span className="font-mono">increaseObservationsCardinalityNext</span> on
+          the market contract from a block explorer. It's safe to skip.
         </p>
-        <button
-          type="button"
-          disabled
-          className="mt-2.5 cursor-not-allowed rounded-md border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-faint"
-          title="Oracle initialization ships as a follow-up step."
-        >
-          Initialize oracle (coming soon)
-        </button>
       </div>
     </details>
   )
