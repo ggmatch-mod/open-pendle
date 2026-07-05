@@ -53,11 +53,12 @@ export function ForgetUndoProvider({ children }: { children: ReactNode }) {
 
   const undo = useCallback(() => {
     clearTimer()
-    setPending((p) => {
-      if (p) restorePool(p)
-      return null
-    })
-  }, [clearTimer])
+    // Restore in the handler (NOT inside a setState updater) — restorePool emits
+    // to the registry's external store, which would otherwise fire subscribers'
+    // setState during this component's render (setState-in-render warning).
+    if (pending) restorePool(pending)
+    setPending(null)
+  }, [clearTimer, pending])
 
   const dismiss = useCallback(() => {
     clearTimer()
