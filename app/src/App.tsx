@@ -11,6 +11,7 @@ import { Link, Route, Routes } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
+import { MobileNav } from './components/MobileNav'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
 import { ForgetUndoProvider } from './components/ForgetUndo'
 import { Ticker } from './components/Ticker'
@@ -20,7 +21,9 @@ import CreatePoolPage from './pages/CreatePoolPage'
 import CreateSyPage from './pages/CreateSyPage'
 import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
+import TokenPage from './pages/TokenPage'
 import PoolsPage from './pages/PoolsPage'
+import PositionsPage from './pages/PositionsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
 
@@ -54,8 +57,17 @@ export default function App() {
           <Logo />
           <div className="flex items-center gap-2">
             <Link
+              to="/positions"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
+            >
+              <span aria-hidden className="text-[12px] text-accent-ink">
+                ◈
+              </span>
+              Positions
+            </Link>
+            <Link
               to="/pools"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 sm:inline-flex"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ★
@@ -64,24 +76,19 @@ export default function App() {
             </Link>
             <Link
               to="/create"
-              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] sm:inline-flex"
+              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] lg:inline-flex"
               style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
             >
               Create pool
             </Link>
-            <a
-              href="https://docs.openpendle.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden h-[34px] items-center rounded-[10px] px-[11px] text-[13px] font-medium text-muted no-underline hover:bg-surface-2 hover:text-fg sm:inline-flex"
-            >
-              Docs
-            </a>
-            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline sm:block" />
-            <NetworkSelector />
-            <RpcSettings />
+            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline lg:block" />
+            <div className="hidden items-center gap-2 lg:flex">
+              <NetworkSelector />
+              <RpcSettings />
+            </div>
             <ThemeToggle />
             <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
+            <MobileNav />
           </div>
         </div>
       </header>
@@ -90,11 +97,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/pools" element={<PoolsPage />} />
+          <Route path="/positions" element={<PositionsPage />} />
           <Route path="/status" element={<ProtocolStatusPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/create" element={<CreatePoolPage />} />
           <Route path="/create-sy" element={<CreateSyPage />} />
           <Route path="/market/:address" element={<MarketPage />} />
+          <Route path="/token/:address" element={<TokenPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

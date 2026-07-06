@@ -86,6 +86,24 @@ function ClassificationFeedback({
       )
     case 'pt':
     case 'yt':
+      return (
+        <div className="mx-auto max-w-lg rounded-lg border border-hairline-strong bg-surface p-3 text-left">
+          <p className="text-sm text-fg">
+            {c.message}
+            {c.symbol && !c.message.includes(c.symbol) && (
+              <span className="ml-1.5 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-muted">
+                {clampLabel(c.symbol)}
+              </span>
+            )}
+          </p>
+          <button
+            onClick={() => navigate(`/token/${getAddress(input)}`)}
+            className="mt-2.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+          >
+            View &amp; act on this token →
+          </button>
+        </div>
+      )
     case 'sy':
       return (
         <div className="mx-auto max-w-lg rounded-lg border border-hairline-strong bg-surface p-3 text-left">
@@ -97,14 +115,6 @@ function ClassificationFeedback({
               </span>
             )}
           </p>
-          {c.resolvedMarket && (
-            <button
-              onClick={() => navigate(`/market/${c.resolvedMarket}`)}
-              className="mt-2.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
-            >
-              Open its market →
-            </button>
-          )}
         </div>
       )
     case 'contract':

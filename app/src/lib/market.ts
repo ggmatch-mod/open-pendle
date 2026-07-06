@@ -233,21 +233,21 @@ export async function classifyAddress(
   if (syR.status === 'success' && ytR.status === 'success' && ptR.status !== 'success') {
     return {
       kind: 'pt',
-      message: `This looks like a PT (${symbolLabel}) — paste the market (PLP) address instead.`,
+      message: `This is a PT (${symbolLabel}) — open it to mint, redeem, or claim; paste the market (PLP) to trade.`,
       symbol,
     }
   }
   if (syR.status === 'success' && ptR.status === 'success' && ytR.status !== 'success') {
     return {
       kind: 'yt',
-      message: `This looks like a YT (${symbolLabel}) — paste the market (PLP) address instead.`,
+      message: `This is a YT (${symbolLabel}) — open it to mint, redeem, or claim; paste the market (PLP) to trade.`,
       symbol,
     }
   }
   if (assetInfoR.status === 'success') {
     return {
       kind: 'sy',
-      message: `This looks like an SY (${symbolLabel}) — paste the market (PLP) address instead.`,
+      message: `This looks like an SY (${symbolLabel}) — one SY backs many maturities, so paste a PT, YT, or market (PLP) address.`,
       symbol,
     }
   }

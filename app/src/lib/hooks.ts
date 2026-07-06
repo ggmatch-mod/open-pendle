@@ -22,8 +22,11 @@ import type { SupportedChain } from './addresses'
 import { classifyAddress, loadMarketSnapshot, sweepRegistryPools } from './market'
 import { preflightDeploy } from './deploy'
 import { probeAsset } from './syDeploy'
-import { ARBITRUM_CHAIN_ID, isSupportedChainId, supportedChain } from './addresses'
+import { ARBITRUM_CHAIN_ID, SUPPORTED_CHAINS, isSupportedChainId, supportedChain } from './addresses'
 import { loadPositions } from './positions'
+import { fetchMerklRewards } from './merkl'
+import type { MerklReward } from './merkl'
+import { resolveTokenSet } from './tokenSnapshot'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { previewExitPostExp, readDepegInfo } from './maturity'
@@ -385,6 +388,203 @@ export function usePositions(snapshot?: MarketSnapshot): {
   return { status: toQueryStatus(query.status), positions: query.data, refetch }
 }
 
+/** One aggregated saved-pool position: the pool, its loaded snapshot + the
+ * connected user's positions on it, or an error string if either read failed. */
+export interface AggregatedPosition {
+  pool: SavedPool
+  snapshot?: MarketSnapshot
+  positions?: import('./types').Positions
+  error?: string
+}
+
+/**
+ * Cross-chain "My positions" (M12): for EVERY saved pool on EVERY chain, load
+ * its market snapshot + the connected user's positions on it, through that
+ * chain's own client. One react-query entry keyed by (user, saved-pool set), so
+ * it refetches when the wallet or the registry changes and is invalidated by
+ * useActionFlow after a confirmed claim. Reads only — the claim tx still runs
+ * through useActionFlow on the ACTIVE chain (see PositionsPage). A single pool's
+ * failed read degrades to an `error` entry; the rest still render.
+ */
+export function useAllPositions(): {
+  status: QueryStatus
+  items: AggregatedPosition[]
+  refetch: () => void
+} {
+  const { pools } = useRegistry()
+  const clients = useAllChainClients()
+  const { address: user } = useAccount()
+
+  const key = pools
+    .map((p) => `${p.chainId}:${p.market.toLowerCase()}`)
+    .sort()
+    .join(',')
+  const enabled = pools.length > 0 && user !== undefined
+
+  const query = useQuery({
+    queryKey: ['all-positions', user?.toLowerCase() ?? null, key],
+    queryFn: async (): Promise<AggregatedPosition[]> => {
+      const u = user as Address
+      return Promise.all(
+        pools.map(async (pool): Promise<AggregatedPosition> => {
+          const client = clients[pool.chainId]
+          if (!client) return { pool, error: 'RPC unavailable for this network.' }
+          try {
+            const snapshot = await loadMarketSnapshot(client, pool.market)
+            const positions = await loadPositions(client, snapshot, u)
+            return { pool, snapshot, positions }
+          } catch (err) {
+            return { pool, error: errorMessage(err) }
+          }
+        }),
+      )
+    },
+    enabled,
+    staleTime: POSITIONS_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  const refetch = (): void => {
+    void query.refetch()
+  }
+
+  if (pools.length === 0 || user === undefined) return { status: 'idle', items: [], refetch }
+  if (query.status === 'error') return { status: 'error', items: [], refetch }
+  return { status: toQueryStatus(query.status), items: query.data ?? [], refetch }
+}
+
+/** A wallet's claimable Merkl rewards on one chain (all protocols, not just Pendle). */
+export interface MerklChainRewards {
+  chainId: SupportedChainId
+  rewards: MerklReward[]
+}
+
+/**
+ * The connected wallet's claimable Merkl rewards across ALL supported chains
+ * (M12-B), fetched in parallel from Merkl's public keyless API; only chains with
+ * something to claim are returned. Independent of saved pools — Merkl rewards
+ * exist per wallet per chain regardless of which pools you follow. The claim
+ * still runs through useActionFlow on the ACTIVE chain (see MerklSection).
+ */
+export function useMerklRewards(): {
+  status: QueryStatus
+  byChain: MerklChainRewards[]
+  refetch: () => void
+} {
+  const { address: user } = useAccount()
+
+  const query = useQuery({
+    queryKey: ['merkl', user?.toLowerCase() ?? null],
+    queryFn: async (): Promise<MerklChainRewards[]> => {
+      const u = user as Address
+      const results = await Promise.all(
+        SUPPORTED_CHAINS.map(async (c) => ({
+          chainId: c.id,
+          rewards: await fetchMerklRewards(c.id, u),
+        })),
+      )
+      return results.filter((r) => r.rewards.length > 0)
+    },
+    enabled: user !== undefined,
+    // Proofs rotate ~every 4h; a 2-min cache keeps the page snappy without staleness.
+    staleTime: 120_000,
+    retry: 1,
+  })
+
+  const refetch = (): void => {
+    void query.refetch()
+  }
+
+  if (user === undefined) return { status: 'idle', byChain: [], refetch }
+  if (query.status === 'error') return { status: 'error', byChain: [], refetch }
+  return { status: toQueryStatus(query.status), byChain: query.data ?? [], refetch }
+}
+
+/**
+ * Resolve a pasted PT/YT into a market-less token snapshot (M12 "paste any
+ * token"). `notPyToken` is true when the address loaded but is NOT a clean PT/YT
+ * (an SY, a market, or other) — the page then tells the user to paste the
+ * market. Undefined address → 'idle'.
+ */
+export function useTokenSnapshot(address?: Address): {
+  status: QueryStatus
+  snapshot?: MarketSnapshot
+  notPyToken: boolean
+  refetch: () => void
+} {
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
+  const enabled = address !== undefined && client !== undefined
+
+  const query = useQuery({
+    queryKey: ['token-set', chainId, address?.toLowerCase() ?? null],
+    queryFn: () => resolveTokenSet(client as PublicClient, address as Address),
+    enabled,
+    staleTime: MARKET_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  const refetch = (): void => {
+    void query.refetch()
+  }
+
+  if (address === undefined) return { status: 'idle', notPyToken: false, refetch }
+  if (!enabled) return { status: 'loading', notPyToken: false, refetch }
+  if (query.status === 'error') return { status: 'error', notPyToken: false, refetch }
+  if (query.status === 'success') {
+    // resolveTokenSet returns null when the address is not a clean PT/YT.
+    return query.data
+      ? { status: 'success', snapshot: query.data, notPyToken: false, refetch }
+      : { status: 'success', notPyToken: true, refetch }
+  }
+  return { status: 'loading', notPyToken: false, refetch }
+}
+
+/**
+ * The connected user's MARKET-LESS positions on a pasted-token snapshot (PT/YT/SY
+ * balances + claimable YT interest + YT/SY rewards; no LP). Loads with
+ * includeMarket:false so no LP/market read is attempted. Undefined snapshot or
+ * no wallet → 'idle'.
+ */
+export function useTokenPositions(snapshot?: MarketSnapshot): {
+  status: QueryStatus
+  positions?: import('./types').Positions
+  error?: string
+  refetch: () => void
+} {
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
+  const { address: user } = useAccount()
+  const enabled = snapshot !== undefined && user !== undefined && client !== undefined
+
+  const query = useQuery({
+    queryKey: [
+      'token-positions',
+      chainId,
+      snapshot?.address.toLowerCase() ?? null,
+      user?.toLowerCase() ?? null,
+    ],
+    queryFn: () =>
+      loadPositions(client as PublicClient, snapshot as MarketSnapshot, user as Address, {
+        includeMarket: false,
+      }),
+    enabled,
+    staleTime: POSITIONS_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  const refetch = (): void => {
+    void query.refetch()
+  }
+
+  if (snapshot === undefined || user === undefined) return { status: 'idle', refetch }
+  if (!enabled) return { status: 'loading', refetch }
+  if (query.status === 'error') {
+    return { status: 'error', error: errorMessage(query.error), refetch }
+  }
+  return { status: toQueryStatus(query.status), positions: query.data, refetch }
+}
+
 /**
  * Drive one ActionPlan through the approve → simulate → confirm lifecycle
  * (PLAN §3.2). Semantics:
@@ -661,6 +861,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           // Max-amount plan). Only reset() (Done/Retry) releases the latch.
           setPhase('confirmed')
           void queryClient.invalidateQueries({ queryKey: ['positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['all-positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['token-positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['merkl'] })
           void queryClient.invalidateQueries({ queryKey: ['market'] })
           void queryClient.invalidateQueries({ queryKey: ['registry-sweep'] })
           // The trade itself moved the pool: a repeat trade must never reuse

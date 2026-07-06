@@ -88,7 +88,12 @@ export async function loadPositions(
   client: PublicClient,
   snapshot: MarketSnapshot,
   user: Address,
+  opts: { includeMarket?: boolean } = {},
 ): Promise<Positions> {
+  // M12: the "paste any token" view has a PT/YT/SY set but NO market — set
+  // includeMarket:false so we skip the LP balance + getUserMarketInfo (a
+  // synthetic snapshot's `address` is the pasted token, not a market).
+  const includeMarket = opts.includeMarket ?? true
   const degraded: string[] = []
   // RouterStatic is PER CHAIN — resolve from the client's chain (claimables).
   const routerStatic = addressBookFor(client).routerStatic
@@ -139,7 +144,10 @@ export async function loadPositions(
     degraded.push(`${label} balanceOf failed.`)
     return 0n
   })
-  const [pt, yt, lp, sy] = coreBalances
+  const [pt, yt, lpRaw, sy] = coreBalances
+  // With no market, the "LP" balanceOf read targets the pasted token and is
+  // meaningless — zero it out (the token view shows no LP).
+  const lp = includeMarket ? lpRaw : 0n
 
   const fetchedMeta = new Map<string, TokenMeta>()
   for (let i = 0; i < metaTargets.length; i++) {
@@ -205,12 +213,14 @@ export async function loadPositions(
       unclaimedInterest: RawTokenAmount
       unclaimedRewards: readonly RawTokenAmount[]
     }>('getUserPYInfo', snapshot.yt),
-    probe<{
-      lpBalance: RawTokenAmount
-      ptBalance: RawTokenAmount
-      syBalance: RawTokenAmount
-      unclaimedRewards: readonly RawTokenAmount[]
-    }>('getUserMarketInfo', snapshot.address),
+    includeMarket
+      ? probe<{
+          lpBalance: RawTokenAmount
+          ptBalance: RawTokenAmount
+          syBalance: RawTokenAmount
+          unclaimedRewards: readonly RawTokenAmount[]
+        }>('getUserMarketInfo', snapshot.address)
+      : Promise.resolve(undefined),
     probe<{
       syBalance: RawTokenAmount
       unclaimedRewards: readonly RawTokenAmount[]

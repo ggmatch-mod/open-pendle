@@ -327,3 +327,50 @@ export function planClaim(user: Address, snapshot: MarketSnapshot): ActionPlan {
     },
   }
 }
+
+/**
+ * Batched claim across many markets on ONE chain (M12 "My positions"): a single
+ * redeemDueInterestAndRewards(user, sys[], yts[], markets[]) claims all their
+ * accrued YT interest + SY/LP rewards in one tx. The router iterates the arrays
+ * independently, so passing every pool's (sy, yt, market) claims them together.
+ * Caller passes only snapshots that actually have something claimable (an empty
+ * probe would just waste gas). All snapshots MUST be on the same chain as the
+ * client that will simulate/send this — the caller groups by chain first.
+ */
+export function planClaimAll(user: Address, snapshots: readonly MarketSnapshot[]): ActionPlan {
+  const n = snapshots.length
+  return {
+    describe: `Claim accrued interest & rewards on ${n} pool${n === 1 ? '' : 's'}`,
+    approvals: [],
+    call: {
+      address: ROUTER_V4,
+      abi: routerActionsAbi,
+      functionName: 'redeemDueInterestAndRewards',
+      args: [
+        user,
+        snapshots.map((s) => s.sy.address),
+        snapshots.map((s) => s.yt),
+        snapshots.map((s) => s.address),
+      ],
+    },
+  }
+}
+
+/**
+ * Market-less claim (M12 "paste any token"): redeemDueInterestAndRewards with an
+ * EMPTY markets[] — claims YT interest + YT/SY rewards for a pasted PT/YT set
+ * with no market of its own (so no LP rewards, and it never touches a market
+ * address it doesn't have). No approvals.
+ */
+export function planClaimTokens(user: Address, sy: Address, yt: Address): ActionPlan {
+  return {
+    describe: 'Claim accrued interest & rewards',
+    approvals: [],
+    call: {
+      address: ROUTER_V4,
+      abi: routerActionsAbi,
+      functionName: 'redeemDueInterestAndRewards',
+      args: [user, [sy], [yt], []],
+    },
+  }
+}
