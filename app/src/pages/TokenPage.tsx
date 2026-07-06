@@ -16,6 +16,7 @@ import type { ActionPlan, SupportedChainId } from '../lib/types'
 import {
   useActionFlow,
   useActiveChain,
+  useResolveMarket,
   useTokenPositions,
   useTokenSnapshot,
 } from '../lib/hooks'
@@ -56,6 +57,7 @@ export default function TokenPage() {
 
   const { status, snapshot, notPyToken, refetch: refetchSnap } = useTokenSnapshot(valid)
   const { positions, refetch: refetchPositions } = useTokenPositions(snapshot)
+  const { markets: resolvedMarkets } = useResolveMarket(snapshot)
 
   const hasClaimables =
     positions !== undefined &&
@@ -136,6 +138,37 @@ export default function TokenPage() {
         </section>
       ) : (
         <div className="mt-6 space-y-4">
+          {/* Go to the pool — when the market resolves (Pendle API / event scan). */}
+          {resolvedMarkets.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.09)] p-4">
+              <p className="text-sm text-fg">
+                {resolvedMarkets.length === 1
+                  ? "Found this token's pool — trade, provide liquidity, or save it there."
+                  : `Found ${resolvedMarkets.length} pools for this token.`}
+              </p>
+              {resolvedMarkets.length === 1 ? (
+                <Link
+                  to={`/market/${resolvedMarkets[0]}`}
+                  className="shrink-0 rounded-[10px] bg-accent px-3.5 py-1.5 text-sm font-semibold text-white no-underline hover:brightness-110"
+                >
+                  Go to the pool →
+                </Link>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {resolvedMarkets.map((m) => (
+                    <Link
+                      key={m}
+                      to={`/market/${m}`}
+                      className="rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] px-2.5 py-1 font-mono text-xs text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)]"
+                    >
+                      {shortAddress(m)} →
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Risk callout — this is a community token, unreviewed. */}
           <div
             role="note"
@@ -234,16 +267,19 @@ export default function TokenPage() {
             />
           </section>
 
-          {/* Trading / LP need the market */}
-          <section className="rounded-xl border border-hairline bg-bg-2 p-4">
-            <p className="text-sm text-muted">
-              <span className="font-medium text-fg">Want to trade or provide liquidity?</span> Swaps and LP
-              need the market (PLP) address.{' '}
-              <Link to="/" className="text-accent-ink hover:underline">
-                Load the market →
-              </Link>
-            </p>
-          </section>
+          {/* Trading / LP need the market — shown only when we couldn't resolve it. */}
+          {resolvedMarkets.length === 0 && (
+            <section className="rounded-xl border border-hairline bg-bg-2 p-4">
+              <p className="text-sm text-muted">
+                <span className="font-medium text-fg">Want to trade or provide liquidity?</span> Swaps and
+                LP need the market (PLP) address — we couldn't auto-find it (community pools aren't indexed;
+                a wide log scan needs a capable RPC).{' '}
+                <Link to="/" className="text-accent-ink hover:underline">
+                  Load the market →
+                </Link>
+              </p>
+            </section>
+          )}
         </div>
       )}
 

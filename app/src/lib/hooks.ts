@@ -27,6 +27,7 @@ import { loadPositions } from './positions'
 import { fetchMerklRewards } from './merkl'
 import type { MerklReward } from './merkl'
 import { resolveTokenSet } from './tokenSnapshot'
+import { resolveMarketsForToken } from './marketResolve'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { previewExitPostExp, readDepegInfo } from './maturity'
@@ -583,6 +584,38 @@ export function useTokenPositions(snapshot?: MarketSnapshot): {
     return { status: 'error', error: errorMessage(query.error), refetch }
   }
   return { status: toQueryStatus(query.status), positions: query.data, refetch }
+}
+
+/**
+ * Resolve the market(s) for a pasted PT/YT (M12 "Go to the pool") — Pendle's API
+ * for listed pools, best-effort event scan for community pools on a capable RPC.
+ * Returns [] when nothing resolves. Undefined snapshot → 'idle'.
+ */
+export function useResolveMarket(snapshot?: MarketSnapshot): {
+  status: QueryStatus
+  markets: Address[]
+} {
+  const { chainId } = useActiveChain()
+  const client = usePublicClient({ chainId })
+  const enabled = snapshot !== undefined && client !== undefined
+
+  const query = useQuery({
+    queryKey: ['resolve-market', chainId, snapshot?.pt.toLowerCase() ?? null],
+    queryFn: () =>
+      resolveMarketsForToken(
+        client as PublicClient,
+        chainId,
+        (snapshot as MarketSnapshot).pt,
+        (snapshot as MarketSnapshot).yt,
+      ),
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+
+  if (!enabled) return { status: 'idle', markets: [] }
+  if (query.status === 'error') return { status: 'error', markets: [] }
+  return { status: toQueryStatus(query.status), markets: query.data ?? [] }
 }
 
 /**
