@@ -62,7 +62,9 @@ export function MintRedeemPanel({
   const client = usePublicClient({ chainId: activeChainId })
   const [slippage] = useSlippage()
 
-  const [direction, setDirection] = useState<Direction>('mint')
+  // Post-expiry the relevant action is redeem (minting is closed after
+  // maturity), so default there when the market has matured.
+  const [direction, setDirection] = useState<Direction>(snapshot.isExpired ? 'redeem' : 'mint')
   const [choiceByDir, setChoiceByDir] = useState<Partial<Record<Direction, string>>>({})
   const [amountText, setAmountText] = useState('')
 
@@ -77,25 +79,30 @@ export function MintRedeemPanel({
   const tokenSymbol =
     tokenMeta?.symbol ?? (token !== undefined ? shortAddress(token) : sy.symbol)
 
-  const pySymbol = 'PT + YT'
+  // Minting always yields BOTH tokens; post-expiry the router burns PT alone on
+  // redeem (it pulls no YT after maturity), so the redeem side is PT-only.
+  const pyMintSymbol = 'PT + YT'
+  const pyRedeemSymbol = snapshot.isExpired ? 'PT' : 'PT + YT'
   const pyDecimals = sy.assetDecimals
 
   // Input side: mint spends the source (SY or token); redeem spends PY units.
-  const inSymbol = direction === 'mint' ? (choiceIsSy ? sy.symbol : tokenSymbol) : pySymbol
+  const inSymbol = direction === 'mint' ? (choiceIsSy ? sy.symbol : tokenSymbol) : pyRedeemSymbol
   const inDecimals =
     direction === 'mint' ? (choiceIsSy ? sy.decimals : tokenMeta?.decimals) : pyDecimals
   const inIsNative = direction === 'mint' && token !== undefined && isNativeEth(token)
   const balance = (() => {
     if (direction === 'redeem') {
       if (positions === undefined) return undefined
-      return minBigint(positions.pt, positions.yt)
+      // Post-expiry the router burns PT alone — cap at PT, not min(PT, YT), or
+      // a user holding matured PT with no YT can never redeem it.
+      return snapshot.isExpired ? positions.pt : minBigint(positions.pt, positions.yt)
     }
     if (choiceIsSy) return positions?.sy
     return token !== undefined ? findWalletBalance(positions, token) : undefined
   })()
 
   // Output side: mint receives PY; redeem receives SY or a tokensOut entry.
-  const outSymbol = direction === 'mint' ? pySymbol : choiceIsSy ? sy.symbol : tokenSymbol
+  const outSymbol = direction === 'mint' ? pyMintSymbol : choiceIsSy ? sy.symbol : tokenSymbol
   const outDecimals =
     direction === 'mint' ? pyDecimals : choiceIsSy ? sy.decimals : tokenMeta?.decimals
 
@@ -152,7 +159,12 @@ export function MintRedeemPanel({
     if (amount > balance) {
       return {
         plan: null,
-        reason: direction === 'redeem' ? 'Insufficient PT/YT' : `Insufficient ${clampLabel(inSymbol, 16)}`,
+        reason:
+          direction === 'redeem'
+            ? snapshot.isExpired
+              ? 'Insufficient PT'
+              : 'Insufficient PT/YT'
+            : `Insufficient ${clampLabel(inSymbol, 16)}`,
       }
     }
     if (quoteLoading) return { plan: null, reason: 'Fetching quote…' }
@@ -202,8 +214,8 @@ export function MintRedeemPanel({
           {(
             [
               ['mint', 'Mint PT + YT'],
-              ['redeem', 'Redeem PT + YT'],
-            ] as const
+              ['redeem', snapshot.isExpired ? 'Redeem PT' : 'Redeem PT + YT'],
+            ] as [Direction, string][]
           ).map(([dir, label]) => (
             <button
               key={dir}
@@ -249,8 +261,17 @@ export function MintRedeemPanel({
       </div>
 
       <p className="text-xs leading-relaxed text-faint">
-        Minting splits SY into <span className="text-muted">equal amounts of PT and YT</span>;
-        redeeming recombines them 1:1 back into SY.
+        {snapshot.isExpired ? (
+          <>
+            This market has matured — <span className="text-muted">redeem PT alone</span> for the
+            underlying (no YT needed).
+          </>
+        ) : (
+          <>
+            Minting splits SY into <span className="text-muted">equal amounts of PT and YT</span>;
+            redeeming recombines them 1:1 back into SY.
+          </>
+        )}
       </p>
 
       <AmountInput
@@ -265,7 +286,9 @@ export function MintRedeemPanel({
         error={parsed.error}
         balanceHint={
           direction === 'redeem'
-            ? 'needs equal PT and YT — max = min(PT, YT) balance'
+            ? snapshot.isExpired
+              ? 'matured — redeem PT alone (no YT needed)'
+              : 'needs equal PT and YT — max = min(PT, YT) balance'
             : undefined
         }
       />
