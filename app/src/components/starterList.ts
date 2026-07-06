@@ -9,12 +9,16 @@
 
 import { isAddress, getAddress } from 'viem'
 import type { Address } from 'viem'
+import type { SupportedChainId } from '../lib/types'
+import { isSupportedChainId } from '../lib/addresses'
 
 export interface StarterMarket {
   address: Address
   name: string
   /** Unix seconds. */
   expiry: number
+  /** The network this market lives on — opening it switches the active chain. */
+  chainId: SupportedChainId
   assetSymbol?: string
 }
 
@@ -75,7 +79,16 @@ function parseEntry(entry: unknown): StarterMarket | null {
     firstString(e.name, e.label, e.displayName, e.symbol) ?? shortFallbackName(address)
   const assetSymbol = firstString(e.assetSymbol)
 
-  return { address, name, expiry, ...(assetSymbol ? { assetSymbol } : {}) }
+  return { address, name, expiry, chainId: parseChainId(e.chainId), ...(assetSymbol ? { assetSymbol } : {}) }
+}
+
+/**
+ * Starter markets are historically Arbitrum; honor a per-entry chainId if the
+ * data ever spans chains, otherwise default to Arbitrum (42161).
+ */
+function parseChainId(v: unknown): SupportedChainId {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN
+  return isSupportedChainId(n) ? n : 42161
 }
 
 function firstString(...candidates: unknown[]): string | undefined {
