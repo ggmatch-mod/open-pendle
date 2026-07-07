@@ -26,6 +26,7 @@ import PoolsPage from './pages/PoolsPage'
 import PositionsPage from './pages/PositionsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
+import QuickStartPage from './pages/QuickStartPage'
 
 function NotFound() {
   return (
@@ -56,6 +57,15 @@ export default function App() {
         <div className="mx-auto flex h-16 max-w-[1160px] items-center justify-between gap-4 px-7">
           <Logo />
           <div className="flex items-center gap-2">
+            <Link
+              to="/quickstart"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
+            >
+              <span aria-hidden className="text-[12px] text-accent-ink">
+                ✦
+              </span>
+              Quick start
+            </Link>
             <Link
               to="/positions"
               className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
@@ -96,6 +106,7 @@ export default function App() {
       <main className="mx-auto w-full max-w-[1160px] flex-1 px-7">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/quickstart" element={<QuickStartPage />} />
           <Route path="/pools" element={<PoolsPage />} />
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/status" element={<ProtocolStatusPage />} />

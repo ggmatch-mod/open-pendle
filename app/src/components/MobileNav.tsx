@@ -1,8 +1,8 @@
 /**
  * MobileNav (M12 responsive) — the header's navigation on screens below `lg`,
  * where the inline nav pills are hidden and the desktop network/RPC controls
- * collapse. A hamburger opens a dropdown holding the nav links (Positions /
- * Saved pools / Create pool / Docs) and a compact network switcher, so a phone
+ * collapse. A hamburger opens a dropdown holding the nav links (Quick start /
+ * Positions / Saved pools / Create pool) and a compact network switcher, so a phone
  * user can still navigate and change chains (the inline NetworkSelector +
  * RpcSettings are desktop-only; RPC overrides stay a desktop feature). Closes
  * on outside click, Escape, or selecting an item.
@@ -14,6 +14,7 @@ import { useActiveChain } from '../lib/hooks'
 import { SUPPORTED_CHAINS } from '../lib/addresses'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
+  { to: '/quickstart', label: 'Quick start', glyph: '✦' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },
