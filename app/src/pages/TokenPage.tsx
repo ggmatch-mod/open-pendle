@@ -99,7 +99,7 @@ export default function TokenPage() {
       </Link>
 
       <h1 className="mt-4 text-2xl font-bold tracking-tight text-fg">
-        {snapshot ? snapshot.displayName : 'Token actions'}
+        {snapshot ? clampLabel(snapshot.displayName) : 'Token actions'}
       </h1>
       <p className="mt-1 text-sm text-muted">
         Act on a PT or YT directly — mint, redeem, and claim work without the market. Swaps and

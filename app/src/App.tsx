@@ -151,6 +151,26 @@ export default function App() {
               Docs
             </a>
             <span className="h-3 w-px bg-hairline" />
+            <span className="whitespace-nowrap text-[12px] font-medium text-muted">
+              <a
+                href="https://x.com/openpendle"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="no-underline hover:text-accent-ink"
+              >
+                @openpendle
+              </a>{' '}
+              by{' '}
+              <a
+                href="https://x.com/ggmxbt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="no-underline hover:text-accent-ink"
+              >
+                @ggmxbt
+              </a>
+            </span>
+            <span className="h-3 w-px bg-hairline" />
             <span className="whitespace-nowrap font-mono text-[11px] tracking-[.04em] text-faint">
               GPL-3.0 · OPEN SOURCE
             </span>
