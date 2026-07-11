@@ -104,13 +104,23 @@ export async function loadPositions(
   const erc20TokensIn = tokensIn.filter((t) => !isNative(t))
   const hasNativeIn = tokensIn.some((t) => isNative(t))
 
-  // -- Round 1: ONE multicall for the 4 core balances + tokensIn balances +
-  //    missing tokensIn metadata; native ETH balance in parallel. ------------
+  // -- Round 1: ONE multicall for PT / YT / SY, optional LP, tokensIn balances,
+  //    and missing tokensIn metadata; native balance in parallel. ------------
   const metaTargets = erc20TokensIn.filter((t) => {
     const known = knownMeta(snapshot, t, nativeSymbol)
     return known.symbol === undefined || known.decimals === undefined
   })
-  const balanceContracts = [snapshot.pt, snapshot.yt, snapshot.address, snapshot.sy.address, ...erc20TokensIn].map(
+  type CoreBalanceLabel = 'PT' | 'YT' | 'LP' | 'SY'
+  const coreBalanceTargets: Array<{ label: CoreBalanceLabel; address: Address }> = [
+    { label: 'PT', address: snapshot.pt },
+    { label: 'YT', address: snapshot.yt },
+  ]
+  if (includeMarket) {
+    coreBalanceTargets.push({ label: 'LP', address: snapshot.address })
+  }
+  coreBalanceTargets.push({ label: 'SY', address: snapshot.sy.address })
+
+  const balanceContracts = [...coreBalanceTargets.map(({ address }) => address), ...erc20TokensIn].map(
     (address) => ({
       address,
       abi: erc20Abi,
@@ -137,17 +147,20 @@ export async function loadPositions(
       : Promise.resolve(0n),
   ])
 
-  const coreLabels = ['PT', 'YT', 'LP', 'SY'] as const
-  const coreBalances = coreLabels.map((label, i) => {
+  const coreBalances = new Map<CoreBalanceLabel, bigint>()
+  coreBalanceTargets.forEach(({ label }, i) => {
     const r = round1[i]
-    if (r.status === 'success') return r.result as bigint
-    degraded.push(`${label} balanceOf failed.`)
-    return 0n
+    if (r.status === 'success') {
+      coreBalances.set(label, r.result as bigint)
+    } else {
+      degraded.push(`${label} balanceOf failed.`)
+      coreBalances.set(label, 0n)
+    }
   })
-  const [pt, yt, lpRaw, sy] = coreBalances
-  // With no market, the "LP" balanceOf read targets the pasted token and is
-  // meaningless — zero it out (the token view shows no LP).
-  const lp = includeMarket ? lpRaw : 0n
+  const pt = coreBalances.get('PT') ?? 0n
+  const yt = coreBalances.get('YT') ?? 0n
+  const lp = coreBalances.get('LP') ?? 0n
+  const sy = coreBalances.get('SY') ?? 0n
 
   const fetchedMeta = new Map<string, TokenMeta>()
   for (let i = 0; i < metaTargets.length; i++) {
@@ -174,7 +187,8 @@ export async function loadPositions(
     if (isNative(token)) {
       return { token, amount: nativeBalance, symbol: nativeSymbol, decimals: 18 }
     }
-    const idx = 4 + erc20TokensIn.findIndex((t) => sameAddress(t, token))
+    const idx =
+      coreBalanceTargets.length + erc20TokensIn.findIndex((t) => sameAddress(t, token))
     const r = round1[idx]
     let amount = 0n
     if (r.status === 'success') {

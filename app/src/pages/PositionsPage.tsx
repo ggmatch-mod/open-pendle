@@ -14,7 +14,7 @@
  */
 
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import type { Address } from 'viem'
@@ -28,6 +28,7 @@ import { TxStatus } from '../components/TxStatus'
 import { MerklSection } from '../components/MerklSection'
 import { clampLabel, formatAmount } from '../components/format'
 import { useDocumentTitle } from '../components/useDocumentTitle'
+import { marketPath } from '../lib/routes'
 
 const LP_DECIMALS = 18
 
@@ -74,19 +75,31 @@ function BalanceChips({ snapshot, positions }: { snapshot: MarketSnapshot; posit
 /** One saved pool's row: name, balances, claimable summary, open link. */
 function PositionRow({ item }: { item: AggregatedPosition }) {
   const { pool, snapshot, positions, error } = item
+  const navigate = useNavigate()
+  const { chainId: activeChainId, setChainId } = useActiveChain()
   const label = snapshot?.displayName || pool.label || pool.market
+
+  // Market reads use the app's active chain. Mirror SavedPoolCard: select the
+  // saved pool's own network before changing routes so a cross-chain position
+  // cannot be opened against the wrong RPC.
+  const open = () => {
+    if (pool.chainId !== activeChainId) setChainId(pool.chainId)
+    navigate(marketPath(pool.market, pool.chainId))
+  }
+
   return (
     <div className="rounded-[12px] border border-hairline bg-bg-2 p-3.5">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-semibold text-fg" title={label}>
           {clampLabel(label, 42)}
         </p>
-        <Link
-          to={`/market/${pool.market}`}
+        <button
+          type="button"
+          onClick={open}
           className="shrink-0 text-[12px] font-medium text-accent-ink no-underline hover:underline"
         >
           Open →
-        </Link>
+        </button>
       </div>
 
       {error !== undefined ? (

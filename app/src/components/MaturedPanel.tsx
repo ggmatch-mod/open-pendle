@@ -2,7 +2,7 @@
  * MaturedPanel (M5) — the actions area for VALIDATED, EXPIRED markets
  * (replaces ActionTabs there; unvalidated markets keep the red no-tx state).
  * Post-expiry the protocol disables swaps/mints/LP-adds, so the panel offers
- * exactly the flows that remain:
+ * the market flows that remain plus direct access to the underlying SY:
  *
  * - Redeem PT: router redeemPyToSy/redeemPyToToken — NO YT needed after
  *   expiry (lib/actions' plans already skip the YT approval). Quotes via
@@ -15,10 +15,13 @@
  * - Claimables: PositionsCard already owns the claim flow (it works
  *   post-expiry) — this panel only points there, and only when something is
  *   (or may be) claimable.
+ * - Wrap / unwrap SY: SY.deposit / SY.redeem are independent of market expiry,
+ *   so they remain available in a dedicated tab whenever the SY exposes
+ *   tokensIn / tokensOut.
  *
- * Min-outs: post-expiry the only drift is index accrual, so the user's
- * slippage setting is applied CAPPED at 0.05% (tighter settings are
- * respected as-is).
+ * Matured PT/LP min-outs: the only drift is index accrual, so the user's
+ * slippage setting is applied CAPPED at 0.05% (tighter settings are respected
+ * as-is). Direct SY wrapping uses the user's full slippage setting.
  *
  * Depeg guard (useDepegInfo): when SY.exchangeRate < pyIndexStored, each PT
  * still redeems at the stored index but the SY received is worth less than
@@ -59,6 +62,7 @@ import { parseAmount } from './parseAmount'
 import { IndicativeQuote, TxStatus } from './TxStatus'
 import { TxButton } from './TxButton'
 import { SlippageControl } from './SlippageControl'
+import { WrapUnwrapPanel } from './WrapUnwrapPanel'
 import { clampLabel, formatAmount, formatPercent, shortAddress } from './format'
 import { applySlippage, useSlippage } from './prefs'
 import type { TokenMeta } from './tokens'
@@ -70,6 +74,13 @@ const SY_CHOICE = 'sy'
 /** Pendle market LP is a standard 18-decimals ERC-20 (PendleERC20). */
 const LP_DECIMALS = 18
 const LP_SYMBOL = 'LP'
+
+type MaturedTab = 'redeem-exit' | 'wrap'
+
+const MATURED_TABS: Array<{ id: MaturedTab; label: string }> = [
+  { id: 'redeem-exit', label: 'Redeem / Exit' },
+  { id: 'wrap', label: 'Wrap / Unwrap' },
+]
 
 /**
  * Post-expiry min-out cap: no swap can move these numbers — only index drift
@@ -779,9 +790,11 @@ export function MaturedPanel({
   refetchPositions: () => void
 }) {
   const { isConnected } = useAccount()
+  const [tab, setTab] = useState<MaturedTab>('redeem-exit')
   const [redeemBusy, setRedeemBusy] = useState(false)
   const [exitBusy, setExitBusy] = useState(false)
-  const flowBusy = redeemBusy || exitBusy
+  const [wrapBusy, setWrapBusy] = useState(false)
+  const flowBusy = redeemBusy || exitBusy || wrapBusy
 
   const { info: depegInfo } = useDepegInfo(snapshot)
 
@@ -814,41 +827,78 @@ export function MaturedPanel({
         This market has matured. Swaps, minting and adding liquidity are
         disabled by the protocol. PT redeems 1:1 for the accounting asset; YT
         no longer accrues — any residual interest and rewards remain
-        claimable.
+        claimable. When supported by the SY, wrapping and unwrapping remain
+        available because they are independent of this market's maturity.
       </p>
 
-      <DepegBanner info={depegInfo} assetLabel={assetLabel} />
+      <div
+        role="tablist"
+        aria-label="Matured market actions"
+        className="mt-3.5 flex flex-wrap items-center gap-1.5 border-b border-hairline pb-2.5"
+      >
+        {MATURED_TABS.map((item) => (
+          <button
+            key={item.id}
+            role="tab"
+            aria-selected={tab === item.id}
+            disabled={flowBusy && tab !== item.id}
+            onClick={() => setTab(item.id)}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              tab === item.id
+                ? 'rounded-[10px] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
+                : 'text-muted hover:text-fg'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="mt-4 space-y-5">
-        <RedeemPtSection
-          snapshot={snapshot}
-          positions={positions}
-          refetchPositions={refetchPositions}
-          onBusyChange={setRedeemBusy}
-          siblingBusy={exitBusy}
-        />
+      {tab === 'redeem-exit' ? (
+        <>
+          <DepegBanner info={depegInfo} assetLabel={assetLabel} />
 
-        <div className="border-t border-hairline pt-4">
-          <ExitLpSection
+          <div className="mt-4 space-y-5">
+            <RedeemPtSection
+              snapshot={snapshot}
+              positions={positions}
+              refetchPositions={refetchPositions}
+              onBusyChange={setRedeemBusy}
+              siblingBusy={exitBusy}
+            />
+
+            <div className="border-t border-hairline pt-4">
+              <ExitLpSection
+                snapshot={snapshot}
+                positions={positions}
+                refetchPositions={refetchPositions}
+                onBusyChange={setExitBusy}
+                siblingBusy={redeemBusy}
+              />
+            </div>
+
+            {showClaimPointer && (
+              <div className="border-t border-hairline pt-4">
+                <h3 className="text-sm font-semibold text-fg">Claimables</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-faint">
+                  Residual interest &amp; rewards are in{' '}
+                  <span className="text-muted">Your positions</span> above —
+                  claim from there.
+                </p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="pt-4">
+          <WrapUnwrapPanel
             snapshot={snapshot}
             positions={positions}
             refetchPositions={refetchPositions}
-            onBusyChange={setExitBusy}
-            siblingBusy={redeemBusy}
+            onBusyChange={setWrapBusy}
           />
         </div>
-
-        {showClaimPointer && (
-          <div className="border-t border-hairline pt-4">
-            <h3 className="text-sm font-semibold text-fg">Claimables</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-faint">
-              Residual interest &amp; rewards are in{' '}
-              <span className="text-muted">Your positions</span> above —
-              claim from there.
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </section>
   )
 }

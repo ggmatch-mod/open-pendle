@@ -1,9 +1,9 @@
 /**
- * ActionTabs (M2/M3/M4) — the market page actions area. Four live tabs
- * (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, Liquidity). Rendered ONLY on
- * validated, non-expired markets — expired gets the M5 MaturedPanel, unvalidated
- * keeps the red state (gating lives in MarketPage). SlippageControl in the
- * header is shared by all panels.
+ * ActionTabs (M2/M3/M4/M12) — the shared action area. Market mode exposes four
+ * live tabs (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, Liquidity). Token mode is
+ * used by the market-less PT/YT page and exposes only the actions its synthetic
+ * snapshot can support without a market (Wrap/Unwrap and Mint/Redeem).
+ * SlippageControl in the header is shared by every mounted panel.
  */
 
 import { useState } from 'react'
@@ -23,34 +23,44 @@ const LIVE_TABS: Array<{ id: TabId; label: string }> = [
   { id: 'liquidity', label: 'Liquidity' },
 ]
 
+const TOKEN_TABS: Array<{ id: TabId; label: string }> = LIVE_TABS.filter(
+  (tab) => tab.id === 'wrap' || tab.id === 'mint',
+)
+
 export function ActionTabs({
   snapshot,
   positions,
   refetchPositions,
+  variant = 'market',
 }: {
   snapshot: MarketSnapshot
   positions?: Positions
   refetchPositions: () => void
+  /** Token mode must never expose market-dependent trade or liquidity panels. */
+  variant?: 'market' | 'token'
 }) {
   const [tab, setTab] = useState<TabId>('wrap')
   // True while the active panel has a send in flight (approving/signing/
   // pending) — freezes SlippageControl and tab switches so nothing can churn
   // the plan (or unmount the flow) under a signed transaction.
   const [flowBusy, setFlowBusy] = useState(false)
+  const tabs = variant === 'token' ? TOKEN_TABS : LIVE_TABS
 
   return (
     <section className="rounded-xl border border-hairline bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-fg">Actions</h2>
+        <h2 className="text-base font-semibold text-fg">
+          {variant === 'token' ? 'Token actions' : 'Actions'}
+        </h2>
         <SlippageControl disabled={flowBusy} />
       </div>
 
       <div
         role="tablist"
-        aria-label="Market actions"
+        aria-label={variant === 'token' ? 'Token actions' : 'Market actions'}
         className="mt-3.5 flex flex-wrap items-center gap-1.5 border-b border-hairline pb-2.5"
       >
-        {LIVE_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             role="tab"

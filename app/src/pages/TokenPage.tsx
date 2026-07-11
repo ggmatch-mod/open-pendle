@@ -1,11 +1,11 @@
 /**
  * TokenPage (M12 "paste any token") — /token/:address. When a user pastes a PT
  * or YT instead of the market (PLP), this resolves the whole (SY, PT, YT) set
- * and offers the actions that DON'T need a market: mint / redeem PT+YT ↔ SY (or
- * the SY's accepted tokens) and claim accrued yield — including redeeming PT at
- * maturity. Trading (swap) and liquidity DO need the market, so those point the
- * user at the paste box. An SY paste is ambiguous (one SY, many maturities), so
- * only PT/YT resolve here.
+ * and offers the actions that DON'T need a market: wrap / unwrap the resolved
+ * SY, mint / redeem PT+YT ↔ SY (or the SY's accepted tokens), and claim accrued
+ * yield — including redeeming PT at maturity. Trading (swap) and liquidity DO
+ * need the market, so those point the user at the paste box. An SY paste is
+ * ambiguous (one SY, many maturities), so only PT/YT resolve here.
  */
 
 import { useMemo } from 'react'
@@ -21,11 +21,12 @@ import {
   useTokenSnapshot,
 } from '../lib/hooks'
 import { planClaimTokens } from '../lib/actions'
-import { MintRedeemPanel } from '../components/MintRedeemPanel'
+import { ActionTabs } from '../components/ActionTabs'
 import { TxButton } from '../components/TxButton'
 import { TxStatus } from '../components/TxStatus'
 import { clampLabel, explorerAddressUrl, formatAmount, shortAddress } from '../components/format'
 import { useDocumentTitle } from '../components/useDocumentTitle'
+import { marketPath } from '../lib/routes'
 
 function AddrRow({ role, symbol, address, chainId }: { role: string; symbol?: string; address: string; chainId: SupportedChainId }) {
   return (
@@ -56,8 +57,13 @@ export default function TokenPage() {
   const valid = raw && isAddress(raw, { strict: false }) ? getAddress(raw) : undefined
 
   const { status, snapshot, notPyToken, refetch: refetchSnap } = useTokenSnapshot(valid)
-  const { positions, refetch: refetchPositions } = useTokenPositions(snapshot)
-  const { markets: resolvedMarkets } = useResolveMarket(snapshot)
+  const {
+    status: positionsStatus,
+    positions,
+    error: positionsError,
+    refetch: refetchPositions,
+  } = useTokenPositions(snapshot)
+  const { status: marketResolveStatus, markets: resolvedMarkets } = useResolveMarket(snapshot)
 
   const hasClaimables =
     positions !== undefined &&
@@ -102,8 +108,8 @@ export default function TokenPage() {
         {snapshot ? clampLabel(snapshot.displayName) : 'Token actions'}
       </h1>
       <p className="mt-1 text-sm text-muted">
-        Act on a PT or YT directly — mint, redeem, and claim work without the market. Swaps and
-        liquidity need the market.
+        Act on a PT or YT directly — wrap or unwrap its SY, mint, redeem, and claim without the
+        market. Swaps and liquidity still need the market.
       </p>
 
       {/* Loading / not-a-PT-YT / error states */}
@@ -148,7 +154,7 @@ export default function TokenPage() {
               </p>
               {resolvedMarkets.length === 1 ? (
                 <Link
-                  to={`/market/${resolvedMarkets[0]}`}
+                  to={marketPath(resolvedMarkets[0], chainId)}
                   className="shrink-0 rounded-[10px] bg-accent px-3.5 py-1.5 text-sm font-semibold text-white no-underline hover:brightness-110"
                 >
                   Go to the pool →
@@ -158,7 +164,7 @@ export default function TokenPage() {
                   {resolvedMarkets.map((m) => (
                     <Link
                       key={m}
-                      to={`/market/${m}`}
+                      to={marketPath(m, chainId)}
                       className="rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] px-2.5 py-1 font-mono text-xs text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)]"
                     >
                       {shortAddress(m)} →
@@ -257,29 +263,64 @@ export default function TokenPage() {
             </section>
           )}
 
-          {/* Mint / redeem — reuses the fork-tested panel (no market needed). */}
-          <section className="rounded-xl border border-hairline bg-surface p-5">
-            <h2 className="mb-3 text-base font-semibold text-fg">Mint &amp; redeem</h2>
-            <MintRedeemPanel
+          {/* SY and PT/YT actions that do not require a market. A terminal
+              balance-query failure must not masquerade as perpetual loading. */}
+          {isConnected && positionsStatus === 'error' ? (
+            <section
+              role="alert"
+              className="rounded-xl border border-hairline bg-surface p-5"
+            >
+              <h2 className="text-base font-semibold text-fg">Token actions</h2>
+              <p className="mt-2 text-sm text-danger">
+                Couldn't load wallet balances{positionsError ? ` — ${positionsError}` : ''}.
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-faint">
+                Actions are paused because OpenPendle can't safely check the amount against your
+                balance.
+              </p>
+              <button
+                type="button"
+                onClick={refetchPositions}
+                className="mt-3 rounded-md border border-hairline-strong px-3 py-1.5 text-xs text-muted hover:bg-surface-2"
+              >
+                Retry
+              </button>
+            </section>
+          ) : (
+            <ActionTabs
               snapshot={snapshot}
               positions={positions}
               refetchPositions={refetchPositions}
+              variant="token"
             />
-          </section>
+          )}
 
-          {/* Trading / LP need the market — shown only when we couldn't resolve it. */}
-          {resolvedMarkets.length === 0 && (
+          {marketResolveStatus === 'loading' && (
+            <section
+              className="rounded-xl border border-hairline bg-bg-2 p-4"
+              aria-busy="true"
+            >
+              <p className="text-sm text-muted">
+                Looking for this token's pool in Pendle and community-market indexes…
+              </p>
+            </section>
+          )}
+
+          {/* Trading / LP need the market — show the fallback only after the
+              resolver has actually finished, never during its indexed lookup. */}
+          {(marketResolveStatus === 'success' || marketResolveStatus === 'error') &&
+            resolvedMarkets.length === 0 && (
             <section className="rounded-xl border border-hairline bg-bg-2 p-4">
               <p className="text-sm text-muted">
                 <span className="font-medium text-fg">Want to trade or provide liquidity?</span> Swaps and
-                LP need the market (PLP) address — we couldn't auto-find it (community pools aren't indexed;
-                a wide log scan needs a capable RPC).{' '}
+                LP need the market (PLP) address — we couldn't find it in Pendle's listings or the
+                community-market indexes available for this network.{' '}
                 <Link to="/" className="text-accent-ink hover:underline">
                   Load the market →
                 </Link>
               </p>
             </section>
-          )}
+            )}
         </div>
       )}
 

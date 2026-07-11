@@ -22,7 +22,7 @@ const GUIDE_HTML = `
     <header class="mast">
       <div class="eyebrow">A field guide</div>
       <h1>Pendle community pools, <span class="u">no whitelist</span></h1>
-      <p class="lede">OpenPendle is a backend-free interface for Pendle&nbsp;V2. Paste any market by address and it reads straight from the chain, checks who controls it, and simulates every transaction before you sign. Here's the whole tool, screen by screen.</p>
+      <p class="lede">OpenPendle is a static interface with no OpenPendle-operated backend. Paste any market by address and its core state is read straight from the chain, its controls are checked, and every transaction is simulated before you sign. Here's the whole tool, screen by screen.</p>
       <div class="nets" aria-label="Supported networks">
         <span class="net"><span class="dot"></span>Ethereum</span>
         <span class="net"><span class="dot"></span>Arbitrum</span>
@@ -43,7 +43,7 @@ const GUIDE_HTML = `
           <p>No search index, no curated list, no account. Paste a Pendle&nbsp;V2 market (PLP) address and OpenPendle loads it live from the network you're on.</p>
           <ul class="notes">
             <li><span class="n">1</span><span><b>Paste box</b> — drop in any market address; it validates on-chain as you type.</span></li>
-            <li><span class="n">2</span><span><b>Guarantees</b> — exact-amount approvals, simulated first, registry stays on your device.</span></li>
+            <li><span class="n">2</span><span><b>Defaults</b> — exact-amount approvals, simulated first, registry stays on your device.</span></li>
             <li><span class="n">3</span><span><b>Create instead</b> — spin up your own pool or an SY adapter.</span></li>
             <li><span class="n">4</span><span><b>Anatomy</b> — every pool splits an SY into a Principal (PT) and Yield (YT) token.</span></li>
           </ul>
@@ -75,7 +75,7 @@ const GUIDE_HTML = `
               <div>
                 <span class="chip"><span class="livedot"></span><span class="mono" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Permissionless · on-chain</span></span>
                 <h3>Pendle community pools, <span class="u">no whitelist</span></h3>
-                <p class="sub">Load any Pendle V2 market on Arbitrum by address. No backend, no curation, no indexer — the interface reads straight from the chain.</p>
+                <p class="sub">Load any Pendle V2 market on Arbitrum by address. No OpenPendle backend or curation — core pool data comes straight from the chain.</p>
                 <div class="paste">
                   <label>Load any market</label>
                   <div class="pastebox"><span class="car"></span>Paste a Pendle market (PLP) address — 0x…</div>
@@ -84,7 +84,7 @@ const GUIDE_HTML = `
                   <span class="p">Create a community pool →</span><span class="dvd">·</span><span class="s">Create an SY adapter →</span>
                 </div>
                 <div class="trust-chips">
-                  <span class="chip"><span class="c">✓</span>Exact-amount approvals</span>
+                  <span class="chip"><span class="c">✓</span>Exact approvals by default</span>
                   <span class="chip"><span class="c">✓</span>Simulated before you sign</span>
                   <span class="chip"><span class="c">✓</span>Registry stays on your device</span>
                 </div>
@@ -146,7 +146,7 @@ const GUIDE_HTML = `
         <div class="frame">
           <div class="chrome">
             <span class="tl"><i></i><i></i><i></i></span>
-            <span class="urlbar"><span class="lock">🔒</span> openpendle.com<span class="u2">/#/market/0xf861…83c8</span></span>
+            <span class="urlbar"><span class="lock">🔒</span> openpendle.com<span class="u2">/#/market/0xf861…83c8?chain=42161</span></span>
           </div>
           <div class="apphdr">
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
@@ -208,7 +208,7 @@ const GUIDE_HTML = `
                   <div class="amt"><span class="num">0.0</span><span class="tk">◈ USDC ▾</span></div>
                 </div>
                 <div class="quote"><span>You receive</span><span><b>≈ — PT</b></span></div>
-                <div class="note-line"><span style="color:var(--ink)">◆</span> Simulated before you sign · exact-amount approval</div>
+                <div class="note-line"><span style="color:var(--ink)">◆</span> Simulated before you sign · exact approval by default</div>
                 <div class="cta">Enter an amount</div>
               </div>
             </div>
@@ -298,7 +298,7 @@ const GUIDE_HTML = `
         <div class="rail">
           <div class="idx">STEP 04</div>
           <h2>Paste a PT or YT, not just the market</h2>
-          <p>Hand OpenPendle a Principal or Yield token and it resolves the whole set — then finds the pool for you. Mint, redeem and claim work without the market; trading and LP link straight to it.</p>
+          <p>Hand OpenPendle a Principal or Yield token and it resolves the whole set on-chain, then uses Pendle's market API and, where available, public Blockscout indexes to look for its pool. Mint, redeem and claim work without the market; trading and LP link straight to it.</p>
           <ul class="notes">
             <li><span class="n">1</span><span><b>Go to the pool</b> — we resolve the market from the token and link you there.</span></li>
             <li><span class="n">2</span><span><b>Resolved set</b> — PT, YT and SY, each verified on-chain with an explorer link.</span></li>
@@ -309,7 +309,7 @@ const GUIDE_HTML = `
         <div class="frame">
           <div class="chrome">
             <span class="tl"><i></i><i></i><i></i></span>
-            <span class="urlbar"><span class="lock">🔒</span> openpendle.com<span class="u2">/#/token/0x9e3b…a1c4</span></span>
+            <span class="urlbar"><span class="lock">🔒</span> openpendle.com<span class="u2">/#/token/0x9e3b…a1c4?chain=42161</span></span>
           </div>
           <div class="apphdr">
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
@@ -366,9 +366,9 @@ const GUIDE_HTML = `
       <div class="eyebrow">Why it's built this way</div>
       <h2>Trust-minimized by construction</h2>
       <div class="why">
-        <div class="c"><div class="k">◇ No backend</div><h5>Reads the chain</h5><p>No indexer, no server, no database. Every number comes from an RPC call you can point anywhere.</p></div>
-        <div class="c"><div class="k">◈ Injected-only</div><h5>Your wallet, direct</h5><p>Injected wallets only — no WalletConnect relays. Exact-amount approvals, simulated before you sign.</p></div>
-        <div class="c"><div class="k">★ Local registry</div><h5>Stays on device</h5><p>Saved pools live in your browser and never leave it. Export or share by link when you choose to.</p></div>
+        <div class="c"><div class="k">◇ No operated backend</div><h5>Core data from the chain</h5><p>OpenPendle runs no server, database or indexer of its own. Core pool data comes from an RPC you can replace; public APIs only support the ticker, PT/YT pool lookup and Merkl rewards.</p></div>
+        <div class="c"><div class="k">◈ Injected-only</div><h5>Your wallet, direct</h5><p>Injected wallets only — no WalletConnect relays. Exact approvals by default; unlimited is an explicit, higher-exposure opt-in.</p></div>
+        <div class="c"><div class="k">★ Local registry</div><h5>Stays on device</h5><p>Your saved-pool list and settings stay in your browser. The registry leaves only when you explicitly export or share it.</p></div>
         <div class="c"><div class="k">⌥ Open source</div><h5>Fork it</h5><p>GPL-3.0 and static — host it yourself on IPFS or anywhere. Six networks supported today.</p></div>
       </div>
     </section>

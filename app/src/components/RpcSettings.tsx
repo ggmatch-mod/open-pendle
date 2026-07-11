@@ -10,7 +10,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { DEFAULT_RPCS, getChainRpcUrl, setChainRpcUrl } from '../lib/addresses'
+import {
+  DEFAULT_RPCS,
+  getChainRpcUrl,
+  isAllowedRpcUrl,
+  setChainRpcUrl,
+} from '../lib/addresses'
 import { useActiveChain } from '../lib/hooks'
 
 export function RpcSettings() {
@@ -40,14 +45,13 @@ export function RpcSettings() {
   }, [open])
 
   const trimmed = value.trim()
-  const isValidUrl = /^https?:\/\/.+/.test(trimmed)
+  const isValidUrl = isAllowedRpcUrl(trimmed)
   // A dot marks a non-default (custom) endpoint for the active chain.
   const isCustom = getChainRpcUrl(chainId) !== defaultUrl
 
   const save = () => {
     if (!isValidUrl) return
-    setChainRpcUrl(chainId, trimmed)
-    window.location.reload()
+    if (setChainRpcUrl(chainId, trimmed)) window.location.reload()
   }
 
   const reset = () => {
@@ -101,7 +105,11 @@ export function RpcSettings() {
             className="mt-3 w-full rounded-md border border-hairline-strong bg-bg px-3 py-2 font-mono text-xs text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent"
           />
           {!isValidUrl && trimmed.length > 0 && (
-            <p className="mt-1 text-xs text-danger">Must be an http(s) URL.</p>
+            <p className="mt-1 text-xs text-danger">
+              {window.location.protocol === 'https:'
+                ? 'Must be an HTTPS URL on the hosted app.'
+                : 'Must be an HTTP(S) URL.'}
+            </p>
           )}
           <div className="mt-3 flex items-center justify-between gap-2">
             <button

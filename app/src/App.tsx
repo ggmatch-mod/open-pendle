@@ -7,7 +7,8 @@
  * controls' behavior. New: the <Ticker/>, <ThemeToggle/>, the /status route, and
  * the footer Protocol-status link. Protocol status was removed from Home.
  */
-import { Link, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
@@ -27,6 +28,8 @@ import PositionsPage from './pages/PositionsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
 import QuickStartPage from './pages/QuickStartPage'
+import { useActiveChain } from './lib/hooks'
+import { routeChainId } from './lib/routes'
 
 function NotFound() {
   return (
@@ -40,6 +43,64 @@ function NotFound() {
         ← Back home
       </Link>
     </div>
+  )
+}
+
+/**
+ * A market/token deep link carries `?chain=<id>`. Gate route mounting until the
+ * active read client matches it, so a shared address is never queried on the
+ * recipient's previous/default network first.
+ */
+function AppRoutes() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const requestedChainId = routeChainId(location.search)
+  const { chainId, setChainId } = useActiveChain()
+  const isChainAddressRoute = /^\/(market|token)\//.test(location.pathname)
+
+  useEffect(() => {
+    if (requestedChainId !== undefined && requestedChainId !== chainId) {
+      setChainId(requestedChainId)
+    } else if (requestedChainId === undefined && isChainAddressRoute) {
+      const search = new URLSearchParams(location.search)
+      search.set('chain', String(chainId))
+      void navigate(
+        { pathname: location.pathname, search: `?${search.toString()}` },
+        { replace: true },
+      )
+    }
+  }, [
+    chainId,
+    isChainAddressRoute,
+    location.pathname,
+    location.search,
+    navigate,
+    requestedChainId,
+    setChainId,
+  ])
+
+  if (requestedChainId !== undefined && requestedChainId !== chainId) {
+    return (
+      <div className="py-16 text-center" aria-busy="true">
+        <p className="text-sm text-muted">Switching to the link's network…</p>
+      </div>
+    )
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/quickstart" element={<QuickStartPage />} />
+      <Route path="/pools" element={<PoolsPage />} />
+      <Route path="/positions" element={<PositionsPage />} />
+      <Route path="/status" element={<ProtocolStatusPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/create" element={<CreatePoolPage />} />
+      <Route path="/create-sy" element={<CreateSyPage />} />
+      <Route path="/market/:address" element={<MarketPage />} />
+      <Route path="/token/:address" element={<TokenPage />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   )
 }
 
@@ -104,19 +165,7 @@ export default function App() {
       </header>
 
       <main className="mx-auto w-full max-w-[1160px] flex-1 px-7">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/quickstart" element={<QuickStartPage />} />
-          <Route path="/pools" element={<PoolsPage />} />
-          <Route path="/positions" element={<PositionsPage />} />
-          <Route path="/status" element={<ProtocolStatusPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/create" element={<CreatePoolPage />} />
-          <Route path="/create-sy" element={<CreateSyPage />} />
-          <Route path="/market/:address" element={<MarketPage />} />
-          <Route path="/token/:address" element={<TokenPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppRoutes />
       </main>
 
       <footer className="border-t border-hairline bg-bg-2">

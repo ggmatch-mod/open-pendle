@@ -65,8 +65,9 @@ export default function AboutPage() {
           <p>
             <span className="text-fg">It checks:</span> that the market was created by a Pendle
             factory OpenPendle recognizes (a provenance gate) before it lets you save or transact;
-            it simulates every transaction against the chain before you sign; and it uses
-            exact-amount token approvals.
+            it simulates every transaction against the chain before you sign; and it defaults to
+            exact-amount token approvals. Unlimited approval is an explicit transaction-setting
+            opt-in that leaves a standing allowance and increases exposure.
           </p>
           <p>
             <span className="text-fg">It can't:</span> vouch for the underlying asset or the SY
@@ -92,9 +93,12 @@ export default function AboutPage() {
         <Section title="Your data & privacy">
           <p>
             No backend, no accounts, no tracking, no analytics. The pools you remember live only in
-            your browser's local storage; any custom RPC you set stays local too. The only outbound
-            requests are to the blockchain RPCs you're pointed at and — for the header stats ticker —
-            Pendle metrics from DefiLlama and CoinGecko's public APIs.
+            your browser's local storage; any custom RPC you set stays local too. Outbound requests
+            go to your configured blockchain RPCs, DefiLlama and CoinGecko for the header ticker,
+            Pendle's market API and, where available, Blockscout indexes when resolving a pasted
+            PT/YT to its pool, and Merkl when a connected user opens My positions. Merkl receives the
+            wallet address and chain ID needed to look up rewards. None of these calls are analytics
+            or tracking.
           </p>
         </Section>
 

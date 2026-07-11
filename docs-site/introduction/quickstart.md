@@ -94,7 +94,7 @@ Every action behaves the same way under the hood:
 
 1. **Quotes update live as you type** — you see the expected output before committing.
 2. **Simulate before sign** — the transaction is simulated against the live chain first, so you see its predicted outcome before you approve it.
-3. **Exact-amount approvals** — token approvals are scoped to exactly what you are spending. There are no unlimited allowances.
+3. **Exact approvals by default** — token approvals start scoped to what you are spending. Unlimited approval is available only as an explicit transaction-setting opt-in and leaves a standing allowance until revoked.
 
 All trades, liquidity, and exits route through Pendle's **Router V4** at `0x888888888889758F76e7103c6CbF23ABbF58F946` (the same address on all six chains). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply, enforced by Pendle's contracts.
 
@@ -104,7 +104,7 @@ Simulation shows the *expected* result; it is not a guarantee, and it cannot mak
 
 ## 6. Remember the pool
 
-Once you have opened a market worth tracking, use **Remember this pool** to save it. This writes the pool to your browser's local storage (key `openpendle.pools.v1`) — entirely client-side, with no backend and no account. Nothing leaves your browser unless you choose to export or share.
+Once you have opened a market worth tracking, use **Remember this pool** to save it. This writes the pool to your browser's local storage (key `openpendle.pools.v1`) — entirely client-side, with no OpenPendle backend storage or account. The registry itself leaves your browser only when you choose to export or share it.
 
 Saved pools appear on the [Saved Pools](/guides/saved-pools) page, grouped by network, with a short preview on the home page. From there you can:
 

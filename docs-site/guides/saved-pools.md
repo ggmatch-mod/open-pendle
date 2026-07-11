@@ -2,7 +2,7 @@
 
 OpenPendle has no accounts, so there is nowhere on a server for it to remember which markets you care about. Instead, when you **remember** a pool, its identity is written to a small list held in your own browser. That list — the **saved-pools registry** — is what powers the [`/pools`](https://openpendle.com/#/pools) page and the short preview on the home page. It never leaves your machine unless you deliberately export or share it.
 
-This page covers how remembering and forgetting work (including the brief **Undo** window), where the registry lives, how to move it between browsers and devices with **export**, **import**, and a shareable **`?import=`** link, and the privacy model that makes all of this possible: OpenPendle is client-side only, with no backend, no accounts, and no tracking.
+This page covers how remembering and forgetting work (including the brief **Undo** window), where the registry lives, how to move it between browsers and devices with **export**, **import**, and a shareable **`?import=`** link, and the privacy model that makes all of this possible: the registry is client-side, with no OpenPendle account, backend storage, or tracking.
 
 If `PT`, `YT`, and `SY` are new terms, start with [How Pendle works](/concepts/how-pendle-works); this guide assumes you already know them and focuses on the registry and privacy.
 
@@ -90,7 +90,7 @@ flowchart LR
 
 ## The privacy model
 
-Everything above rests on one architectural fact: **OpenPendle has no backend.** There is no database, no indexer, no accounts, no server-side sessions, and no analytics or tracking. It is a static web app that reads straight from the chain, so there is no place for it to store — or reason to collect — anything about you.
+Everything above rests on one architectural fact: **OpenPendle operates no backend.** There is no OpenPendle database, indexer, account, server-side session, analytics, or tracking service. The saved-pool registry is a local browser data structure; it is not uploaded to the RPC or ancillary public APIs.
 
 Concretely:
 
@@ -98,14 +98,16 @@ Concretely:
 - **No accounts, no identity.** You never sign up, log in, or create a profile. There is nothing to link your saved pools, your wallet, or your activity to a server-side identity, because none exists.
 - **No tracking or analytics.** OpenPendle does not run analytics scripts or telemetry. Fonts are self-hosted, so even loading the interface makes zero external font requests, and a strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks arbitrary script injection.
 
-### The only requests OpenPendle makes
+### Network requests the app makes
 
 For all of the above to hold, the app has to be disciplined about what it talks to. Its outbound requests are limited to:
 
 1. **The blockchain RPC endpoints you point it at.** Every read — pool state, quotes, balances, maturities — and every transaction goes to the RPC for your active network. These are keyless public defaults by default, and you can override them per chain; see [Browsing & networks](/guides/browsing).
 2. **The header stats ticker.** For the small metrics ticker in the header only, OpenPendle fetches Pendle metrics from the **DefiLlama** and **CoinGecko** public APIs.
+3. **PT/YT pool lookup.** The token-actions page uses Pendle's public market API and, where supported, keyless **Blockscout** log APIs to map a pasted PT/YT to a pool.
+4. **Merkl rewards.** When a connected user opens **My positions**, OpenPendle sends the wallet address and chain ID to Merkl's public API to retrieve claimable rewards and proofs.
 
-That is the entire list. Saving, forgetting, exporting, and importing are **local operations** — they read and write `localStorage` and touch neither an RPC nor the ticker APIs. So your saved-pools registry is never transmitted as a side effect of using the app; it is exposed only by the explicit **Export** and **`?import=` share** actions you choose to take.
+Saving, forgetting, exporting, and importing are **local operations** — they read and write `localStorage`. Your saved-pools registry is never transmitted to any of the services above as a side effect of saving; it is exposed only by the explicit **Export** and **`?import=` share** actions you choose to take.
 
 ::: info Illustrative walkthrough
 Suppose you curate five community pools on your desktop over a week — each one saved with **Remember this pool** after opening it and passing the provenance gate. All five entries live in `openpendle.pools.v1` on that machine and nowhere else. To continue on your laptop, you **Export to JSON**, move the file across, and **Import** it there; the laptop's registry now holds the same five pools. Later you accidentally **Forget** one — the ~4-second **Undo** toast appears and you restore it exactly. At no point did the list leave your control: it moved only when you exported it, and OpenPendle's own servers were never involved because there are none. (Counts and workflow shown for illustration only.)

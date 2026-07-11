@@ -14,7 +14,7 @@ OpenPendle mints SYs by calling Pendle's permissionless SY factory, **`PendleCom
 
 `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8`
 
-The factory ships **no code of OpenPendle's own** — like everything in the app, OpenPendle simply calls Pendle's deployed contract with a hand-written ABI. Every deploy is [simulated against the live chain before you sign](/reference/architecture), and any token approval it needs is scoped to the exact amount, never unlimited.
+The factory ships **no code of OpenPendle's own** — like everything in the app, OpenPendle simply calls Pendle's deployed contract with a hand-written ABI. Every deploy is [simulated against the live chain before you sign](/reference/architecture), and any token approval defaults to the exact amount. Users can explicitly select Unlimited in transaction settings, accepting the added standing exposure.
 
 The factory holds a set of **seven registered templates**. A template is a pre-registered SY implementation the factory knows how to deploy; picking one is how you tell the factory what kind of wrapper you want. The seven break down as:
 

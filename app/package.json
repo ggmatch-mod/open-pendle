@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check:m12": "node --experimental-strip-types scripts/m12-token-check.mjs",
     "preview": "vite preview",
     "sweep": "node --experimental-strip-types scripts/sweep.mjs"
   },

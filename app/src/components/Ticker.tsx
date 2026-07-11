@@ -14,10 +14,10 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 // Shown until live stats load, or if every metric source fails.
 const FALLBACK: TickerItem[] = [
-  { value: 'No backend' },
+  { value: 'No OpenPendle backend' },
   { value: 'No whitelist' },
-  { value: 'No indexer' },
-  { value: '100% on-chain' },
+  { value: 'Core data via RPC' },
+  { value: 'Local pool registry' },
   { value: '6 networks' },
   { value: `Router V4 · ${short(ROUTER_V4)}` },
   { value: `SY factory · ${short(SY_FACTORY)}` },

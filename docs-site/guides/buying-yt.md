@@ -33,7 +33,7 @@ flowchart LR
   I --> J[YT in wallet<br/>monitor + claim]
 ```
 
-Every step below quotes **live as you type**, **simulates against the live chain before you sign**, and uses **exact-amount approvals** rather than unlimited allowances — the same guarantees that apply to every action in OpenPendle (see [How OpenPendle works](/reference/architecture)).
+Every step below quotes **live as you type**, **simulates against the live chain before you sign**, and defaults to **exact-amount approvals**. Unlimited approval is available only through an explicit transaction-setting opt-in and leaves greater standing exposure (see [How OpenPendle works](/reference/architecture)).
 
 ## Step 1 — Choose the swap-to-YT action
 
@@ -77,7 +77,7 @@ If your input token is an ERC-20 and the router does not already have sufficient
 
 - The approval is **exact-amount** — scoped to the input amount for this swap, never an unlimited allowance. This is a deliberate safety property of OpenPendle: you are not leaving a standing permission behind.
 - It is a **separate transaction** from the swap. You sign the approval first, then the swap in Step 5.
-- If you increase the input after approving, a fresh exact-amount approval for the larger amount may be required.
+- In the default exact mode, increasing the input after approving may require a fresh approval for the larger amount.
 - If you are paying in **native ETH** (only when the SY lists ETH among its inputs), there is **no approval** — the ETH travels with the swap as transaction value.
 
 Your wallet shows its own prompt for the approval; confirm it there. OpenPendle never sees your keys or seed phrase, only the address and signatures you authorize.
@@ -128,7 +128,7 @@ While you hold YT, two things happen at once, and you should watch both:
 Open the market in OpenPendle to check the live implied APY, the time remaining, and the claimable yield on your position. Because your return is *yield collected minus price paid*, judge the position on the **whole picture** — accrued and claimed yield set against your entry cost — not on the YT's quoted price in isolation.
 
 ::: tip You do not have to hold to maturity
-YT is tradable for as long as the market is open. If your view has already played out — realized yield has run hot, or the implied yield has repriced upward so the market now agrees with you — you can **swap the YT back into SY** (or an output token) on the AMM to lock in the result rather than riding it all the way to zero. That exit is another token ↔ YT swap: same live quote, same exact-amount approval on the YT, same simulate-before-sign. Conversely, if your thesis has broken, exiting early caps the loss instead of letting the position decay to nothing.
+YT is tradable for as long as the market is open. If your view has already played out — realized yield has run hot, or the implied yield has repriced upward so the market now agrees with you — you can **swap the YT back into SY** (or an output token) on the AMM to lock in the result rather than riding it all the way to zero. That exit is another token ↔ YT swap: same live quote, the configured approval mode (exact by default), and the same simulate-before-sign flow. Conversely, if your thesis has broken, exiting early caps the loss instead of letting the position decay to nothing.
 :::
 
 ## At maturity: claiming and redeeming
@@ -138,7 +138,7 @@ At maturity the market **stops trading**, [PT](/concepts/principal-tokens) becom
 - **Claim accrued yield.** Any yield your YT accrued and you had not yet claimed is still claimable through the router after maturity. This is the substance of a matured YT's value — the streamed yield, now fully realized. A matured YT token itself carries no further value.
 - **Nothing to redeem *for* — the value was the yield.** Unlike PT, a YT is not redeemed for principal at maturity; its worth was always the yield it paid while live. Claim any outstanding yield and you are done. (If you also happen to hold the matching PT, you can redeem that separately for the underlying — see [Minting & redeeming](/guides/minting-redeeming) and [Maturity & redemption](/concepts/maturity).)
 
-Even after maturity these claims run against Pendle's contracts on-chain, so they remain available whenever you get to them; the market simply no longer quotes trades. As always, the claim transaction quotes, simulates, and requires only exact-amount approvals.
+Even after maturity these claims run against Pendle's contracts on-chain, so they remain available whenever you get to them; the market simply no longer quotes trades. Claiming is simulated before signing and needs no token approval.
 
 ## Risk note
 

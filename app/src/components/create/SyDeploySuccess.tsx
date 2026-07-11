@@ -27,6 +27,7 @@ import type { PublicClient } from 'viem'
 import type { SupportedChainId, SyDeployResult } from '../../lib/types'
 import { decodeSyDeployResult } from '../../lib/syDeploy'
 import { useActiveChain } from '../../lib/hooks'
+import { marketPath } from '../../lib/routes'
 import { explorerAddressUrl, explorerName, explorerTxUrl } from '../format'
 
 function AddressRow({
@@ -142,7 +143,7 @@ export function SyDeploySuccess({
           <div className="flex flex-wrap items-center gap-2">
             {result.market ? (
               <Link
-                to={`/market/${result.market}`}
+                to={marketPath(result.market, chainId)}
                 className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
               >
                 Open the pool →

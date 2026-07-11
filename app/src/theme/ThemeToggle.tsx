@@ -1,5 +1,5 @@
 /** Header light/dark switch. Shares state via ThemeProvider. */
-import { useTheme } from './ThemeProvider'
+import { useTheme } from './useTheme'
 
 export function ThemeToggle() {
   const { theme, toggle } = useTheme()

@@ -8,7 +8,7 @@ Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a
 
 ## What it does
 
-- **Load any Pendle V2 market** by pasting its address — no whitelist, no backend, no indexer; it reads straight from the chain and simulates every transaction before you sign.
+- **Load any Pendle V2 market** by pasting its address — no whitelist or OpenPendle backend; core market data comes straight from the chain and every transaction is simulated before you sign.
 - **Six networks:** Arbitrum, Ethereum, Base, BNB Chain, Plasma, Monad — switch from the header.
 - **Full lifecycle:** buy/sell PT & YT, mint/redeem PT+YT, wrap/unwrap SY, add/remove/zap liquidity, and a proper redeem/exit flow for matured pools.
 - **Create pools & SY adapters** from the browser via Pendle's own deployed helper contracts (zero custom contracts of our own).
@@ -16,11 +16,11 @@ Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a
 - **Protocol Status & Contracts** page — each chain's live Pendle wiring + fee parameters, resolved on-chain; plus a top ticker of live Pendle metrics (DefiLlama + CoinGecko).
 - **Light/dark theme**, and injected-wallet connect (MetaMask, Rabby, Brave — no WalletConnect).
 
-Approvals are exact-amount, and Pendle's own protocol fees are enforced by its contracts and flow to Pendle's treasury through any interface, including this one.
+Approvals are exact-amount by default. Users can explicitly opt into unlimited approvals in transaction settings, which leaves a standing allowance and increases exposure. Pendle's own protocol fees are enforced by its contracts and flow to Pendle's treasury through any interface, including this one.
 
 ## No backend, no tracking
 
-A static single-page app. No server, no database, no accounts, no analytics. Your remembered pools and any custom RPCs live only in your browser's local storage. The only outbound requests are to the blockchain RPCs you're pointed at and — for the header ticker — DefiLlama and CoinGecko's public stats APIs. Fonts are self-hosted; there are no third-party asset fetches.
+A static single-page app. No OpenPendle server, database, accounts, analytics, or tracking. Remembered pools and custom RPCs live only in local storage. Outbound traffic goes to configured blockchain RPCs; DefiLlama and CoinGecko for the header ticker; Pendle's market API and, where available, keyless Blockscout indexes when resolving PT/YT tokens to pools; and Merkl when a connected user opens **My positions** (the reward lookup includes the wallet address and chain ID). Fonts are self-hosted and no remote scripts run.
 
 ## Security model
 

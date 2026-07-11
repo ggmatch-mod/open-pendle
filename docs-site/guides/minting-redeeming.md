@@ -70,7 +70,7 @@ The flow in OpenPendle mirrors every other action on a market: pick the network,
 1. **Open the market and pass the provenance gate.** Paste the `PendleMarket` address, let OpenPendle confirm a recognized [Pendle factory](/reference/architecture) created it, and read the trust panel. See [Opening a pool](/guides/opening-a-pool).
 2. **Connect an injected wallet** on the market's chain. Reads work wallet-less, but minting is a transaction, so you need a connected wallet on the right network — see [Connecting a wallet](/guides/connecting-a-wallet) and clear any wrong-network banner.
 3. **Choose the Mint action and your input token.** Select SY or, more commonly, the underlying the SY accepts. The quote updates **live as you type** — enter an input amount and OpenPendle shows the PT and YT you will receive.
-4. **Approve the exact amount.** If the input token needs an allowance for the [router](/reference/networks-and-contracts), OpenPendle requests an **exact-amount approval** — never an unlimited allowance. Confirm it in your wallet. (If the input is native ETH on a chain where the SY accepts it, there is no approval — the amount is sent as `msg.value`.)
+4. **Approve the input.** If the input token needs an allowance for the [router](/reference/networks-and-contracts), OpenPendle uses your configured approval mode: the exact amount by default, or unlimited only after an explicit settings opt-in. Confirm it in your wallet. (If the input is native ETH on a chain where the SY accepts it, there is no approval — the amount is sent as `msg.value`.)
 5. **Review the simulation and sign.** Before the transaction is offered for signing, OpenPendle **simulates it against the live chain** at the current block, so the PT + YT you see is what the mint will actually produce. Sign, and the pair lands in your wallet.
 
 Because the split is 1:1 and un-priced by the AMM, the amounts you receive move only with the SY's own exchange rate to the underlying, not with pool liquidity. There is nothing to set a slippage tolerance against on the split itself.
@@ -82,7 +82,7 @@ Redeeming before maturity requires you to hold **both** legs — one PT and one 
 1. **Open the market and connect**, exactly as for minting.
 2. **Choose the Redeem action.** OpenPendle reads your PT and YT balances and lets you redeem up to the matched amount you hold. Redeeming needs equal parts PT and YT; any unmatched excess of one leg stays in your wallet (unmatched PT can instead be [sold](/guides/buying-pt), and unmatched YT [sold](/guides/buying-yt), through the AMM).
 3. **Pick the output** — SY, or have the router unwrap to the underlying.
-4. **Approve the exact amounts.** Redeeming spends your PT and YT, so the router may need exact-amount approvals for each; OpenPendle requests only what the transaction consumes.
+4. **Approve the inputs.** Redeeming spends your PT and YT, so the router may need an approval for each. The default is exactly what the transaction consumes; an explicit Unlimited setting leaves standing allowances instead.
 5. **Simulate and sign.** As always, the transaction is simulated at the live block before you sign, and the output settles 1:1 (net of any Pendle protocol fee on the redemption path and gas).
 
 ::: info Redeem needs the pair; a single leg is a swap, not a redeem
@@ -93,7 +93,7 @@ If you hold only PT, or only YT, you cannot "redeem" back to SY before maturity 
 
 Two OpenPendle guarantees apply to every mint and redeem, and they are worth stating explicitly because they shape what your wallet will ask you to confirm.
 
-- **Exact-amount approvals.** When an input token (or a leg you are redeeming) needs an ERC-20 allowance for [Router V4](/reference/networks-and-contracts) `0x888888888889758F76e7103c6CbF23ABbF58F946`, OpenPendle requests an allowance for **exactly** the amount the transaction spends — not an unlimited approval. You may therefore see an approval prompt each time the amount increases; that is the deliberate trade-off for not leaving a standing allowance behind. Native ETH inputs (where the SY accepts them) skip approval entirely and are passed as `msg.value`.
+- **Exact by default; unlimited by explicit opt-in.** When an input token (or a leg you are redeeming) needs an ERC-20 allowance for [Router V4](/reference/networks-and-contracts) `0x888888888889758F76e7103c6CbF23ABbF58F946`, OpenPendle defaults to the amount the transaction spends. Increasing the amount may therefore require another approval. Selecting Unlimited in transaction settings instead leaves a maximum standing allowance until revoked and increases exposure. Native ETH inputs (where the SY accepts them) skip approval entirely and are passed as `msg.value`.
 - **Simulate before sign.** Every transaction is **simulated against the live chain** at the current block before OpenPendle offers it for signing. If the split or the redemption would revert — a stale allowance, an SY that rejects the input, a fee-on-transfer or rebasing token the SY cannot handle — the simulation surfaces it *before* you spend gas on a failed transaction, rather than after.
 
 Neither of these is a Pendle feature; they are how OpenPendle constructs and dispatches the call. OpenPendle ships **no contracts of its own** — it calls Pendle's deployed [Router V4](/reference/networks-and-contracts) with hand-written ABIs and takes **no fee of its own**. Pendle's own protocol fees (for example the YT interest fee taken on yield) still apply and are charged by Pendle's contracts.
@@ -140,7 +140,7 @@ Two categories of token do not work as SY inputs, by Pendle's design and OpenPen
 - `PT + YT = SY`. **Mint** splits SY (or the underlying) into the pair; **redeem** recombines the pair back to SY (or the underlying). Both are **1:1** and available **any time before maturity**.
 - Mint/redeem is **un-priced by the AMM** — no slippage, only gas and any Pendle protocol fee. A [swap](/guides/buying-pt) is priced by the AMM and has price impact.
 - **Swap** to change your net exposure (long PT or long YT); **mint/redeem** to change token form while holding the same combined value. Want just one leg? [Buy PT](/guides/buying-pt) or [buy YT](/guides/buying-yt) instead of minting both.
-- OpenPendle uses **exact-amount approvals** and **simulates every transaction** before you sign, through Pendle's [Router V4](/reference/networks-and-contracts) `0x888888888889758F76e7103c6CbF23ABbF58F946` — with no contracts and no fee of its own.
+- OpenPendle **simulates every transaction** before you sign and defaults approvals to the **exact amount**; Unlimited is an explicit, higher-exposure opt-in. Calls go through Pendle's [Router V4](/reference/networks-and-contracts) `0x888888888889758F76e7103c6CbF23ABbF58F946`, with no OpenPendle contracts or fee.
 - **At maturity**, PT redeems **1:1 for the underlying on its own** (YT is worth 0, the market stops trading). No pair, no swap, no deadline.
 
 ## See also

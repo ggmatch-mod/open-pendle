@@ -62,11 +62,27 @@ export function MintRedeemPanel({
   const client = usePublicClient({ chainId: activeChainId })
   const [slippage] = useSlippage()
 
-  // Post-expiry the relevant action is redeem (minting is closed after
-  // maturity), so default there when the market has matured.
-  const [direction, setDirection] = useState<Direction>(snapshot.isExpired ? 'redeem' : 'mint')
+  // `selectedDirection` remembers the user's live-market choice. Maturity is
+  // a hard constraint, not merely an initial default: a refetched snapshot can
+  // cross expiry while this component remains mounted, and that render must
+  // invalidate its old mint form/plan immediately.
+  const [selectedDirection, setSelectedDirection] = useState<Direction>(
+    snapshot.isExpired ? 'redeem' : 'mint',
+  )
   const [choiceByDir, setChoiceByDir] = useState<Partial<Record<Direction, string>>>({})
   const [amountText, setAmountText] = useState('')
+  const switchingToMaturedRedeem = snapshot.isExpired && selectedDirection === 'mint'
+  const direction: Direction = snapshot.isExpired ? 'redeem' : selectedDirection
+  // Do not reinterpret a live mint amount as matured PT while the state reset
+  // below is waiting for the commit. This keeps both quotes and plans unarmed
+  // on the very first expired render.
+  const effectiveAmountText = switchingToMaturedRedeem ? '' : amountText
+
+  useEffect(() => {
+    if (!switchingToMaturedRedeem) return
+    setSelectedDirection('redeem')
+    setAmountText('')
+  }, [switchingToMaturedRedeem])
 
   const tokenList = direction === 'mint' ? sy.tokensIn : sy.tokensOut
   const metas = useTokenMetas([...sy.tokensIn, ...sy.tokensOut])
@@ -106,14 +122,18 @@ export function MintRedeemPanel({
   const outDecimals =
     direction === 'mint' ? pyDecimals : choiceIsSy ? sy.decimals : tokenMeta?.decimals
 
-  const parsed = inDecimals !== undefined ? parseAmount(amountText, inDecimals) : {}
+  const parsed = inDecimals !== undefined ? parseAmount(effectiveAmountText, inDecimals) : {}
   const amount = parsed.amount
 
   const chained = !choiceIsSy // token variants estimate via wrap/unwrap chaining
   const debouncedKey = useDebouncedValue(amount?.toString() ?? '', 350)
   const debouncedAmount = debouncedKey !== '' ? BigInt(debouncedKey) : undefined
   const quoteEnabled =
-    client !== undefined && debouncedAmount !== undefined && debouncedAmount > 0n
+    client !== undefined &&
+    amount !== undefined &&
+    amount > 0n &&
+    debouncedAmount !== undefined &&
+    debouncedAmount > 0n
   const quoteQuery = useQuery({
     queryKey: [
       'm2-quote-mint-redeem',
@@ -148,6 +168,9 @@ export function MintRedeemPanel({
     plan: ActionPlan | null
     reason: string | null
   } => {
+    if (switchingToMaturedRedeem) {
+      return { plan: null, reason: 'Market matured — enter a PT amount to redeem' }
+    }
     if (!isConnected || user === undefined) return { plan: null, reason: null } // TxButton → Connect wallet
     if (inDecimals === undefined) return { plan: null, reason: 'Token metadata unavailable' }
     // Output token metadata unknown (redeem to an unreadable token): refuse to
@@ -185,9 +208,9 @@ export function MintRedeemPanel({
       return { plan: null, reason: 'Action unavailable' }
     }
   }, [
-    isConnected, user, inDecimals, outDecimals, parsed.error, amount, balance, direction,
-    inSymbol, quoteLoading, quoteUnavailable, minOut, choiceIsSy, snapshot, token,
-    tokenSymbol,
+    switchingToMaturedRedeem, isConnected, user, inDecimals, outDecimals, parsed.error,
+    amount, balance, direction, inSymbol, quoteLoading, quoteUnavailable, minOut,
+    choiceIsSy, snapshot, token, tokenSymbol,
   ])
 
   const flow = useActionFlow(plan)
@@ -211,18 +234,19 @@ export function MintRedeemPanel({
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="inline-flex rounded-[10px] bg-surface-2 p-0.5">
-          {(
-            [
-              ['mint', 'Mint PT + YT'],
-              ['redeem', snapshot.isExpired ? 'Redeem PT' : 'Redeem PT + YT'],
-            ] as [Direction, string][]
+          {(snapshot.isExpired
+            ? ([['redeem', 'Redeem PT']] as [Direction, string][])
+            : ([
+                ['mint', 'Mint PT + YT'],
+                ['redeem', 'Redeem PT + YT'],
+              ] as [Direction, string][])
           ).map(([dir, label]) => (
             <button
               key={dir}
               type="button"
               disabled={flowBusy}
               onClick={() => {
-                setDirection(dir)
+                setSelectedDirection(dir)
                 setAmountText('')
               }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -276,7 +300,7 @@ export function MintRedeemPanel({
 
       <AmountInput
         label={direction === 'mint' ? 'You mint with' : 'You redeem'}
-        value={amountText}
+        value={effectiveAmountText}
         onChange={setAmountText}
         symbol={inSymbol}
         decimals={inDecimals}

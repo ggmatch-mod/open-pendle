@@ -94,7 +94,10 @@ export async function resolveTokenSet(
     return null // an SY (ambiguous), a market, or not a Pendle token
   }
 
-  const expiry = expiryR.status === 'success' ? Number(expiryR.result) : 0
+  if (expiryR.status !== 'success') {
+    throw new Error('PT/YT expiry() unavailable — refusing to guess maturity state.')
+  }
+  const expiry = Number(expiryR.result)
   const isExpired = expiry > 0 ? expiry * 1000 <= Date.now() : false
 
   // SY info + PT/YT symbols.
@@ -118,7 +121,10 @@ export async function resolveTokenSet(
 
   const syName = nameR.status === 'success' ? (nameR.result as string) : ''
   const sySymbol = symR.status === 'success' ? (symR.result as string) : 'SY'
-  const syDecimals = decR.status === 'success' ? Number(decR.result) : 18
+  if (decR.status !== 'success') {
+    throw new Error('SY decimals() unavailable — refusing to guess transaction units.')
+  }
+  const syDecimals = Number(decR.result)
 
   let assetType = 0
   let assetAddress: Address = ZERO_ADDRESS
@@ -128,6 +134,8 @@ export async function resolveTokenSet(
     assetType = Number(t)
     assetAddress = addr
     assetDecimals = Number(dec)
+  } else {
+    throw new Error('SY assetInfo() unavailable — refusing to guess PT/YT transaction units.')
   }
 
   const exchangeRate = rateR.status === 'success' ? (rateR.result as bigint) : 10n ** 18n

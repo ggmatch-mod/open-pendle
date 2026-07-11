@@ -26,6 +26,7 @@ import type { PublicClient } from 'viem'
 import type { DeployResult } from '../../lib/types'
 import { decodeDeploymentResult } from '../../lib/deploy'
 import { useActiveChain } from '../../lib/hooks'
+import { marketPath } from '../../lib/routes'
 import { explorerAddressUrl, explorerName, explorerTxUrl } from '../format'
 
 function OracleCta() {
@@ -116,7 +117,7 @@ export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <Link
-              to={`/market/${result.market}`}
+              to={marketPath(result.market, chainId)}
               className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
             >
               Open the pool →

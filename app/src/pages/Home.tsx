@@ -9,15 +9,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getAddress, isAddress } from 'viem'
 import { useActiveChain, useClassifyAddress, useRegistry, useRegistrySweep } from '../lib/hooks'
 import {
-  poolsByRecency,
   RegistryEmptyState,
   SavedPoolGrid,
 } from '../components/SavedPoolsList'
+import { poolsByRecency } from '../components/savedPools'
 import { MarketAnatomyCard } from '../components/MarketAnatomyCard'
 import { SectionHeader } from '../components/SectionHeader'
 import { clampLabel, formatDate, shortAddress } from '../components/format'
 import { loadStarterList, type StarterList } from '../components/starterList'
 import { useDocumentTitle } from '../components/useDocumentTitle'
+import { marketPath, tokenPath } from '../lib/routes'
 
 // ---------------------------------------------------------------------------
 // Paste box — wired to the on-chain classifier
@@ -40,7 +41,7 @@ function ClassificationFeedback({
   input: string
 }) {
   const navigate = useNavigate()
-  const { chain } = useActiveChain()
+  const { chain, chainId } = useActiveChain()
 
   if (input.length === 0 || status.status === 'idle') {
     return (
@@ -97,7 +98,7 @@ function ClassificationFeedback({
             )}
           </p>
           <button
-            onClick={() => navigate(`/token/${getAddress(input)}`)}
+            onClick={() => navigate(tokenPath(getAddress(input), chainId))}
             className="mt-2.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
           >
             View &amp; act on this token →
@@ -141,6 +142,7 @@ function MarketPasteBox() {
   const trimmed = input.trim()
   const classify = useClassifyAddress(trimmed)
   const { classification } = classify
+  const { chainId } = useActiveChain()
 
   // Auto-open validated markets.
   useEffect(() => {
@@ -148,9 +150,9 @@ function MarketPasteBox() {
       classification?.kind === 'market' &&
       isAddress(trimmed, { strict: false })
     ) {
-      navigate(`/market/${getAddress(trimmed)}`)
+      navigate(marketPath(getAddress(trimmed), chainId))
     }
-  }, [classification, trimmed, navigate])
+  }, [chainId, classification, trimmed, navigate])
 
   return (
     <div className="w-full">
@@ -252,7 +254,7 @@ function StarterMarkets() {
         {active.map((m) => (
           <Link
             key={m.address}
-            to={`/market/${m.address}`}
+            to={marketPath(m.address, m.chainId)}
             onClick={() => setChainId(m.chainId)}
             className="rounded-xl border border-hairline bg-surface p-3.5 transition hover:border-hairline-strong"
           >
@@ -316,9 +318,9 @@ export default function Home() {
               </span>
             </h1>
             <p className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed text-muted">
-              Load any Pendle V2 market on {chain.name} by address. No backend, no curation, no
-              indexer — the interface reads straight from the chain and simulates every transaction
-              before you sign.
+              Load any Pendle V2 market on {chain.name} by address. No OpenPendle backend or
+              curation — core pool data comes straight from the chain, and every transaction is
+              simulated before you sign.
             </p>
             <div className="mt-7">
               <label className="mb-2 block font-mono text-[10.5px] uppercase tracking-[.08em] text-faint">
@@ -336,7 +338,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="mt-[18px] flex flex-wrap gap-[7px]">
-              {['Exact-amount approvals', 'Simulated before you sign', 'Registry stays on your device'].map(
+              {['Exact approvals by default', 'Simulated before you sign', 'Registry stays on your device'].map(
                 (c) => (
                   <span
                     key={c}

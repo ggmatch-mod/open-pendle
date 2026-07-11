@@ -9,43 +9,15 @@
  * two views stay in sync (PLAN §3.3, M8 cross-chain registry).
  */
 
-import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
+import { supportedChain } from '../lib/addresses'
 import { sweepKey } from '../lib/market'
 import type { RegistrySweepResult } from '../lib/market'
 import type { QueryStatus, SavedPool, SupportedChainId } from '../lib/types'
 import { SavedPoolCard } from './SavedPoolCard'
+import { groupPoolsByChain } from './savedPools'
 
 /** The slice of a useRegistrySweep() result these views need. */
 export type SweepView = { status: QueryStatus; stats: RegistrySweepResult }
-
-/** Group saved pools by their own chainId, active chain first, then SUPPORTED_CHAINS order. */
-export function groupPoolsByChain(
-  pools: SavedPool[],
-  activeChainId: SupportedChainId,
-): { chainId: SupportedChainId; pools: SavedPool[] }[] {
-  const byChain = new Map<SupportedChainId, SavedPool[]>()
-  for (const p of pools) {
-    const arr = byChain.get(p.chainId)
-    if (arr) arr.push(p)
-    else byChain.set(p.chainId, [p])
-  }
-  // Order: active chain first, then the SUPPORTED_CHAINS display order.
-  const order = [
-    activeChainId,
-    ...SUPPORTED_CHAINS.map((c) => c.id).filter((id) => id !== activeChainId),
-  ]
-  return order
-    .filter((id) => byChain.has(id))
-    .map((chainId) => ({
-      chainId,
-      pools: (byChain.get(chainId) ?? []).sort((a, b) => b.savedAt - a.savedAt),
-    }))
-}
-
-/** Most-recently-saved first, across all chains (for the Home preview slice). */
-export function poolsByRecency(pools: SavedPool[]): SavedPool[] {
-  return [...pools].sort((a, b) => b.savedAt - a.savedAt)
-}
 
 /**
  * Flat grid, no chain-group headers — each card badges its own chain. Used by

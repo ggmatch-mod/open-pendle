@@ -91,7 +91,7 @@ A **one-click oracle-initialization step is planned** for a future OpenPendle re
 Because this call goes to the market contract directly rather than through OpenPendle, it is **not** wrapped in OpenPendle's [simulate-before-sign flow](/reference/architecture) — you are transacting on the explorer's terms. Read the function and confirm you are on the intended market and network before you sign.
 
 ::: warning You are leaving the guided flow
-Calling `increaseObservationsCardinalityNext` from a block explorer means OpenPendle's provenance gate, simulation, and exact-amount approvals are not in the loop for this one transaction. Double-check the contract address is the `PendleMarket` you deployed and that your wallet is on the right network. Community pools are permissionless and unreviewed, and any on-chain action can lose you funds. Experimental — use at your own risk. OpenPendle is not affiliated with Pendle Finance.
+Calling `increaseObservationsCardinalityNext` from a block explorer means OpenPendle's provenance gate, simulation, and approval-mode safeguards are not in the loop for this one transaction. Double-check the contract address is the `PendleMarket` you deployed and that your wallet is on the right network. Community pools are permissionless and unreviewed, and any on-chain action can lose you funds. Experimental — use at your own risk. OpenPendle is not affiliated with Pendle Finance.
 :::
 
 ## It is safe to skip

@@ -6,6 +6,10 @@
  *   FIX 2 — positions' native symbol resolves per chain (ETH/BNB/MON/XPL),
  *           via supportedChain(chainId).nativeSymbol + knownMeta(nativeSymbol).
  *   FIX 3 — nativeGasBuffer(chainId): larger on Ethereum mainnet, small on L2s.
+ *   FIX 4 — HTTPS deployments reject mixed-content HTTP RPC overrides.
+ *   FIX 5 — market/token routes encode their chain id for deep links.
+ *   FIX 6 — registry import deduplicates repeated (chainId, market) entries
+ *           within one payload while preserving first-entry/order semantics.
  *
  * Uses a FAKE PublicClient (canned multicall results) — no anvil, no RPC.
  *   node --experimental-strip-types scripts/m8-polish-check.mjs
@@ -13,8 +17,10 @@
 
 import { sweepRegistryPools, sweepKey } from '../src/lib/market.ts'
 import { knownMeta } from '../src/lib/positions.ts'
-import { supportedChain, SUPPORTED_CHAINS } from '../src/lib/addresses.ts'
+import { isAllowedRpcUrl, supportedChain, SUPPORTED_CHAINS } from '../src/lib/addresses.ts'
 import { nativeGasBuffer } from '../src/components/parseAmount.ts'
+import { marketPath, routeChainId, tokenPath } from '../src/lib/routes.ts'
+import { importPools, loadPools } from '../src/lib/registry.ts'
 
 let failures = 0
 function assert(cond, msg) {
@@ -124,6 +130,58 @@ console.log('\nFIX 3 — native gas buffer is chain-aware:')
     assert(nativeGasBuffer(id) === 500_000_000_000_000n, `L2 chain ${id} keeps small buffer`)
   }
   assert(nativeGasBuffer(undefined) === 500_000_000_000_000n, 'undefined chainId falls back to small buffer')
+}
+
+console.log('\nFIX 4 — RPC overrides match the page security context:')
+{
+  assert(
+    isAllowedRpcUrl('https://rpc.example', 'https:'),
+    'HTTPS RPC is allowed on the hosted HTTPS app',
+  )
+  assert(
+    !isAllowedRpcUrl('http://rpc.example', 'https:'),
+    'HTTP RPC is rejected on the hosted HTTPS app',
+  )
+  assert(
+    isAllowedRpcUrl('http://127.0.0.1:8545', 'http:'),
+    'HTTP RPC remains available to an HTTP-served local build',
+  )
+  assert(!isAllowedRpcUrl('javascript:alert(1)', 'http:'), 'non-HTTP(S) URL is rejected')
+}
+
+console.log('\nFIX 5 — market/token deep links carry their chain:')
+{
+  const market = marketPath(SHARED_MARKET, 8453)
+  const token = tokenPath(SY, 56)
+  assert(market === `/market/${SHARED_MARKET}?chain=8453`, `Base market path = ${market}`)
+  assert(token === `/token/${SY}?chain=56`, `BSC token path = ${token}`)
+  assert(routeChainId('?chain=8453') === 8453, 'supported route chain is parsed')
+  assert(routeChainId('?chain=999999') === undefined, 'unsupported route chain is ignored')
+}
+
+console.log('\nFIX 6 — registry import deduplicates one payload by (chainId, market):')
+{
+  const first = { ...savedPool(42161), label: 'first occurrence', savedAt: 1 }
+  const duplicate = { ...first, label: 'duplicate must not overwrite', savedAt: 2 }
+  const sameAddressOtherChain = { ...savedPool(1), label: 'same address on Ethereum', savedAt: 3 }
+
+  const result = importPools(JSON.stringify([first, duplicate, sameAddressOtherChain]))
+  const imported = loadPools()
+
+  assert(result.imported === 2 && result.total === 2, `duplicate payload imports 2 identities, not 3: ${result.imported}/${result.total}`)
+  assert(imported.length === 2, `registry contains exactly 2 entries: ${imported.length}`)
+  assert(imported[0]?.label === first.label, 'first duplicate occurrence wins')
+  assert(imported[0]?.chainId === 42161 && imported[1]?.chainId === 1, 'new identities preserve payload order')
+
+  const merge = importPools(JSON.stringify([
+    { ...first, label: 'existing entry must not overwrite' },
+    { ...first, market: '0x6666666666666666666666666666666666666666', label: 'later new entry' },
+  ]))
+  const merged = loadPools()
+
+  assert(merge.imported === 1 && merge.total === 3, `existing merge semantics remain append-only: ${merge.imported}/${merge.total}`)
+  assert(merged[0]?.label === first.label, 'existing registry entry is preserved')
+  assert(merged[2]?.label === 'later new entry', 'new entry appends after existing order')
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)

@@ -587,9 +587,10 @@ export function useTokenPositions(snapshot?: MarketSnapshot): {
 }
 
 /**
- * Resolve the market(s) for a pasted PT/YT (M12 "Go to the pool") — Pendle's API
- * for listed pools, best-effort event scan for community pools on a capable RPC.
- * Returns [] when nothing resolves. Undefined snapshot → 'idle'.
+ * Resolve the market(s) for a pasted PT/YT (M12 "Go to the pool") — Pendle's
+ * all-markets API for listed pools, indexed factory logs for community pools
+ * where available, then a best-effort direct RPC scan. Returns [] when nothing
+ * resolves. Undefined snapshot → 'idle'.
  */
 export function useResolveMarket(snapshot?: MarketSnapshot): {
   status: QueryStatus

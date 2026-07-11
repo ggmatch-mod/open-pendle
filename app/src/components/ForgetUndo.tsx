@@ -7,23 +7,15 @@
  * pill and the market-page RememberToggle — call the shared forgetWithUndo. The
  * toast is app-level (fixed), so it survives route changes for the full window.
  */
-import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Address } from 'viem'
-import type { SavedPool, SupportedChainId } from '../lib/types'
+import type { SavedPool } from '../lib/types'
 import { findPool, forgetPool, restorePool } from '../lib/registry'
 import { clampLabel } from './format'
+import { ForgetUndoCtx } from './forgetUndoContext'
+import type { ForgetFn } from './forgetUndoContext'
 
 const UNDO_MS = 4000
-
-type ForgetFn = (chainId: SupportedChainId, market: Address) => void
-
-const ForgetUndoCtx = createContext<ForgetFn>(() => {})
-
-/** Forget a saved pool with a ~4s undo window (toast). */
-export function useForgetWithUndo(): ForgetFn {
-  return useContext(ForgetUndoCtx)
-}
 
 export function ForgetUndoProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<SavedPool | null>(null)

@@ -45,10 +45,10 @@ A set of Pendle's contracts is deployed to the **same address on all six chains*
 
 A few notes on what each one means in practice:
 
-- **Router V4** is the single contract your trades, liquidity actions, and exits flow through. When you approve a token to spend against a market, it is Router V4 that receives the exact-amount allowance. See [Buying PT](/guides/buying-pt), [Buying YT](/guides/buying-yt), and [Providing liquidity](/guides/providing-liquidity).
+- **Router V4** is the single contract your trades, liquidity actions, and exits flow through. When one of those actions needs approval, Router V4 receives the allowance: exact-amount by default, or unlimited only after an explicit settings opt-in. See [Buying PT](/guides/buying-pt), [Buying YT](/guides/buying-yt), and [Providing liquidity](/guides/providing-liquidity).
 - **`PendleCommonPoolDeployHelperV2`** and **`PendleCommonSYFactory`** are the creation surface — the helper deploys a market (and can bundle the SY in the same transaction), and the factory deploys an SY from its registered templates. See [Creating a pool: overview](/create/overview), [Creating an SY](/create/standardized-yield), and [Deploying a market](/create/deploying-a-market).
 - **`PendlePYLpOracle`** provides the time-weighted prices used to value PT, YT, and LP. It reads from a market's on-chain observation buffer, which is why a freshly deployed market may need an oracle cardinality bump before *other* protocols can price it. See [Initializing the price oracle](/create/price-oracle).
-- **`Multicall3`** is the canonical community deployment present at the same address across most EVM chains; OpenPendle uses it to fold many reads into one RPC round-trip, which is what keeps browsing responsive without a backend or indexer. See [How OpenPendle works](/reference/architecture).
+- **`Multicall3`** is the canonical community deployment present at the same address across most EVM chains; OpenPendle uses it to fold many core reads into one RPC round-trip, which keeps browsing responsive without an OpenPendle-operated backend or indexer. See [How OpenPendle works](/reference/architecture).
 - The **governance proxy** and **ProxyAdmin** are Pendle-controlled. The governance proxy is the default **owner** of an SY you deploy through the wizard (so you do not end up controlling the SY machinery), and the ProxyAdmin is the **admin** of Pendle's upgradeable SY proxies — adapter SYs are `TransparentUpgradeableProxy` contracts whose admin is Pendle governance, not you. See [Creating an SY](/create/standardized-yield).
 
 ::: info Same address, still per-chain instances
@@ -95,7 +95,7 @@ Because the per-chain contracts and the exact live factory addresses can change 
 
 ## RPC endpoints
 
-Everything OpenPendle reads — pool lists, quotes, balances, maturities, the header stats ticker — arrives over an **RPC endpoint**, and every transaction is submitted through one. There is no backend, database, or indexer in between; the RPC is the app's only path to the chain.
+Core blockchain data — pool state, quotes, balances, maturities, provenance checks, and simulations — arrives over an **RPC endpoint**, and every transaction is submitted through one. No OpenPendle backend, database, indexer, or transaction relay sits in that path. Aggregate ticker metrics, PT/YT-to-pool discovery, and Merkl rewards use the ancillary public services listed below rather than RPC alone.
 
 ### Keyless defaults with automatic fallback
 
@@ -121,9 +121,9 @@ For why you might set an override — rate limits, latency, privacy, or reading 
 An RPC endpoint answers the app's read queries, so a hostile or broken endpoint could return misleading data (wrong balances, stale prices) or silently drop requests. Overriding the RPC changes *where* reads and transactions are sent, not *what* is read — contract addresses, the provenance gate, and simulation logic are unaffected — but those protections operate against whatever chain view the endpoint provides. Only point a chain at an endpoint you trust. Community pools are permissionless and unreviewed, and interacting with them can lose you funds; see [Risks & disclosures](/reference/risks).
 :::
 
-### The only outbound requests
+### Outbound requests
 
-RPC endpoints are the primary requests OpenPendle makes to the outside world — they are the blockchain reads and writes you point it at. The one addition is the **header stats ticker**, which fetches Pendle metrics from the **DefiLlama** and **CoinGecko** public APIs. Nothing else leaves the browser: no analytics, no tracking, no accounts. A strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()`/`Function`, and fonts are self-hosted, so there are zero external font requests. See [How OpenPendle works](/reference/architecture).
+RPC endpoints carry the blockchain reads and writes you point them at. The stock app also calls **DefiLlama/CoinGecko** for aggregate header metrics, Pendle's market API and keyless **Blockscout** log APIs while resolving a pasted PT/YT to a pool, and **Merkl** when a connected user opens **My positions**. The Merkl reward lookup includes the wallet address and chain ID. OpenPendle operates none of these services and sends no analytics or tracking beacon. A strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()`/`Function`, and fonts are self-hosted, so there are zero external font requests. See [How OpenPendle works](/reference/architecture).
 
 ## Verify for yourself
 
@@ -140,7 +140,7 @@ Every address on this page is in EIP-55 checksummed form and is copied verbatim 
 ## See also
 
 - [Browsing & networks](/guides/browsing) — the network selector, custom-RPC field, and wrong-network banner in the interface.
-- [How OpenPendle works](/reference/architecture) — the backend-free, RPC-only, simulate-before-sign architecture.
+- [How OpenPendle works](/reference/architecture) — the static, RPC-first, simulate-before-sign architecture and ancillary-service disclosure.
 - [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" means, and how provenance is checked.
 - [Anatomy of a pool](/concepts/pool-anatomy) — how the market, PT, YT, and SY contracts wire together.
 - [Creating a pool: overview](/create/overview) — the factories and helper a deploy calls, and what you receive.

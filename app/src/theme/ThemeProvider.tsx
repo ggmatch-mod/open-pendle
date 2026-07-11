@@ -4,11 +4,12 @@
  * main.tsx share one state. Sets data-theme + data-accent on <html>; the CSS
  * tokens in index.css read those attributes. Persists to localStorage.
  */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ACCENT } from './accent'
+import { ThemeCtx } from './themeContext'
+import type { Theme } from './themeContext'
 
-type Theme = 'dark' | 'light'
 const KEY = 'op.theme'
 
 function initialTheme(): Theme {
@@ -20,11 +21,6 @@ function initialTheme(): Theme {
   }
   return 'dark' // product default
 }
-
-const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({
-  theme: 'dark',
-  toggle: () => {},
-})
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(initialTheme)
@@ -46,8 +42,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   return <ThemeCtx.Provider value={value}>{children}</ThemeCtx.Provider>
-}
-
-export function useTheme() {
-  return useContext(ThemeCtx)
 }

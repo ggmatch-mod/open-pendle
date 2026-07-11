@@ -16,7 +16,7 @@ Nothing sits between the page and your wallet. There is:
 
 - **No WalletConnect** and no other pairing protocol.
 - **No relay, bridge, or backend** — OpenPendle has no server of its own to route through (see [How OpenPendle works](/reference/architecture)).
-- **No account, login, email, or tracking.** Your address is the only identity, and it never leaves your browser except in the RPC calls and signatures you initiate.
+- **No account, login, email, or tracking.** Your address is the only identity. It appears in normal RPC reads/signatures and, when you open **My positions**, in the disclosed Merkl rewards lookup; OpenPendle does not send it to an account or analytics service.
 
 This follows directly from OpenPendle's architecture. The whole app is static files that read the chain over public RPC and hold their state in your browser, so it can run from any static host or from IPFS with no server rewrites. A wallet-connection method that required a relay server would break that property; an injected provider needs no server, so it is the only method OpenPendle ships.
 
@@ -76,7 +76,7 @@ OpenPendle optimises instead for a **minimal, self-contained, censorship-resista
 
 - **No third party in the connection.** Injected wallets keep the link between page and wallet entirely on your device. There is no relay that could log metadata, go offline, or be blocked.
 - **Nothing external to depend on.** OpenPendle is meant to run unchanged from IPFS or any static host. A relay dependency would undercut that; an injected provider needs no server at all.
-- **A tighter security posture.** The app's Content-Security-Policy already restricts it to `script-src 'self' 'wasm-unsafe-eval'` and self-hosted fonts, so it makes essentially no external requests. The only outbound traffic is the blockchain RPC you point it at, plus the public DefiLlama and CoinGecko calls that feed the header stats ticker. Adding a wallet relay would widen that surface.
+- **A tighter wallet path.** The app's Content-Security-Policy restricts executable code to `script-src 'self' 'wasm-unsafe-eval'`, and fonts are self-hosted. OpenPendle still makes the direct data requests disclosed under [Architecture](/reference/architecture): your RPC, DefiLlama/CoinGecko for the ticker, Pendle's market API and, where available, Blockscout for PT/YT pool lookup, and Merkl on **My positions**. None is a wallet relay; adding WalletConnect would create a separate service in the signing/session path.
 
 The trade-off is the mobile flow above: without WalletConnect, connecting on a phone means using a wallet's in-app browser or Brave mobile rather than pairing a separate wallet app to a normal tab. For a backend-free, self-hostable interface, that is the intended balance.
 
@@ -88,7 +88,7 @@ The trade-off is the mobile flow above: without WalletConnect, connecting on a p
 4. **Approve in the wallet.** Your wallet shows its own prompt asking to share your address with the site. Approve it. OpenPendle never sees your keys or seed phrase — only the public address you approve.
 5. **Check the network.** Confirm your wallet's chain matches the **active network** you are viewing. If it does not, use the wrong-network banner's one-click switch, described next.
 
-Once connected, the actions on a market become available. Every one of them **quotes live as you type**, **simulates against the live chain before you sign**, and uses **exact-amount approvals** rather than unlimited allowances. See [Opening a pool](/guides/opening-a-pool) for what you can do next, and [Buying PT](/guides/buying-pt) for the most common first action.
+Once connected, the actions on a market become available. Every one of them **quotes live as you type** and **simulates against the live chain before you sign**. Approvals default to the exact amount; Unlimited is an explicit, higher-exposure transaction-setting opt-in. See [Opening a pool](/guides/opening-a-pool) for what you can do next, and [Buying PT](/guides/buying-pt) for the most common first action.
 
 ## Browsing works without a wallet
 

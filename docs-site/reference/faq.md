@@ -28,7 +28,7 @@ Yes. It is released under **GPL-3.0-or-later** and is a plain static site — no
 
 ### Is it safe?
 
-OpenPendle validates a market's **provenance** — that it was created by a Pendle factory it recognizes — before it lets you save or transact against it, and it **simulates every transaction** against the live chain before you sign, using **exact-amount approvals** (never unlimited allowances). But provenance is validation, not endorsement: OpenPendle cannot vouch for the asset or the SY contract underneath a pool. Read [Risks & disclosures](/reference/risks) in full before you transact.
+OpenPendle validates a market's **provenance** — that it was created by a Pendle factory it recognizes — before it lets you save or transact against it, and it **simulates every transaction** against the live chain before you sign. Approvals default to the exact amount; users can explicitly opt into unlimited approvals in transaction settings, which leaves a standing allowance and increases exposure. But provenance is validation, not endorsement: OpenPendle cannot vouch for the asset or the SY contract underneath a pool. Read [Risks & disclosures](/reference/risks) in full before you transact.
 
 ::: warning Community pools are unreviewed
 A market being loadable in OpenPendle is not an endorsement of it. Anyone can permissionlessly create a Pendle market wrapping any asset, and OpenPendle cannot check the asset or SY behind it. Never interact with a pool unless you trust whoever created it and the assets underneath.
@@ -40,11 +40,11 @@ It checks that a market descends from a Pendle factory OpenPendle recognizes; be
 
 ### Where is my data stored?
 
-In your browser only. There is no backend, no database, no indexer, no account, no tracking, and no analytics. Your [saved pools](/guides/saved-pools) live in `localStorage` under `openpendle.pools.v1`, and any custom RPC you set stays local too; nothing leaves the browser unless you explicitly export or share it. See [Architecture](/reference/architecture) for the full picture.
+Your saved pools and settings are stored in your browser only. OpenPendle operates no backend, database, indexer, account system, tracking, or analytics. The [saved-pools registry](/guides/saved-pools) lives in `localStorage` under `openpendle.pools.v1`, and custom RPC settings stay local too; that registry leaves only when you explicitly export or share it. Public RPC and ancillary API requests are covered under [Architecture](/reference/architecture).
 
 ### What outbound requests does the app make?
 
-The only outbound requests are the blockchain RPCs you point it at, plus — for the header stats ticker alone — Pendle metrics from the DefiLlama and CoinGecko public APIs. Fonts are self-hosted, so there are zero external font requests, and a Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()` while permitting the WebAssembly used for crypto. More detail is on the [Architecture](/reference/architecture) page.
+The app calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public market API and keyless Blockscout log APIs while resolving a pasted PT/YT to a pool; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID required for its reward lookup. OpenPendle operates none of those services and sends no analytics beacon. Fonts are self-hosted, so there are zero external font requests, and a Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()` while permitting the WebAssembly used for crypto. More detail is on [Architecture](/reference/architecture).
 
 ## Wallets and networks
 

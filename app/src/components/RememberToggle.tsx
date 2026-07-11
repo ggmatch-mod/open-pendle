@@ -6,7 +6,7 @@
 
 import type { MarketSnapshot } from '../lib/types'
 import { useActiveChain, useRegistry } from '../lib/hooks'
-import { useForgetWithUndo } from './ForgetUndo'
+import { useForgetWithUndo } from './useForgetWithUndo'
 
 export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
   const { isSaved, save } = useRegistry()

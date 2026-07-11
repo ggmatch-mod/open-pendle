@@ -60,7 +60,7 @@ If you have a PT, YT, or SY and need the market, look for the `PendleMarket` for
 
 ## What data a pool exposes
 
-Because OpenPendle has [no backend, no database, and no indexer](/reference/architecture), everything you see about a pool is read live from the chain — from the `PendleMarket` and the contracts it points to — over a public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). The pool is self-describing. The main fields:
+Because OpenPendle has [no operated backend, database, or indexer](/reference/architecture), core pool data is read live from the chain — from the `PendleMarket` and the contracts it points to — over a public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). Pendle's market API and, where available, public Blockscout indexes are used only by the separate convenience lookup that maps a pasted PT/YT back to a pool. The pool itself is self-describing. The main fields:
 
 | Data | Read from | What it tells you |
 | --- | --- | --- |

@@ -63,7 +63,7 @@ flowchart TD
   C --> E["Deploy market via<br/>PendleCommonPoolDeployHelperV2<br/>(optionally SY + market in one tx)"]
   D --> E
   E --> F[Seed initial liquidity<br/>with a token the SY accepts]
-  F --> G[Simulate, then sign<br/>exact-amount approval if ERC-20]
+  F --> G[Simulate, then sign<br/>exact approval by default if ERC-20]
   G --> H["DeploySuccess:<br/>new market address,<br/>Open the pool, explorer link"]
   H --> I(["You receive LP + YT.<br/>SY ownership → SY's owner<br/>(default: Pendle governance proxy)"])
   I -.->|optional, safe to skip| J[Bump oracle cardinality<br/>so other protocols can price via TWAP]
@@ -73,7 +73,7 @@ Read the flow left of the fork as *establishing the SY*, the middle as *the sing
 
 ### Every deploy is simulated before you sign
 
-As with every action in OpenPendle, the deploy transaction is **simulated against the live chain before you sign it**. A call that would revert is caught first, so you are not left having paid gas for a failed deploy because of a bad parameter. Approvals for the seed token are **exact-amount** — scoped to precisely the seed you are committing, never an unlimited allowance. Neither safeguard makes an unreviewed asset safe; they make the *act of deploying* honest and legible. See [How OpenPendle works](/reference/architecture).
+As with every action in OpenPendle, the deploy transaction is **simulated against the live chain before you sign it**. A call that would revert is caught first, so you are not left having paid gas for a failed deploy because of a bad parameter. Approvals for the seed token default to the **exact amount** you are committing. Unlimited approval requires an explicit transaction-setting opt-in and leaves greater standing exposure. Neither safeguard makes an unreviewed asset safe; they make the *act of deploying* honest and legible. See [How OpenPendle works](/reference/architecture).
 
 ## What you will receive
 

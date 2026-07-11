@@ -78,7 +78,7 @@ Passing the gate proves only that the market descends from a genuine Pendle fact
 
 ## 4. What loads
 
-Because OpenPendle has [no backend, no database, and no indexer](/reference/architecture), everything you see about a pool is read **live from the chain** over public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). A pool is self-describing: the `PendleMarket` points at its PT, YT, and SY, and those in turn describe the asset. Once the gate passes, the pool view assembles and shows:
+Because OpenPendle has [no operated backend, database, or indexer](/reference/architecture), the core pool view is read **live from the chain** over public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). A pool is self-describing: the `PendleMarket` points at its PT, YT, and SY, and those in turn describe the asset. External indexes are used only by the separate PT/YT-to-pool convenience lookup. Once the gate passes, the pool view assembles and shows:
 
 | What loads | Read from | What it is |
 | --- | --- | --- |
@@ -152,18 +152,18 @@ Community pools are permissionless and unreviewed — anyone can create one, and
 
 Once you have opened a market worth tracking — and, if you intend to fund it, once you have read its trust panel — you can save it so you do not have to hunt down the address again. Toggle **Remember this pool**.
 
-This writes the pool to your browser's `localStorage` under the key `openpendle.pools.v1` — entirely **client-side**, with no backend and no account. No server ever sees which pools you follow. Saved pools store the **market address**, so the "which of the four addresses" lookup from step 1 is resolved once and reused: opening a saved pool goes straight to the live pool view (and re-runs the provenance gate against the current chain state).
+This writes the pool to your browser's `localStorage` under the key `openpendle.pools.v1` — entirely **client-side**, with no OpenPendle backend storage or account. The saved registry is not uploaded to a server. RPC and ancillary providers can still observe the individual requests you make when opening a pool. Saved pools store the **market address**, so the "which of the four addresses" lookup from step 1 is resolved once and reused: opening a saved pool goes straight to the live pool view (and re-runs the provenance gate against the current chain state).
 
 Saved pools appear grouped by network on the [Saved Pools](/guides/saved-pools) page, with a short preview on the home page. From there you can:
 
 - **Forget** a pool — a roughly **four-second Undo** toast restores it exactly if you change your mind.
 - **Export to JSON**, **Import**, or generate a shareable **`?import=` link** that encodes your registry to move it between browsers or devices.
 
-Nothing leaves your browser unless *you* choose to export or share. See [Saved pools & privacy](/guides/saved-pools) for the full registry model.
+The saved-pool registry leaves your browser only when *you* choose to export or share it. See [Saved pools & privacy](/guides/saved-pools) for the full registry and network-request model.
 
 ## After it loads: what you can do
 
-With a pool open and its trust panel read, connect a wallet to act on it. OpenPendle is **injected-only** — it talks to a browser wallet directly, with no WalletConnect (see [Connecting a wallet](/guides/connecting-a-wallet)). Every action behaves the same way: quotes update live as you type, the transaction is **simulated against the live chain before you sign**, and token approvals are **exact-amount** — no unlimited allowances. All trades, liquidity, and exits route through Pendle's **Router V4** (`0x888888888889758F76e7103c6CbF23ABbF58F946`). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply.
+With a pool open and its trust panel read, connect a wallet to act on it. OpenPendle is **injected-only** — it talks to a browser wallet directly, with no WalletConnect (see [Connecting a wallet](/guides/connecting-a-wallet)). Every action behaves the same way: quotes update live as you type, the transaction is **simulated against the live chain before you sign**, and token approvals default to the **exact amount**. Unlimited approval requires an explicit settings opt-in and leaves greater standing exposure. All trades, liquidity, and exits route through Pendle's **Router V4** (`0x888888888889758F76e7103c6CbF23ABbF58F946`). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply.
 
 From a loaded, in-flight pool you can:
 

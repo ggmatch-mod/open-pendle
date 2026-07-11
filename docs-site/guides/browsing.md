@@ -98,7 +98,7 @@ An override affects only the one chain whose ID it is keyed to, and it never lea
 Overriding the RPC changes **where reads and transactions are sent**. It does not change **what** is read: contract addresses, the provenance gate, and simulation logic are unaffected. It also cannot make an unsafe market safe — the endpoint is just a window onto the same chain. For the outbound-request model in full, see [How OpenPendle works](/reference/architecture).
 
 ::: warning A malicious RPC can mislead you
-An RPC endpoint answers the app's read queries, so a hostile or misconfigured endpoint could return misleading data (wrong balances, stale prices) or drop your requests. Only point a chain at an endpoint you trust. OpenPendle's protections — simulate-before-sign and exact-amount approvals — still apply, but they operate against whatever chain view the endpoint provides. Community pools are permissionless and unreviewed, and interacting with them can lose you funds; see [Risks & disclosures](/reference/risks).
+An RPC endpoint answers the app's read queries, so a hostile or misconfigured endpoint could return misleading data (wrong balances, stale prices) or drop your requests. Only point a chain at an endpoint you trust. OpenPendle's protections — simulate-before-sign and exact approvals by default — still apply, but they operate against whatever chain view the endpoint provides. Explicitly opting into unlimited approval increases standing exposure. Community pools are permissionless and unreviewed, and interacting with them can lose you funds; see [Risks & disclosures](/reference/risks).
 :::
 
 ## Light and dark theme
@@ -107,7 +107,7 @@ A **theme toggle** in the header switches the interface between **dark** (the de
 
 ## Everything stays in your browser
 
-The network you pick, your per-chain RPC overrides, your theme, and your saved pools are all held in your browser's local storage. There is no backend, no database, no account, and no tracking. The only requests OpenPendle makes to the network are the blockchain RPCs you point it at — plus, for the header stats ticker only, Pendle metrics from the DefiLlama and CoinGecko public APIs. Clearing site data resets these preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
+The network you pick, per-chain RPC overrides, theme, and saved pools are all held in your browser's local storage. OpenPendle operates no backend database, account system, tracking, or analytics. The app still makes direct requests to the blockchain RPCs you choose; DefiLlama/CoinGecko for the header ticker; Pendle's market API and, where available, Blockscout while resolving a pasted PT/YT to a pool; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID needed for the rewards lookup. These calls do not upload your saved-pool registry or settings. Clearing site data resets those preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
 
 ::: info OpenPendle is a permissionless frontend
 OpenPendle validates market provenance but cannot vouch for the assets or SY contracts underneath. Experimental — use at your own risk. Not affiliated with Pendle Finance, and it takes no fee of its own.
@@ -118,6 +118,6 @@ OpenPendle validates market provenance but cannot vouch for the assets or SY con
 - [Connecting a wallet](/guides/connecting-a-wallet) — injected-only connection, and the wrong-network switch.
 - [Opening a pool](/guides/opening-a-pool) — the provenance gate and the trust panel, step by step.
 - [Networks & contracts](/reference/networks-and-contracts) — the full per-chain address list.
-- [How OpenPendle works](/reference/architecture) — the backend-free, RPC-only architecture.
+- [How OpenPendle works](/reference/architecture) — the static, RPC-first architecture and ancillary-service disclosure.
 - [Saved pools & privacy](/guides/saved-pools) — moving your client-side registry between devices.
 - [Risks & disclosures](/reference/risks) — please read before you transact.

@@ -355,8 +355,22 @@ export function rpcStorageKey(chainId: SupportedChainId): string {
   return `openpendle.rpc.${chainId}`
 }
 
-function isHttpUrl(value: string | null | undefined): value is string {
-  return typeof value === 'string' && /^https?:\/\//.test(value.trim())
+/**
+ * Browsers block an HTTP RPC from an HTTPS deployment (mixed content, and the
+ * production CSP permits HTTPS connections only). HTTP remains useful when
+ * self-hosting the app itself over HTTP for local development.
+ */
+export function isAllowedRpcUrl(
+  value: string | null | undefined,
+  pageProtocol = typeof window !== 'undefined' ? window.location.protocol : 'https:',
+): boolean {
+  if (typeof value !== 'string') return false
+  try {
+    const protocol = new URL(value.trim()).protocol
+    return protocol === 'https:' || (protocol === 'http:' && pageProtocol !== 'https:')
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -369,10 +383,10 @@ export function getChainRpcUrl(chainId: SupportedChainId): string {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const scoped = window.localStorage.getItem(rpcStorageKey(chainId))
-      if (isHttpUrl(scoped)) return scoped.trim()
+      if (scoped !== null && isAllowedRpcUrl(scoped)) return scoped.trim()
       if (chainId === ARBITRUM_CHAIN_ID) {
         const legacy = window.localStorage.getItem(RPC_STORAGE_KEY)
-        if (isHttpUrl(legacy)) return legacy.trim()
+        if (legacy !== null && isAllowedRpcUrl(legacy)) return legacy.trim()
       }
     }
   } catch {
@@ -391,19 +405,22 @@ export function getChainRpcUrls(chainId: SupportedChainId): string[] {
   return url === DEFAULT_RPCS[chainId] ? [...FALLBACK_RPCS[chainId]] : [url]
 }
 
-/** Persist a user RPC override for a chain (empty/whitespace clears it back to the default). */
-export function setChainRpcUrl(chainId: SupportedChainId, url: string): void {
+/** Persist a user RPC override; returns false when storage or URL validation fails. */
+export function setChainRpcUrl(chainId: SupportedChainId, url: string): boolean {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return
+    if (typeof window === 'undefined' || !window.localStorage) return false
     const trimmed = url.trim()
     if (trimmed === '') {
       window.localStorage.removeItem(rpcStorageKey(chainId))
       if (chainId === ARBITRUM_CHAIN_ID) window.localStorage.removeItem(RPC_STORAGE_KEY)
     } else {
+      if (!isAllowedRpcUrl(trimmed)) return false
       window.localStorage.setItem(rpcStorageKey(chainId), trimmed)
     }
+    return true
   } catch {
-    // Quota / storage disabled — no-op.
+    // Quota / storage disabled — report failure to the caller.
+    return false
   }
 }
 

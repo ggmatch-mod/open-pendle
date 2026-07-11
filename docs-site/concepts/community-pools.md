@@ -38,13 +38,13 @@ These native incentives — gauge emissions and vePENDLE voting alike — are **
 
 ## Merkl: how community pools get extra rewards
 
-**[Merkl](https://merkl.angle.money/)** is a third-party incentive-distribution platform. Instead of on-chain gauge emissions decided by governance, Merkl lets *anyone* — a pool's creator, the protocol behind the underlying asset, or an unrelated third party — fund a **campaign** that pays rewards to the addresses providing liquidity or holding eligible positions in a specific market. Distribution is computed off-chain from on-chain activity, and eligible users **claim** their accrued rewards, typically on Merkl's own interface rather than inside OpenPendle.
+**[Merkl](https://merkl.angle.money/)** is a third-party incentive-distribution platform. Instead of on-chain gauge emissions decided by governance, Merkl lets *anyone* — a pool's creator, the protocol behind the underlying asset, or an unrelated third party — fund a **campaign** that pays rewards to the addresses providing liquidity or holding eligible positions in a specific market. Distribution is computed off-chain from on-chain activity, and eligible users **claim** their accrued rewards through Merkl's distributor, using OpenPendle's **My positions** page or Merkl's interface.
 
 The mechanics that matter for anyone weighing a community pool:
 
 - **Opt-in and external.** A community pool has a Merkl campaign only if someone chose to fund one. Many community pools have **none**, and there is nothing wrong with a pool that has no incentives — it simply earns swap fees.
 - **Not guaranteed and not permanent.** A Merkl campaign is funded for a period and can be topped up, changed, or allowed to lapse at any time. Rewards you see today may not be there next week. Treat Merkl APR as a variable bonus, never as a fixed part of the return.
-- **Claimed separately.** Merkl rewards accrue off-chain and are claimed through Merkl, on a schedule Merkl sets — they do not arrive automatically in your wallet as you trade, and OpenPendle does not distribute them.
+- **Claimed separately.** Merkl rewards accrue off-chain and are claimed through Merkl's distributor on a schedule Merkl sets — they do not arrive automatically as you trade. OpenPendle can build the direct claim transaction, but never holds or distributes the rewards itself.
 - **An SY-level hook exists but is optional.** Some Pendle SY templates can be given an **off-chain reward manager** at deploy time, which enables a `claimOffchainRewards` path for Merkl-style distributions to flow through the SY. Passing `address(0)` for that manager at creation simply disables that path — the SY still functions, it just does not carry the off-chain reward hook. Whether a given community pool's SY has this wired up is a per-market detail to verify, not assume. See [Creating an SY](/create/standardized-yield).
 
 The distinction from native incentives is worth stating plainly: native PENDLE gauge emissions are an *on-chain, governance-directed* reward available only to listed markets, while Merkl is an *off-chain, permissionlessly-funded* reward that is the only extra-incentive route open to a community pool.
@@ -84,8 +84,8 @@ That is the entire scope of the check. **Provenance is validation, not endorseme
 The safeguards OpenPendle does provide protect the mechanics of interacting, not the quality of what you are interacting with:
 
 - **Simulate-before-sign.** Every transaction is simulated against the live chain before you sign it, so a call that would revert is caught first.
-- **Exact-amount approvals.** Token approvals are scoped to the exact amount an action needs — no unlimited allowances left standing.
-- **A strict interface surface.** Injected-wallet-only (no WalletConnect or third-party relay), a Content-Security-Policy that blocks JavaScript `eval()`, and self-hosted fonts. Reads go to the RPC you point at; the only other outbound calls are the header stats ticker.
+- **Exact approvals by default.** Token approvals default to the amount an action needs. Unlimited mode is an explicit settings opt-in that leaves a standing allowance and increases exposure.
+- **A strict interface surface.** Injected-wallet-only (no WalletConnect or third-party relay), a Content-Security-Policy that blocks JavaScript `eval()`, and self-hosted fonts. Core reads go to the RPC you point at; ancillary ticker, token-resolution, and Merkl calls are listed explicitly in [Architecture](/reference/architecture).
 
 None of these make an unreviewed asset safe. They make the *act of transacting* honest and legible. The gap between "this transaction will do what the interface says" and "this asset is worth interacting with" is exactly where a community pool's risk lives — and only you can close it.
 
@@ -94,7 +94,7 @@ flowchart LR
   P[Paste PendleMarket address] --> R[Read market from chain via RPC]
   R --> V{Provenance gate:<br/>created by a recognized<br/>Pendle factory?}
   V -->|No| B[Cannot save or transact]
-  V -->|Yes — validated, NOT endorsed| S[Simulate every action,<br/>exact-amount approvals]
+  V -->|Yes — validated, NOT endorsed| S[Simulate every action,<br/>exact approvals by default]
   S --> Y([You decide whether to trust<br/>the asset & SY underneath])
 ```
 

@@ -320,7 +320,15 @@ export function importPools(raw: string): { imported: number; skipped: number; t
       : []
   const valid = arr.map(parseSavedPool).filter((p): p is SavedPool => p !== undefined)
   const have = new Set(current.map((p) => poolKey(p.chainId, p.market)))
-  const additions = valid.filter((p) => !have.has(poolKey(p.chainId, p.market)))
+  // Admit only the first occurrence of each real registry identity. `have`
+  // starts with the existing registry and grows as this payload is traversed,
+  // so existing entries still win and new entries retain their input order.
+  const additions = valid.filter((p) => {
+    const key = poolKey(p.chainId, p.market)
+    if (have.has(key)) return false
+    have.add(key)
+    return true
+  })
   if (additions.length > 0) writeEnvelope([...current, ...additions])
   return {
     imported: additions.length,

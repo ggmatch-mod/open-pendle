@@ -233,14 +233,14 @@ export async function classifyAddress(
   if (syR.status === 'success' && ytR.status === 'success' && ptR.status !== 'success') {
     return {
       kind: 'pt',
-      message: `This is a PT (${symbolLabel}) — open it to mint, redeem, or claim; paste the market (PLP) to trade.`,
+      message: `This is a PT (${symbolLabel}) — open it to wrap or unwrap its SY, mint, redeem, or claim; paste the market (PLP) to trade.`,
       symbol,
     }
   }
   if (syR.status === 'success' && ptR.status === 'success' && ytR.status !== 'success') {
     return {
       kind: 'yt',
-      message: `This is a YT (${symbolLabel}) — open it to mint, redeem, or claim; paste the market (PLP) to trade.`,
+      message: `This is a YT (${symbolLabel}) — open it to wrap or unwrap its SY, mint, redeem, or claim; paste the market (PLP) to trade.`,
       symbol,
     }
   }
@@ -407,8 +407,10 @@ export async function loadMarketSnapshot(
   if (syNameR.status !== 'success') degraded.push('SY name() unavailable.')
   const sySymbol = sySymbolR.status === 'success' ? sySymbolR.result : ''
   if (sySymbolR.status !== 'success') degraded.push('SY symbol() unavailable.')
-  const syDecimals = syDecimalsR.status === 'success' ? syDecimalsR.result : 18
-  if (syDecimalsR.status !== 'success') degraded.push('SY decimals() unavailable — assuming 18.')
+  if (syDecimalsR.status !== 'success') {
+    throw new Error('SY decimals() unavailable — refusing to guess transaction units.')
+  }
+  const syDecimals = syDecimalsR.result
 
   let assetType = 0
   let assetAddress: Address = ZERO_ADDRESS
@@ -419,7 +421,7 @@ export async function loadMarketSnapshot(
     assetAddress = addr
     assetDecimals = dec
   } else {
-    degraded.push('SY assetInfo() unavailable — asset-terms metrics use SY decimals.')
+    throw new Error('SY assetInfo() unavailable — refusing to guess PT/YT transaction units.')
   }
 
   let exchangeRate = 10n ** 18n

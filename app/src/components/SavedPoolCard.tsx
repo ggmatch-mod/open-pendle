@@ -19,8 +19,9 @@ import type { RegistrySweepEntry } from '../lib/market'
 import { vintageFromFactory } from '../lib/market'
 import { supportedChain } from '../lib/addresses'
 import { useActiveChain } from '../lib/hooks'
-import { useForgetWithUndo } from './ForgetUndo'
+import { useForgetWithUndo } from './useForgetWithUndo'
 import { clampLabel, formatCompact, formatDate, formatPercent, shortAddress } from './format'
+import { marketPath } from '../lib/routes'
 
 function StatLine({
   pool,
@@ -98,7 +99,7 @@ export function SavedPoolCard({
   // first switch the active chain, then navigate to the market on its own chain.
   const open = () => {
     if (!onActiveChain) setChainId(pool.chainId)
-    navigate(`/market/${pool.market}`)
+    navigate(marketPath(pool.market, pool.chainId))
   }
 
   return (

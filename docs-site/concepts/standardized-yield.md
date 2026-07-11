@@ -39,7 +39,7 @@ The two operations that define an SY are `deposit` and `redeem`.
 - **`deposit`** takes one of the SY's accepted input tokens and mints SY shares to you. The number of shares reflects the asset's current exchange rate, so one SY share is a claim on a growing amount of the underlying as yield accrues.
 - **`redeem`** burns SY shares and returns one of the accepted output tokens.
 
-In normal use through OpenPendle you rarely call `deposit` or `redeem` in isolation. They sit underneath the higher-level actions on a market — minting PT + YT, buying PT or YT, adding liquidity — which route through Pendle's [Router](/reference/networks-and-contracts) and use the SY internally. When you mint PT + YT from the raw underlying asset, for instance, the Router deposits the asset into the SY and then splits the resulting SY for you, in a single transaction. Every such action is simulated against the live chain before you sign, and any token approval it needs is scoped to the exact amount (see [Minting & redeeming](/guides/minting-redeeming)).
+In normal use through OpenPendle you rarely call `deposit` or `redeem` in isolation. They sit underneath the higher-level actions on a market — minting PT + YT, buying PT or YT, adding liquidity — which route through Pendle's [Router](/reference/networks-and-contracts) and use the SY internally. When you mint PT + YT from the raw underlying asset, for instance, the Router deposits the asset into the SY and then splits the resulting SY for you, in a single transaction. Every such action is simulated against the live chain before you sign, and any token approval defaults to the exact amount (see [Minting & redeeming](/guides/minting-redeeming)).
 
 ### Accepted tokens: `getTokensIn` and `getTokensOut`
 

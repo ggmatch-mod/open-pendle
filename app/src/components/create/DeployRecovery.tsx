@@ -15,6 +15,7 @@ import type { PublicClient } from 'viem'
 import type { DeployResult } from '../../lib/types'
 import { recoverDeploymentFromTx } from '../../lib/deploy'
 import { useActiveChain } from '../../lib/hooks'
+import { marketPath } from '../../lib/routes'
 import { shortAddress } from '../format'
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/
@@ -102,7 +103,7 @@ export function DeployRecovery() {
               </span>
             </p>
             <Link
-              to={`/market/${result.market}`}
+              to={marketPath(result.market, chainId)}
               className="mt-2 inline-block rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110"
             >
               Open the pool →

@@ -72,14 +72,14 @@ If the SY lists `address(0)` among its accepted inputs, it accepts **native ETH*
 
 Native ETH is only ever a valid seed when the SY explicitly lists `address(0)`. It is a property of the SY, not of the network — even on the chains whose gas token is ETH, an SY that does not list `address(0)` will not take native ETH as seed.
 
-### Case 2 — any ERC-20 the SY accepts (exact approval first)
+### Case 2 — any ERC-20 the SY accepts (approval first)
 
-If the seed token is an ERC-20 (anything other than native ETH), the pool contract must be allowed to pull it. OpenPendle uses an **exact-amount approval**: you approve **precisely the seed amount**, never an unlimited allowance. This typically means:
+If the seed token is an ERC-20 (anything other than native ETH), the pool contract must be allowed to pull it. OpenPendle defaults to an **exact-amount approval** for precisely the seed amount. You can explicitly select Unlimited in transaction settings, but that leaves a standing allowance and increases exposure. With the default, this typically means:
 
 - One **approval** transaction for the exact seed amount, then
 - The **deploy** transaction that seeds the pool.
 
-Exact approvals are a deliberate safety default across OpenPendle — an approval that matches the amount you are actually committing cannot be drained beyond it later.
+Exact approvals are the deliberate safety default across OpenPendle — an approval that matches the amount you are actually committing cannot be drained beyond it later. Unlimited approval is optional, not automatic.
 
 ::: info There is no native-ETH SY — only native-ETH seeding
 Native ETH can *seed* a pool, but there is **no native-ETH SY template**. SY templates wrap an ERC-20 or ERC-4626 asset. Native ETH enters the picture only when the SY you are building on happens to accept `address(0)` as one of its inputs. Creating the SY itself is covered in [Creating a Standardized Yield](/create/standardized-yield).
@@ -121,7 +121,7 @@ When the transaction confirms, OpenPendle shows a **`DeploySuccess`** card. It i
 - **A block-explorer link** — opens the deploy transaction (or the market) on the active network's explorer, so you can verify the contracts on-chain.
 
 ::: tip Capture the market address now
-Because OpenPendle has no backend and no account, nothing about your new pool is stored anywhere unless you save it. Use **"Open the pool"** and then **[remember the pool](/guides/saved-pools)** right away — the saved-pools registry lives in your browser's `localStorage` under `openpendle.pools.v1`, and you can export or share it later. Do not close the tab assuming the address is recorded for you.
+Because OpenPendle has no operated backend storage or account, it does not record your new pool for you. Use **"Open the pool"** and then **[remember the pool](/guides/saved-pools)** right away — the saved-pools registry lives in your browser's `localStorage` under `openpendle.pools.v1`, and you can export or share it later. Do not close the tab assuming the address is recorded for you.
 :::
 
 ## After the deploy: two things to know
@@ -144,7 +144,7 @@ The tokens, amounts, and addresses below are invented to show the *shape* of a d
 **Scenario A — ERC-20 seed.** You are deploying a market on an existing SY that wraps a yield-bearing ERC-20 and accepts that same ERC-20 as an input. You choose to seed with roughly **10,000 units** of it.
 
 1. OpenPendle simulates the deploy against the live chain — it passes.
-2. Because the seed is an ERC-20, you first sign an **exact approval** for ~10,000 units (not unlimited).
+2. Because the seed is an ERC-20, you first sign an **exact approval** for ~10,000 units when using the default approval mode.
 3. You sign the **deploy**. The helper creates the PT/YT and market, seeds the pool, and returns **LP + YT** to your wallet. Because you deployed on an **existing** SY, its ownership is unchanged — it stays with whoever already owns that SY. (Only a *wizard-deployed* SY defaults to Pendle's governance proxy.)
 4. The `DeploySuccess` card shows `0xMARKET…`, an **Open the pool** button, and an explorer link. You open the pool and remember it.
 

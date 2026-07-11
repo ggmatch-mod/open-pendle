@@ -85,7 +85,7 @@ Someone who deposits into a market's **AMM**, and the token representing that sh
 See **expiry / maturity**.
 
 **Merkl.**
-An off-chain incentives platform ([merkl.angle.money](https://merkl.angle.money/)) used to distribute extra rewards on **community pools**, which are not eligible for native PENDLE **gauge** emissions. A campaign must be funded by the pool's creator or a third party; many community pools have none, and rewards are claimed separately on Merkl's own interface. See [Incentives](/create/incentives).
+An off-chain incentives platform ([merkl.angle.money](https://merkl.angle.money/)) used to distribute extra rewards on **community pools**, which are not eligible for native PENDLE **gauge** emissions. A campaign must be funded by the pool's creator or a third party; many community pools have none, and rewards are claimed through Merkl's distributor using OpenPendle's **My positions** page or Merkl's interface. See [Incentives](/create/incentives).
 
 **Mint.**
 The action `SY → PT + YT`: splitting one unit of **SY** into matching amounts of **PT** and **YT**, available any time before **maturity**. You can also mint from the **underlying** directly, which wraps it into SY first. The reverse is **redeem**. See [Minting & redeeming](/guides/minting-redeeming).
@@ -130,18 +130,18 @@ The principal half of a split — a yield-bearing asset with its future yield st
 Two distinct actions share the word. `PT + YT → SY` recombines both halves back into **SY**, available any time before **maturity**. Redeeming **PT** for the **underlying** happens **at or after** maturity, once PT equals par. See [Minting & redeeming](/guides/minting-redeeming) and [Maturity & redemption](/concepts/maturity).
 
 **Router V4 (`PendleRouterV4`).**
-Pendle's main router at `0x888888888889758F76e7103c6CbF23ABbF58F946`, identical on all six chains, through which OpenPendle sends all trades, liquidity actions, and exits. OpenPendle simulates every such transaction before you sign and uses exact-amount approvals. See [Architecture](/reference/architecture).
+Pendle's main router at `0x888888888889758F76e7103c6CbF23ABbF58F946`, identical on all six chains, through which OpenPendle sends all trades, liquidity actions, and exits. OpenPendle simulates every such transaction before you sign and defaults to exact-amount approvals. See [Architecture](/reference/architecture).
 
 **RouterStatic.**
 Pendle's read-only helper contract for quotes and position math, used by OpenPendle to compute what a given action would return. It is chain-specific (resolved live per chain), unlike the shared **Router V4**. See [Networks & contracts](/reference/networks-and-contracts).
 
 **RPC (public / fallback / override).**
-The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC endpoints are the only outbound requests OpenPendle makes, aside from the header stats ticker. See [Browsing](/guides/browsing).
+The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC carries core chain reads and transactions; separate public services support the ticker, PT/YT pool lookup, and Merkl rewards. See [Browsing](/guides/browsing) and [Architecture](/reference/architecture).
 
 ## S
 
 **Saved pools (registry).**
-The client-side list of pools you have chosen to remember, stored in `localStorage` under `openpendle.pools.v1` — no backend, no account. It supports Export to JSON, Import, and a shareable `?import=` link; nothing leaves the browser unless you export or share. See [Saved pools](/guides/saved-pools).
+The client-side list of pools you have chosen to remember, stored in `localStorage` under `openpendle.pools.v1` — no OpenPendle backend storage or account. It supports Export to JSON, Import, and a shareable `?import=` link; the registry itself leaves the browser only when you export or share. See [Saved pools](/guides/saved-pools).
 
 **Seed / seed token.**
 The initial liquidity a pool deploy adds, and the token used for it — whatever the **SY** accepts. If that includes native ETH (the SY lists `address(0)` among its inputs), the deploy sends ETH as `msg.value` with no approval; otherwise you approve the exact seed amount first. See [Deploying a market](/create/deploying-a-market).
@@ -150,7 +150,7 @@ The initial liquidity a pool deploy adds, and the token used for it — whatever
 OpenPendle's practice of simulating every transaction against the live chain *before* you sign it, so the quoted result is the result the chain will execute at that block. See [Architecture](/reference/architecture).
 
 **Swap.**
-Trading a token into or out of **PT** (a **fixed-yield** position) or **YT** (a **long-yield** position) through **Router V4**. Quotes update live as you type, and each swap simulates before signing with exact-amount approvals. See [Buying PT](/guides/buying-pt) and [Buying YT](/guides/buying-yt).
+Trading a token into or out of **PT** (a **fixed-yield** position) or **YT** (a **long-yield** position) through **Router V4**. Quotes update live as you type, and each swap simulates before signing with exact approvals by default. See [Buying PT](/guides/buying-pt) and [Buying YT](/guides/buying-yt).
 
 **SY (Standardized Yield).**
 The uniform **EIP-5115** wrapper Pendle puts around a yield-bearing asset, presenting many different yield sources through one interface. SY is what splits into **PT** + **YT** and what the **AMM** pairs PT against; you rarely touch it directly. See [Standardized Yield](/concepts/standardized-yield).

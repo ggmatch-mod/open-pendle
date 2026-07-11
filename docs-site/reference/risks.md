@@ -10,7 +10,7 @@ OpenPendle is novel, unaudited software that talks to a permissionless protocol.
 
 There is a gap between two very different statements, and almost every way you can be harmed lives inside it:
 
-- **"This transaction will do what the interface says."** OpenPendle works hard to make this true — it simulates before you sign, scopes approvals to the exact amount, and gates markets by provenance.
+- **"This transaction will do what the interface says."** OpenPendle works hard to make this true — it simulates before you sign, defaults approvals to the exact amount, and gates markets by provenance.
 - **"This asset is worth interacting with."** OpenPendle says **nothing** about this. It does not, and cannot, tell you whether the underlying asset is solvent, whether the [SY](/concepts/standardized-yield) wrapping it is honest, or whether the person who deployed the pool meant you well.
 
 Everything below is an expansion of that gap. Only you can close it, and you close it by doing diligence on the asset and the SY — never by trusting that a pool loaded cleanly.
@@ -33,7 +33,7 @@ OpenPendle's safeguards protect the *mechanics of transacting*. They do not, and
 
 - **Provenance gate.** Before you can save a market or transact against it, OpenPendle verifies that the market was created by a **Pendle factory it recognizes**. Because Pendle's factories are governance-mutable, the currently active factory is resolved **live** at runtime; the hardcoded factory set is used only for this provenance validation. The check confirms the market genuinely descends from Pendle's deployment machinery — that it is a real Pendle market and not a look-alike contract wearing a Pendle market's shape.
 - **Simulate before sign.** Every transaction is simulated against the live chain before you are asked to sign it, so a call that would revert is caught before you spend gas — and you see the expected outcome before committing funds.
-- **Exact-amount approvals.** Token approvals are scoped to the precise amount the current action needs. OpenPendle never requests unlimited allowances, which limits what any contract can pull from your wallet to what that single transaction requires.
+- **Exact approvals by default; unlimited by explicit opt-in.** The default scopes an approval to the amount the current action needs. Transaction settings also offer **Unlimited**, which leaves a maximum standing allowance until you revoke it. Unlimited approval may reduce repeat approval transactions, but increases what the approved contract could pull and is particularly risky for an untrusted SY.
 
 ### What it cannot do
 
@@ -52,7 +52,7 @@ flowchart LR
   P[Paste PendleMarket address] --> R[Read market from chain via RPC]
   R --> V{Provenance gate:<br/>from a recognized<br/>Pendle factory?}
   V -->|No| B[Cannot save or transact]
-  V -->|"Yes — validated, NOT endorsed"| S[Simulate every action,<br/>exact-amount approvals]
+  V -->|"Yes — validated, NOT endorsed"| S[Simulate every action,<br/>exact approvals by default]
   S --> Y([You decide whether to trust<br/>the asset & SY underneath])
 ```
 
@@ -65,7 +65,7 @@ It helps to separate the risks OpenPendle can shrink from the risks it structura
 | Risk | Who bears it | Can OpenPendle reduce it? |
 | --- | --- | --- |
 | A transaction reverts or behaves unexpectedly | You | **Yes** — simulate-before-sign catches it first |
-| A contract pulls more tokens than intended | You | **Yes** — exact-amount approvals, no unlimited allowances |
+| A contract pulls more tokens than intended | You | **Partly** — exact approvals are the default; explicit unlimited approval increases standing exposure until revoked |
 | Interacting with a fake, look-alike "Pendle" market | You | **Yes** — the provenance gate blocks it |
 | The underlying asset is malicious, broken, or exotic | You | **No** — outside OpenPendle's knowledge |
 | The SY is upgradeable, adapter-driven, or stranger-owned | You | **No** — a per-market detail you must inspect |
@@ -87,7 +87,7 @@ Pendle's own protocol fees still apply, exactly as they would through any other 
 
 ## Your data &amp; privacy
 
-There is no backend, no database, no indexer, no accounts, no tracking, and no analytics. OpenPendle reads market state directly from the chain through public RPC endpoints; nothing about your browsing or your positions is sent to any server, because there is no server to send it to.
+OpenPendle operates no backend, database, indexer, account system, tracking, or analytics service. Core market state, balances, quotes, and simulations are read directly from the chain through public RPC endpoints. Ancillary public services are still contacted for specific features, as disclosed below; they are not OpenPendle analytics and are not in the transaction-signing path.
 
 What stays local, and where:
 
@@ -97,15 +97,17 @@ What stays local, and where:
 | Active network choice | `localStorage` key `openpendle.chain` (default Arbitrum) | No |
 | Custom RPC overrides | `localStorage` key `openpendle.rpc.<chainId>` | No |
 
-The pools you remember live only in your browser's local storage, and any custom RPC you set stays local too. The **only** outbound requests are:
+The pools you remember live only in your browser's local storage, and any custom RPC you set stays local too. Outbound requests are limited to:
 
-- the **blockchain RPCs you point at** (keyless public defaults per chain, wrapped in a fallback transport, overridable per chain in RPC settings); and
-- for the **header stats ticker only**, Pendle metrics from the DefiLlama and CoinGecko public APIs.
+- the **blockchain RPCs you point at** (keyless public defaults per chain, wrapped in a fallback transport, overridable per chain in RPC settings);
+- **DefiLlama and CoinGecko** for aggregate metrics in the header ticker;
+- Pendle's public market API and, where supported, keyless **Blockscout** log APIs when mapping a pasted PT/YT to its pool; and
+- **Merkl** when a connected user opens **My positions**. That reward lookup sends the wallet address and chain ID to Merkl so it can return claimable amounts and proofs.
 
-Moving your saved pools between browsers or devices is explicit and under your control — Export to JSON, Import, or a shareable `?import=` link that encodes your registry. Nothing leaves the browser unless you take one of those actions. See [Saved pools &amp; privacy](/guides/saved-pools) for the full registry behavior.
+Moving your saved pools between browsers or devices is explicit and under your control — Export to JSON, Import, or a shareable `?import=` link that encodes your registry. The saved-pool registry itself is never sent to the RPC or ancillary APIs as a side effect of saving; it leaves only through an Export or share action you choose. See [Saved pools &amp; privacy](/guides/saved-pools) for the full registry behavior.
 
 ::: info A privacy caveat worth stating
-Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. That is a property of using any public RPC, not something unique to OpenPendle. If that matters to you, override the RPC per chain with an endpoint you trust, or run your own node. See [Self-hosting](/reference/self-hosting) for running the whole interface yourself.
+Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. The ancillary services above can likewise see normal request metadata; Merkl also receives the connected wallet address and chain ID. That is a property of making direct requests to public services, not OpenPendle analytics. If that matters to you, override the RPC per chain with an endpoint you trust and avoid the optional token-resolution and My-positions surfaces, or run and modify your own copy. See [Self-hosting](/reference/self-hosting).
 :::
 
 Two hardening choices reduce the interface's own attack surface, and are worth knowing about:

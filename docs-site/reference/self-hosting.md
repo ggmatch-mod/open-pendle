@@ -1,6 +1,6 @@
 # Self-hosting
 
-OpenPendle is a static single-page app with **hash-based routing** and **no backend** — no server, no database, no indexer, no accounts, and no analytics. Every build is a plain folder of files that any web server, static host, or content-addressed network can serve as-is. That design is what makes self-hosting practical: there is no runtime to operate and nothing to keep alive behind the interface.
+OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle-operated backend, database, indexer, account system, or analytics. Every build is a plain folder of files that any web server, static host, or content-addressed network can serve as-is. That design is what makes self-hosting practical: there is no OpenPendle runtime to operate or server process to keep alive behind the interface. The browser still makes the public RPC and ancillary API requests documented below.
 
 Running your own copy is also the strongest guarantee OpenPendle can offer. The hosted site at [openpendle.com](https://openpendle.com) is a convenience, not a dependency. Because the code is open-source under the [GPL-3.0-or-later](#license-and-what-openpendle-ships) license and the build is fully self-contained, you can clone it, read every line, build it yourself, and serve it from infrastructure you control — so the interface cannot be changed out from under you, taken down, or made to depend on any party but the chain and the RPC you point at.
 
@@ -14,7 +14,7 @@ There is no functional feature you unlock by self-hosting — the hosted app and
 
 - **Censorship resistance.** A copy you serve cannot be taken offline by anyone but you. If you host it on [IPFS](#ipfs-with-dnslink), it cannot be taken offline at all as long as the pin survives.
 - **Provenance you can verify.** You build from source you have read, so you know the bytes your browser runs match the repository — not a modified bundle served to you.
-- **No new trust.** OpenPendle already adds no backend to trust (see [How OpenPendle works](/reference/architecture)). Self-hosting removes even the hosted deployment from your trust surface, leaving only the chain, your RPC, and your wallet.
+- **No new operated backend.** OpenPendle adds no application backend to trust (see [How OpenPendle works](/reference/architecture)). Self-hosting removes even the hosted deployment from your trust surface. Core use still relies on the chain, your RPC, and your wallet; ancillary features use the public data services listed below.
 - **It runs anywhere.** Because routing is hash-based and the build is a static folder, "anywhere" genuinely means anywhere — a managed static host, a spare box, or a content-addressed pin.
 
 The reason "anywhere" holds is the router. OpenPendle uses a **HashRouter**, so every route lives after the `#` in the URL (`openpendle.com/#/status`, `openpendle.com/#/about`, and so on). The server only ever serves one file — `index.html` — and the app resolves the route client-side from the fragment. A server never sees the part of the URL after `#`, so it never needs to know your routes, and you never need to configure SPA rewrite (history-fallback) rules. That single property is what lets the same unmodified `dist` folder work on a static host and on IPFS with no per-host configuration.
@@ -27,7 +27,7 @@ The reason "anywhere" holds is the router. OpenPendle uses a **HashRouter**, so 
 | **A package manager** | `npm` ships with Node and is what the commands below assume. `pnpm` or `yarn` work too if you prefer. |
 | **Git** | To clone the repository. You can also download a source tarball from GitHub if you would rather not use Git. |
 
-That is the entire toolchain. There is no database to provision, no environment file to populate with secrets, and no API keys to obtain — the app reads straight from public RPC and needs nothing else to run.
+That is the entire build toolchain. There is no database to provision, no environment file to populate with secrets, and no API keys to obtain. Core market-by-address reads and transactions use public RPC; the bundled ancillary integrations are also keyless.
 
 ## Clone, install, develop, build
 
@@ -145,14 +145,18 @@ Self-hosting does not weaken any of OpenPendle's safety properties, because thos
 | **Strict Content-Security-Policy** | The app sets `script-src 'self' 'wasm-unsafe-eval'`. That blocks JavaScript `eval()` and `Function()` and forbids loading remote scripts; it permits only WebAssembly instantiation (used for cryptography). No third-party or injected script can run in your copy. |
 | **Self-hosted fonts** | Fonts ship inside the bundle. There are **zero** external font requests — nothing is fetched from a font CDN, so a font provider cannot see or gate your users. |
 | **Injected-only wallets** | OpenPendle talks directly to a browser wallet's injected EIP-6963 provider. There is **no WalletConnect and no third-party relay** in the connection path. See [Connecting a wallet](/guides/connecting-a-wallet). |
-| **No backend to trust** | There is no server, database, indexer, account system, or analytics. State is read from the chain via public RPC that **you** configure. |
+| **No OpenPendle backend to trust** | There is no OpenPendle server, database, indexer, account system, analytics, or transaction relay. Core state is read from the chain via public RPC that **you** configure. |
 
-The only outbound requests a self-hosted copy makes are:
+The outbound requests a stock self-hosted copy makes are:
 
 - **The blockchain RPCs you point it at** — keyless public defaults per chain (wrapped in a `viem` `fallback()` transport that rolls over to a backup automatically), or your own overrides. RPC overrides are stored locally under `openpendle.rpc.<chainId>` and never leave the browser. See [Networks & contracts](/reference/networks-and-contracts).
-- **The header stats ticker only** — Pendle metrics from **DefiLlama** and **CoinGecko** public APIs. This drives the informational stats at the top of the app; it is not on the transaction path. If you want a copy that makes *no* third-party calls at all, that ticker is the one thing to remove or disable in your fork.
+- **The header stats ticker** — aggregate Pendle metrics from **DefiLlama** and **CoinGecko** public APIs.
+- **PT/YT pool resolution** — Pendle's public all-markets API and keyless **Blockscout** log APIs where available. These are queried only when the token-actions page tries to map a pasted PT/YT to a pool.
+- **Merkl rewards** — when a connected user opens **My positions**, the app sends the wallet address and each supported chain ID to Merkl's public rewards API to retrieve claimable amounts and proofs.
 
-Two additional guarantees are inherent to the code and survive self-hosting unchanged: every transaction is **simulated against the live chain before you sign**, and token approvals are **exact-amount** — never unlimited. Neither depends on where the interface is served from. The [provenance gate](/concepts/community-pools) — which verifies a market was created by a recognized Pendle factory before you can save or transact against it — likewise runs entirely client-side, resolving the active factory live at runtime and using the hardcoded factory set only for that validation.
+None of those services is operated by OpenPendle or sits between the wallet and a signed transaction. If you want a copy that makes no ancillary third-party API calls, remove or disable the ticker, PT/YT pool-resolution, and Merkl-rewards integrations in your fork; core market-by-address reads and Pendle transactions can remain RPC-only.
+
+Two additional behaviors are inherent to the code and survive self-hosting unchanged: every transaction is **simulated against the live chain before you sign**, and token approvals **default to the exact amount**. Users may explicitly select Unlimited in transaction settings; that preference is stored locally and leaves a standing allowance until revoked, increasing exposure. None of this depends on where the interface is served from. The [provenance gate](/concepts/community-pools) — which verifies a market was created by a recognized Pendle factory before you can save or transact against it — likewise runs entirely client-side, resolving the active factory live at runtime and using the hardcoded factory set only for that validation.
 
 ::: warning Safe interface, unreviewed pools
 Everything above is about the safety of the **interface**. It does not review the pools themselves. Community pools are permissionless and unreviewed; provenance validation confirms *who created* a market, not that its asset or SY is sound. A trustworthy self-hosted build interacting with a malicious pool can still lose you funds. Read [Risks & disclosures](/reference/risks) before transacting.

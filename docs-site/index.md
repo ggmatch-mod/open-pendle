@@ -26,11 +26,11 @@ features:
     title: Permissionless by design
     details: Load any Pendle V2 market by address across six networks. No whitelist, no curation, no listing process.
   - icon: 🛰️
-    title: No backend, no indexer
-    details: Everything is read straight from the chain, and every transaction is simulated before you sign. Nothing sits between you and Pendle's contracts.
+    title: No operated backend
+    details: Core pool data comes straight from your RPC, and every transaction is simulated before you sign. OpenPendle runs no server, database, indexer, analytics, or relay of its own.
   - icon: 🔒
     title: Yours and private
-    details: No accounts, no tracking, no analytics. The pools you save live only in your browser's local storage.
+    details: No OpenPendle accounts, tracking, or analytics. Saved pools and settings live only in your browser's local storage.
   - icon: 🎁
     title: A public good
     details: Free everywhere, GPL-3.0, and it takes no fee of its own. Not affiliated with Pendle Finance.

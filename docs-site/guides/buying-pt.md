@@ -131,7 +131,7 @@ At maturity, three things become true for the market: **PT** becomes redeemable 
 
 1. Return to the market in OpenPendle (open its address, or reopen it from [Saved Pools](/guides/saved-pools)).
 2. Choose **Redeem PT for the underlying**. This is a redemption, not a trade — it works at or after maturity even though the AMM has stopped.
-3. As with any action, OpenPendle quotes it, **simulates before signing**, and uses **exact-amount approvals**; sign to receive the underlying.
+3. As with any action, OpenPendle quotes it and **simulates before signing**. Approvals use your configured mode—exact by default, or unlimited only if you explicitly opted in; sign to receive the underlying.
 
 Two nuances worth knowing:
 

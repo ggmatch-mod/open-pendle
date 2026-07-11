@@ -49,8 +49,8 @@ The two are not rivals; they answer different questions. The official app answer
 | **Curation / review** | Team-listed; a listing decision stands behind each market | **None by design** — no listing, no review; loadable ≠ endorsed |
 | **Discovery / search** | Rich discovery of featured markets | No global directory; you arrive with an address you already have |
 | **Native PENDLE gauge emissions & vePENDLE voting** | Available on team-listed markets | **Not available** — community pools are ineligible; extra rewards come via [Merkl](/create/incentives) |
-| **Backend** | Conventional web stack | **None** — no server, database, indexer, accounts, tracking, or analytics |
-| **Data source** | App's own infrastructure | Public RPC you point at (reads); DefiLlama + CoinGecko for the header stats ticker only |
+| **Backend** | Conventional web stack | **No OpenPendle-operated backend** — no server, database, indexer, accounts, tracking, or analytics |
+| **Data sources** | App's own infrastructure | Public RPC for core reads; scoped public APIs for the ticker, PT/YT pool lookup, and Merkl rewards |
 | **Hosting** | Operated by the team | **Static + hash-routed** — self-hostable on any host or IPFS |
 | **Fees added by the interface** | See Pendle's own terms | **None of its own** — Pendle's protocol fees still apply, enforced by Pendle's contracts |
 | **Best when** | You want a vetted, featured market with the deepest liquidity | You have a specific unlisted market in mind and will do your own diligence |
@@ -69,11 +69,11 @@ There is no server between you and Pendle's contracts, so there is no server tha
 
 Because the app is a static site with **hash-based routing** (URLs look like `openpendle.com/#/...`), it needs no server rewrite rules and runs anywhere static files can be served — including [IPFS](/reference/self-hosting). If any single deployment becomes unavailable, the same build can be hosted elsewhere by anyone, and it behaves identically. A frontend you can copy and rehost is far harder to censor than one that lives at exactly one address someone else controls.
 
-The [Content-Security-Policy](/reference/architecture) reinforces this posture: `script-src 'self' 'wasm-unsafe-eval'` blocks JavaScript `eval()` and `Function`, permitting only WebAssembly (used for cryptography), and fonts are self-hosted so there are zero external font requests. The only outbound requests are the blockchain RPCs you point it at — plus, for the header stats ticker alone, Pendle metrics from the DefiLlama and CoinGecko public APIs. Fewer external dependencies means fewer parties who can interfere with, observe, or break the interface.
+The [Content-Security-Policy](/reference/architecture) reinforces this posture: `script-src 'self' 'wasm-unsafe-eval'` blocks JavaScript `eval()` and `Function`, permitting only WebAssembly (used for cryptography), and fonts are self-hosted so there are zero external font requests. Core reads and transactions use the blockchain RPC you choose. Ancillary public calls go to DefiLlama/CoinGecko for the ticker, Pendle's market API and, where available, Blockscout for PT/YT pool lookup, and Merkl on **My positions**; the Merkl lookup includes the connected wallet address and chain ID. None is an OpenPendle analytics or transaction service.
 
 ### Longevity
 
-Backends rot. Servers need funding, credentials expire, databases need migration, and indexers drift out of sync with the chain. A frontend that depends on all of that has a lifespan bounded by whoever keeps the lights on. OpenPendle has **no server, no database, no indexer, and no accounts** to maintain — it is a bundle of static files that reads a public blockchain. As long as the chain is live, a public RPC exists, and someone is serving the files, the app works. That is a dramatically longer and more resilient lifespan, and it does not depend on the original author staying involved.
+Backends rot. Servers need funding, credentials expire, databases need migration, and indexers drift out of sync with the chain. OpenPendle has **no operated server, database, indexer, or account system** to maintain — it is a bundle of static files whose core market-by-address path reads a public blockchain. If an ancillary API disappears, its ticker, discovery, or reward feature degrades, but the core RPC path does not depend on an OpenPendle service staying alive. That is a dramatically more resilient lifespan and does not depend on the original author keeping a backend running.
 
 Self-hosting is what makes this concrete. Because anyone can host a copy, the interface's survival is not tied to a single operator's continued attention or ability to pay a bill. The build outlives its deployment. If you care about being able to exit a long-dated position years from now — after maturity, `PT` is still redeemable and an LP position can still be exited (see [Maturity & redemption](/concepts/maturity)) — an interface with no perishable backend is the safer bet for still being usable when you need it.
 
@@ -83,7 +83,7 @@ The less the interface can do, the less you have to trust it. OpenPendle is buil
 
 - **It ships no smart contracts of its own.** It calls Pendle's already-deployed contracts with hand-written ABIs. There is no OpenPendle contract in the path of your funds.
 - **It is non-custodial.** It never holds your keys or your assets. Every transaction is signed in your own wallet, and the app can move nothing on your behalf.
-- **Approvals are exact-amount.** Token approvals are scoped to the precise amount of the current action — never unlimited — so what any contract can pull from your wallet is limited to what that single transaction needs.
+- **Approvals are exact-amount by default.** The default limits the allowance to the current action. Users can explicitly opt into Unlimited in transaction settings, which leaves a standing allowance and increases exposure until it is revoked.
 - **Every transaction is simulated before you sign.** You see the expected outcome against the live chain before committing gas, so a failing action is caught before it costs you.
 - **It takes no fee of its own.** OpenPendle adds nothing on top of a trade; Pendle's own protocol fees still apply, charged and enforced by Pendle's contracts, not by this interface.
 - **It is open source, GPL-3.0-or-later.** The exact code you run is public and auditable — a claim a closed frontend cannot make. Verify contract addresses independently against [`pendle-finance/pendle-core-v2-public`](/reference/networks-and-contracts).
@@ -102,7 +102,7 @@ OpenPendle is a specialist tool for people who have a reason to step outside the
 - **A pool creator.** You want to permissionlessly deploy a community pool (and, optionally, the [SY](/create/standardized-yield) it wraps) in a single transaction, then have a usable surface to trade, seed, and share it. See [Create: overview](/create/overview) and [Deploying the market](/create/deploying-a-market).
 - **A liquidity provider chasing the tail.** You are comfortable diligencing an unreviewed asset and want to provide liquidity where the curated app does not reach — accepting that rewards, if any, come through [Merkl](/create/incentives) rather than native gauge emissions.
 - **Someone who wants a censorship-resistant, self-hostable frontend.** You would rather run a copy of the interface yourself — on your own host or over IPFS — than depend on any single operator staying online. See [Self-hosting](/reference/self-hosting).
-- **A privacy-conscious user.** You want an interface with no accounts, no tracking, and no analytics, where the pools you save and any custom RPCs stay in your own browser and nothing leaves it unless you export or share.
+- **A privacy-conscious user.** You want an interface with no OpenPendle accounts, tracking, or analytics, where saved pools and RPC settings stay in your browser. You also understand the direct RPC and ancillary public-service requests disclosed in [How OpenPendle works](/reference/architecture), including Merkl receiving the wallet address and chain ID on **My positions**.
 
 If you are new to Pendle, or you just want the deepest liquidity on a well-known asset, the curated app is the better starting point — and reading [How Pendle works](/concepts/how-pendle-works) first will make either interface far easier to use. OpenPendle assumes you can already tell a good market from a bad one.
 

@@ -30,15 +30,15 @@ At a high level, OpenPendle turns a raw market address into a usable app surface
 - **Create a market** — deploy a new community pool (and, optionally, the [SY](/concepts/standardized-yield) it wraps) in a single transaction. See [Create: overview](/create/overview).
 - **Remember pools** — save markets to a local, client-side registry so you can find them again. See [Saved pools & privacy](/guides/saved-pools).
 
-Quotes update live as you type, every action is simulated against the live chain before you sign, and token approvals are scoped to the exact amount you are spending.
+Quotes update live as you type, every action is simulated against the live chain before you sign, and token approvals default to the exact amount you are spending.
 
 ## Core principles
 
 These are the design commitments that define how OpenPendle behaves. Each one is a deliberate constraint, not a feature that might change on a whim.
 
-### No backend, no indexer
+### No OpenPendle-operated backend or indexer
 
-There is no server, no database, no indexer, no accounts, no tracking, and no analytics. OpenPendle reads market state directly from the chain through public RPC endpoints. The only outbound requests it makes are the blockchain RPCs you point it at — plus, for the header stats ticker alone, Pendle metrics from the DefiLlama and CoinGecko public APIs. Nothing about your browsing or your positions is sent anywhere. See [How OpenPendle works](/reference/architecture).
+OpenPendle operates no server, database, indexer, account system, tracking, or analytics. Core market state, balances, quotes, and simulations come directly from the chain through public RPC endpoints. The stock app also calls DefiLlama/CoinGecko for aggregate header metrics, Pendle's market API and, where available, Blockscout indexes for PT/YT-to-pool resolution, and Merkl when a connected user opens **My positions**. That Merkl lookup includes the wallet address and chain ID. See [How OpenPendle works](/reference/architecture) for the complete data-flow disclosure.
 
 ### Provenance gate (validation, not endorsement)
 
@@ -50,9 +50,9 @@ This is **validation, not endorsement**. It confirms the market is a genuine Pen
 
 Every transaction is simulated against the live chain before you are asked to sign it, so you can see the expected outcome before committing funds. If a simulation fails, you find out before spending gas, not after.
 
-### Exact-amount approvals
+### Exact approvals by default
 
-Token approvals are scoped to the precise amount of the current action. OpenPendle never requests unlimited allowances, which limits what any contract can pull from your wallet to what that single transaction needs.
+Token approvals default to the precise amount of the current action, limiting the allowance to that spend. Transaction settings also offer an explicit **Unlimited** mode, which leaves a maximum standing allowance until revoked and increases exposure to the approved contract.
 
 ### Injected-only wallets
 
@@ -68,7 +68,7 @@ OpenPendle is a static site that uses hash-based routing (URLs look like `openpe
 
 ### Private by default
 
-There are no accounts and no server-side state. The pools you save and any custom RPCs you set live only in your browser's local storage; nothing leaves the browser unless you explicitly export or share it. See [Saved pools & privacy](/guides/saved-pools).
+There are no OpenPendle accounts or server-side state. The pools you save and custom RPCs you set live only in your browser's local storage; the saved registry and settings are not uploaded and the registry leaves only when you explicitly export or share it. See [Saved pools & privacy](/guides/saved-pools).
 
 ### No fee of its own
 
@@ -82,12 +82,12 @@ OpenPendle adds nothing on top of a trade. Pendle's own protocol fees still appl
 | **License** | Open source, GPL-3.0-or-later |
 | **Cost** | Free; **no fee of its own** (Pendle's protocol fees still apply) |
 | **Built by** | [ggmxbt](https://x.com/ggmxbt) — **not** affiliated with Pendle Finance |
-| **Backend** | None — no server, database, indexer, accounts, tracking, or analytics |
-| **Data source** | Public RPC (reads); DefiLlama + CoinGecko for the header stats ticker only |
+| **Backend** | No OpenPendle-operated server, database, indexer, accounts, tracking, or analytics |
+| **Data sources** | Public RPC for core reads; DefiLlama/CoinGecko for the ticker; Pendle's market API and, where available, Blockscout for PT/YT pool lookup; Merkl for rewards on My positions |
 | **Wallets** | Injected-only (MetaMask, Rabby, Brave, any EIP-6963) — no WalletConnect |
 | **Networks** | Ethereum, BNB Smart Chain, Monad, Base, Plasma, Arbitrum |
 | **Contracts** | Ships none of its own — calls Pendle's deployed contracts with hand-written ABIs |
-| **Safety model** | Provenance gate, simulate-before-sign, exact-amount approvals |
+| **Safety model** | Provenance gate, simulate-before-sign, exact approvals by default with explicit unlimited opt-in |
 | **Hosting** | Static site with hash routing — self-hostable on any host or IPFS |
 | **Privacy** | Saved pools and RPC overrides stay in your browser |
 
