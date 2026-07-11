@@ -46,9 +46,31 @@ export function getRpcUrl(): string {
   return DEFAULT_RPC_URL
 }
 
+// RainbowKit ships built-in icons for Ethereum/BSC/Base/Arbitrum, but its
+// current metadata only knows Monad testnet and has no Plasma entry. Attach our
+// first-party assets to the mainnet chain objects so both missing icons render
+// in RainbowKit's wallet-network selector.
+const monadWithIcon = {
+  ...monad,
+  iconUrl: '/chains/monad.png',
+  iconBackground: 'transparent',
+}
+const plasmaWithIcon = {
+  ...plasma,
+  iconUrl: '/chains/plasma.png',
+  iconBackground: 'transparent',
+}
+
 // The six chains OpenPendle supports, in display order. Each has a Pendle V2
 // deployment (see addresses.ts / docs/research/multichain-addresses.md).
-const SUPPORTED_VIEM_CHAINS = [mainnet, bsc, monad, base, plasma, arbitrum] as const
+const SUPPORTED_VIEM_CHAINS = [
+  mainnet,
+  bsc,
+  monadWithIcon,
+  base,
+  plasmaWithIcon,
+  arbitrum,
+] as const
 
 // ---------------------------------------------------------------------------
 // Dev wallet (M2+, fork testing) — DEV BUILDS ONLY.
