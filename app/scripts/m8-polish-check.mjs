@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * M8 polish logic-check (network-free) for the three minor fixes:
+ * M8 polish logic-check (network-free) for focused multi-network regressions:
  *   FIX 1 — sweepRegistryPools keys by `${chainId}:${market}` (not market-only),
  *           so the same market saved on two chains stays two distinct entries.
  *   FIX 2 — positions' native symbol resolves per chain (ETH/BNB/MON/XPL),
@@ -10,6 +10,8 @@
  *   FIX 5 — market/token routes encode their chain id for deep links.
  *   FIX 6 — registry import deduplicates repeated (chainId, market) entries
  *           within one payload while preserving first-entry/order semantics.
+ *   FIX 7 — explicit network selection updates reads first, synchronizes a
+ *           connected wallet, and keeps route-bound chains local to each tab.
  *
  * Uses a FAKE PublicClient (canned multicall results) — no anvil, no RPC.
  *   node --experimental-strip-types scripts/m8-polish-check.mjs
@@ -19,8 +21,16 @@ import { sweepRegistryPools, sweepKey } from '../src/lib/market.ts'
 import { knownMeta } from '../src/lib/positions.ts'
 import { isAllowedRpcUrl, supportedChain, SUPPORTED_CHAINS } from '../src/lib/addresses.ts'
 import { nativeGasBuffer } from '../src/components/parseAmount.ts'
-import { marketPath, routeChainId, tokenPath } from '../src/lib/routes.ts'
+import {
+  activeChainForLocation,
+  chainSearchForLocation,
+  isChainAddressRoute,
+  marketPath,
+  routeChainId,
+  tokenPath,
+} from '../src/lib/routes.ts'
 import { importPools, loadPools } from '../src/lib/registry.ts'
+import { selectNetwork } from '../src/lib/networkSelection.ts'
 
 let failures = 0
 function assert(cond, msg) {
@@ -182,6 +192,84 @@ console.log('\nFIX 6 — registry import deduplicates one payload by (chainId, m
   assert(merge.imported === 1 && merge.total === 3, `existing merge semantics remain append-only: ${merge.imported}/${merge.total}`)
   assert(merged[0]?.label === first.label, 'existing registry entry is preserved')
   assert(merged[2]?.label === 'later new entry', 'new entry appends after existing order')
+}
+
+console.log('\nFIX 7 — explicit selection synchronizes app, route, and wallet:')
+{
+  const trace = []
+  const switched = await selectNetwork({
+    targetChainId: 8453,
+    isConnected: true,
+    walletChainId: 42161,
+    setPreferredChainId: (id) => trace.push(`app:${id}`),
+    updateRouteChainId: (id) => trace.push(`route:${id}`),
+    switchWalletChain: async (id) => trace.push(`wallet:${id}`),
+  })
+  assert(switched === 'wallet-switched', `mismatched wallet outcome = ${switched}`)
+  assert(
+    trace.join(',') === 'app:8453,route:8453,wallet:8453',
+    `app + route update before wallet request: ${trace.join(',')}`,
+  )
+
+  const browseOnlyTrace = []
+  const browseOnly = await selectNetwork({
+    targetChainId: 56,
+    isConnected: false,
+    walletChainId: undefined,
+    setPreferredChainId: (id) => browseOnlyTrace.push(`app:${id}`),
+    updateRouteChainId: (id) => browseOnlyTrace.push(`route:${id}`),
+    switchWalletChain: async (id) => browseOnlyTrace.push(`wallet:${id}`),
+  })
+  assert(browseOnly === 'browse-only', `disconnected outcome = ${browseOnly}`)
+  assert(
+    browseOnlyTrace.join(',') === 'app:56,route:56',
+    'disconnected selection never requests a wallet switch',
+  )
+
+  const rejectedTrace = []
+  const rejected = await selectNetwork({
+    targetChainId: 143,
+    isConnected: true,
+    walletChainId: 1,
+    setPreferredChainId: (id) => rejectedTrace.push(`app:${id}`),
+    updateRouteChainId: (id) => rejectedTrace.push(`route:${id}`),
+    switchWalletChain: async (id) => {
+      rejectedTrace.push(`wallet:${id}`)
+      throw new Error('user rejected')
+    },
+  })
+  assert(rejected === 'wallet-switch-failed', `rejected switch outcome = ${rejected}`)
+  assert(
+    rejectedTrace.slice(0, 2).join(',') === 'app:143,route:143',
+    'wallet rejection does not roll back the selected read network',
+  )
+
+  assert(isChainAddressRoute(`/market/${SHARED_MARKET}`), 'market route is chain-bound')
+  assert(isChainAddressRoute(`/MARKET/${SHARED_MARKET}`), 'route matching follows React Router case-insensitivity')
+  assert(isChainAddressRoute(`/%6Darket/${SHARED_MARKET}`), 'encoded route letters resolve like React Router')
+  assert(!isChainAddressRoute('/about'), 'non-address route ignores stray ?chain=')
+  assert(
+    activeChainForLocation(42161, `/market/${SHARED_MARKET}`, '?chain=8453') === 8453,
+    'market deep link uses a route-local Base override',
+  )
+  assert(
+    activeChainForLocation(42161, '/about', '?chain=8453') === 42161,
+    'stray query does not override a generic page preference',
+  )
+  assert(
+    activeChainForLocation(42161, `/token/${SY}`, '?chain=1') === 1 &&
+      activeChainForLocation(42161, `/token/${SY}`, '?chain=8453') === 8453,
+    'two tabs can resolve different route chains from one preference',
+  )
+  assert(
+    chainSearchForLocation(`/market/${SHARED_MARKET}`, '?foo=bar&chain=1', 9745) ===
+      '?foo=bar&chain=9745',
+    'selector rewrites the chain query and preserves other parameters',
+  )
+  assert(
+    chainSearchForLocation('/about', '?foo=bar', 9745) === undefined,
+    'selector does not add chain queries to generic pages',
+  )
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`)

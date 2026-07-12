@@ -226,7 +226,6 @@ function SavedPoolsPreview() {
 
 function StarterMarkets() {
   const [list, setList] = useState<StarterList | null>(null)
-  const { setChainId } = useActiveChain()
 
   useEffect(() => {
     let cancelled = false
@@ -255,7 +254,6 @@ function StarterMarkets() {
           <Link
             key={m.address}
             to={marketPath(m.address, m.chainId)}
-            onClick={() => setChainId(m.chainId)}
             className="rounded-xl border border-hairline bg-surface p-3.5 transition hover:border-hairline-strong"
           >
             <p className="truncate text-sm font-medium text-fg">{m.name}</p>

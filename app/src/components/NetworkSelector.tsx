@@ -2,11 +2,9 @@
  * NetworkSelector (M8) — the app's active-network dropdown, in the header.
  *
  * The active chain is the SINGLE source every data hook reads (useActiveChain,
- * localStorage `openpendle.chain`, cross-tab synced). Selecting a chain here
- * calls setChainId, which reloads EVERYTHING the app shows on the new chain —
- * paste box, market pages, protocol status, the create wizards. This is NOT the
- * wallet's network (that's the wrong-network banner's job); it's what the app is
- * pointed at for reads and where a tx will be sent.
+ * localStorage `openpendle.chain`, cross-tab synced). An explicit selection
+ * updates app reads and asks a connected wallet to switch to the same chain.
+ * Wallet rejection leaves read-only browsing on the selected chain.
  *
  * Styled to match the dark header (RpcSettings / ConnectButton): a bordered
  * pill button + an outside-click popover listing SUPPORTED_CHAINS.
@@ -14,10 +12,16 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { SUPPORTED_CHAINS } from '../lib/addresses'
-import { useActiveChain } from '../lib/hooks'
+import { useNetworkSelection } from './useNetworkSelection'
 
 export function NetworkSelector() {
-  const { chainId, setChainId, chain } = useActiveChain()
+  const {
+    chainId,
+    selectChain,
+    chain,
+    isSelectionDisabled,
+    isTransactionInFlight,
+  } = useNetworkSelection()
   const [open, setOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -47,10 +51,15 @@ export function NetworkSelector() {
     <div className="relative" ref={popoverRef}>
       <button
         onClick={() => setOpen((o) => !o)}
+        disabled={isSelectionDisabled}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:border-hairline-strong hover:bg-surface"
-        title="Active network — switches what the whole app reads"
+        className="flex items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:border-hairline-strong hover:bg-surface disabled:cursor-wait disabled:opacity-70"
+        title={
+          isTransactionInFlight
+            ? 'Network selection is locked while a transaction is pending'
+            : 'Active network — switches app reads and the connected wallet'
+        }
       >
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
         <span className="max-w-[7.5rem] truncate">{chain.name}</span>
@@ -66,7 +75,7 @@ export function NetworkSelector() {
           className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-[14px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)]"
         >
           <p className="border-b border-hairline px-3 py-2 text-xs text-faint">
-            Active network — reads & transactions
+            Active network — app &amp; wallet
           </p>
           <ul className="py-1">
             {SUPPORTED_CHAINS.map((c) => {
@@ -76,8 +85,9 @@ export function NetworkSelector() {
                   <button
                     role="menuitemradio"
                     aria-checked={isActive}
+                    disabled={isSelectionDisabled}
                     onClick={() => {
-                      setChainId(c.id)
+                      void selectChain(c.id)
                       setOpen(false)
                     }}
                     className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${

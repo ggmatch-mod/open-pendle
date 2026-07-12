@@ -3,9 +3,9 @@
  * pill, Create-pool, network/RPC controls, theme toggle, connect), hash-routed
  * pages, and a footer with the Protocol-status link + license marker.
  *
- * Unchanged from the original: the routes/pages, WrongNetworkBanner, and all the
- * controls' behavior. New: the <Ticker/>, <ThemeToggle/>, the /status route, and
- * the footer Protocol-status link. Protocol status was removed from Home.
+ * The active-network shell keeps URL-bound market/token reads separate from the
+ * persisted preferred chain, while explicit selector clicks also synchronize a
+ * connected wallet.
  */
 import { useEffect } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -29,7 +29,7 @@ import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
 import QuickStartPage from './pages/QuickStartPage'
 import { useActiveChain } from './lib/hooks'
-import { routeChainId } from './lib/routes'
+import { isChainAddressRoute, routeChainId } from './lib/routes'
 
 function NotFound() {
   return (
@@ -54,14 +54,12 @@ function NotFound() {
 function AppRoutes() {
   const location = useLocation()
   const navigate = useNavigate()
-  const requestedChainId = routeChainId(location.search)
-  const { chainId, setChainId } = useActiveChain()
-  const isChainAddressRoute = /^\/(market|token)\//.test(location.pathname)
+  const chainAddressRoute = isChainAddressRoute(location.pathname)
+  const requestedChainId = chainAddressRoute ? routeChainId(location.search) : undefined
+  const { chainId } = useActiveChain()
 
   useEffect(() => {
-    if (requestedChainId !== undefined && requestedChainId !== chainId) {
-      setChainId(requestedChainId)
-    } else if (requestedChainId === undefined && isChainAddressRoute) {
+    if (requestedChainId === undefined && chainAddressRoute) {
       const search = new URLSearchParams(location.search)
       search.set('chain', String(chainId))
       void navigate(
@@ -71,21 +69,12 @@ function AppRoutes() {
     }
   }, [
     chainId,
-    isChainAddressRoute,
+    chainAddressRoute,
     location.pathname,
     location.search,
     navigate,
     requestedChainId,
-    setChainId,
   ])
-
-  if (requestedChainId !== undefined && requestedChainId !== chainId) {
-    return (
-      <div className="py-16 text-center" aria-busy="true">
-        <p className="text-sm text-muted">Switching to the link's network…</p>
-      </div>
-    )
-  }
 
   return (
     <Routes>

@@ -3,6 +3,7 @@
 // coupling for the data layer lives HERE; market.ts / registry.ts stay pure.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi'
 import { BaseError, UserRejectedRequestError } from 'viem'
 import type { Address, PublicClient } from 'viem'
@@ -32,6 +33,7 @@ import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { previewExitPostExp, readDepegInfo } from './maturity'
 import { buildApproveCall, checkApprovals, decodePendleError, simulateAction } from './txflow'
+import { activeChainForLocation } from './routes'
 import {
   forgetPool,
   getServerPools,
@@ -46,6 +48,53 @@ const MARKET_STALE_TIME_MS = 15_000
 const POSITIONS_STALE_TIME_MS = 12_000
 /** localStorage key: 'infinite' opts in to infinite approvals (exact-amount default, PLAN §3.4). */
 const APPROVAL_MODE_STORAGE_KEY = 'openpendle.approvals'
+
+// A tab-wide latch for signed transactions. Explicit network controls consume
+// this through useTransactionInFlight so an approval/signature/receipt cannot
+// lose its page context halfway through.
+const inFlightTransactionIds = new Set<number>()
+const inFlightTransactionListeners = new Set<() => void>()
+let nextActionFlowId = 0
+
+function setTransactionInFlight(id: number, active: boolean): void {
+  const changed = active ? !inFlightTransactionIds.has(id) : inFlightTransactionIds.has(id)
+  if (!changed) return
+  if (active) inFlightTransactionIds.add(id)
+  else inFlightTransactionIds.delete(id)
+  // A storage event may arrive while a send is locked to its original chain.
+  // Apply the newest deferred preference as soon as the final send settles.
+  if (!active && inFlightTransactionIds.size === 0) flushDeferredPreferredChainId()
+  for (const listener of inFlightTransactionListeners) listener()
+}
+
+function subscribeTransactionInFlight(listener: () => void): () => void {
+  inFlightTransactionListeners.add(listener)
+  return () => inFlightTransactionListeners.delete(listener)
+}
+
+function readTransactionInFlight(): boolean {
+  return inFlightTransactionIds.size > 0
+}
+
+/** True while any approval or main transaction in this tab is being sent/mined. */
+export function useTransactionInFlight(): boolean {
+  return useSyncExternalStore(
+    subscribeTransactionInFlight,
+    readTransactionInFlight,
+    () => false,
+  )
+}
+
+function useTrackTransactionPhase(phase: TxPhase): void {
+  const flowId = useRef(0)
+  if (flowId.current === 0) flowId.current = ++nextActionFlowId
+  const active = phase === 'approving' || phase === 'signing' || phase === 'pending'
+
+  useEffect(() => {
+    setTransactionInFlight(flowId.current, active)
+    return () => setTransactionInFlight(flowId.current, false)
+  }, [active])
+}
 
 /** Debounce a changing value; returns the value as of `delayMs` ago. */
 function useDebouncedValue(value: string, delayMs: number): string {
@@ -68,11 +117,10 @@ function errorMessage(error: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// M8 active chain — the app's SELECTED network (localStorage-backed, cross-tab).
-// This is NOT the wallet's chain; every data hook reads the active chain via
-// usePublicClient({ chainId }), so switching it reloads everything on the new
-// chain WITHOUT the UI passing a chainId anywhere. The wallet-chain vs
-// active-chain mismatch drives the wrong-network state (useActionFlow).
+// M8 active chain — the app's selected network. The user's preference is
+// localStorage-backed and cross-tab synced. A market/token route's ?chain=
+// overrides that preference only for its own tab, so two chain-explicit tabs
+// cannot fight over one global value. This remains independent of the wallet.
 // ---------------------------------------------------------------------------
 
 /** localStorage key holding the selected active chain id (default Arbitrum). */
@@ -80,21 +128,45 @@ const ACTIVE_CHAIN_STORAGE_KEY = 'openpendle.chain'
 
 const activeChainListeners = new Set<() => void>()
 let activeChainStorageInstalled = false
+let preferredChainMemory: SupportedChainId | undefined
+let deferredPreferredChainId: SupportedChainId | undefined
 
-function readActiveChainId(): SupportedChainId {
+function emitActiveChainChange(): void {
+  for (const listener of activeChainListeners) listener()
+}
+
+function flushDeferredPreferredChainId(): void {
+  if (deferredPreferredChainId === undefined) return
+  preferredChainMemory = deferredPreferredChainId
+  deferredPreferredChainId = undefined
+  emitActiveChainChange()
+}
+
+function readPreferredChainId(): SupportedChainId {
+  if (preferredChainMemory !== undefined) return preferredChainMemory
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const raw = window.localStorage.getItem(ACTIVE_CHAIN_STORAGE_KEY)
       const parsed = raw === null ? NaN : Number(raw)
-      if (isSupportedChainId(parsed)) return parsed
+      if (isSupportedChainId(parsed)) {
+        preferredChainMemory = parsed
+        return parsed
+      }
     }
   } catch {
     // localStorage unavailable — fall through to the default.
   }
-  return ARBITRUM_CHAIN_ID
+  preferredChainMemory = ARBITRUM_CHAIN_ID
+  return preferredChainMemory
 }
 
-function writeActiveChainId(id: SupportedChainId): void {
+function writePreferredChainId(id: SupportedChainId): void {
+  // Memory is authoritative for this tab, so storage-disabled browsers still
+  // switch networks correctly.
+  // An explicit local choice supersedes any older cross-tab event deferred
+  // while a transaction was in flight.
+  deferredPreferredChainId = undefined
+  preferredChainMemory = id
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(ACTIVE_CHAIN_STORAGE_KEY, String(id))
@@ -102,7 +174,7 @@ function writeActiveChainId(id: SupportedChainId): void {
   } catch {
     // Quota / storage disabled — the in-memory emit below still updates this tab.
   }
-  for (const l of activeChainListeners) l()
+  emitActiveChainChange()
 }
 
 function subscribeActiveChain(listener: () => void): () => void {
@@ -110,7 +182,17 @@ function subscribeActiveChain(listener: () => void): () => void {
     activeChainStorageInstalled = true
     window.addEventListener('storage', (event: StorageEvent) => {
       if (event.key === null || event.key === ACTIVE_CHAIN_STORAGE_KEY) {
-        for (const l of activeChainListeners) l()
+        const parsed = event.newValue === null ? NaN : Number(event.newValue)
+        const nextChainId = isSupportedChainId(parsed) ? parsed : ARBITRUM_CHAIN_ID
+        // Do not let a background tab move this tab's transaction context.
+        // Keep only the latest event, then replay it when the final send ends.
+        if (readTransactionInFlight()) {
+          deferredPreferredChainId = nextChainId
+          return
+        }
+        deferredPreferredChainId = undefined
+        preferredChainMemory = nextChainId
+        emitActiveChainChange()
       }
     })
   }
@@ -121,24 +203,28 @@ function subscribeActiveChain(listener: () => void): () => void {
 }
 
 /**
- * The app's selected network. `chainId` is backed by localStorage
- * (`openpendle.chain`, default 42161) and stays in sync across tabs;
- * `setChainId` persists + notifies. `chain` is the SUPPORTED_CHAINS entry for
- * the active id. This is the SINGLE source the data hooks read — the UI never
- * threads a chainId through them.
+ * The app's effective network. `setChainId` updates the persisted preference;
+ * a valid market/token `?chain=` overrides it locally for that route. This is
+ * the SINGLE source every data hook reads.
  */
 export function useActiveChain(): {
   chainId: SupportedChainId
   setChainId: (id: SupportedChainId) => void
   chain: SupportedChain
 } {
-  const chainId = useSyncExternalStore(
+  const preferredChainId = useSyncExternalStore(
     subscribeActiveChain,
-    readActiveChainId,
+    readPreferredChainId,
     () => ARBITRUM_CHAIN_ID,
   )
+  const location = useLocation()
+  const chainId = activeChainForLocation(
+    preferredChainId,
+    location.pathname,
+    location.search,
+  )
   const setChainId = useCallback((id: SupportedChainId) => {
-    writeActiveChainId(id)
+    writePreferredChainId(id)
   }, [])
   // SUPPORTED_CHAINS always contains every SupportedChainId, so this is defined.
   const chain = supportedChain(chainId) as SupportedChain
@@ -664,6 +750,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   error?: string
   simulatedOut?: bigint
   txHash?: `0x${string}`
+  /** Chain captured when the displayed transaction was sent. */
+  txChainId?: SupportedChainId
   /** First unmet approval, for button labeling ("Approve USDai"). */
   pendingApproval?: import('./types').ApprovalNeed
   /**
@@ -702,6 +790,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   const [error, setError] = useState<string | undefined>(undefined)
   const [simulatedOut, setSimulatedOut] = useState<bigint | undefined>(undefined)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined)
+  const [txChainId, setTxChainId] = useState<SupportedChainId | undefined>(undefined)
+  useTrackTransactionPhase(phase)
   const [pendingApproval, setPendingApproval] = useState<ApprovalNeed | undefined>(undefined)
   // True only for a genuine on-chain revert (sim ok:false / receipt reverted),
   // never for a thrown transport/RPC error. Cleared on every (re)arm below.
@@ -729,9 +819,33 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
 
   const planKey = useMemo(() => planMemoKey(plan), [plan])
 
+  // The context that produced needs-approval/ready. Send callbacks validate it
+  // again so a chain, account, or plan change cannot use a stale preflight in
+  // the render before the pipeline effect re-arms.
+  const preparedContextRef = useRef<{
+    chainId: SupportedChainId
+    user: Address
+    planKey: string | null
+  } | null>(null)
+  const currentContextRef = useRef({ activeChainId, walletChainId, user })
+  currentContextRef.current = { activeChainId, walletChainId, user }
+
+  const preparedContextIsCurrent = (activePlan: ActionPlan): boolean => {
+    const prepared = preparedContextRef.current
+    const current = currentContextRef.current
+    return (
+      prepared !== null &&
+      prepared.chainId === current.activeChainId &&
+      prepared.chainId === current.walletChainId &&
+      prepared.user.toLowerCase() === current.user?.toLowerCase() &&
+      prepared.planKey === planMemoKey(activePlan)
+    )
+  }
+
   /** PlannedCall → wagmi writeContract variables (loosely typed by design). */
   const toWriteRequest = (
     call: PlannedCall,
+    chainId: SupportedChainId,
   ): Parameters<typeof writeContractAsync>[0] =>
     ({
       address: call.address,
@@ -739,7 +853,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       functionName: call.functionName,
       args: call.args,
       ...(call.value !== undefined ? { value: call.value } : {}),
-      chainId: activeChainId,
+      chainId,
     }) as unknown as Parameters<typeof writeContractAsync>[0]
 
   /** checkApprovals → needs-approval | simulate → ready/failed (pipeline effect body). */
@@ -748,10 +862,16 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     activePlan: ActionPlan,
     activeClient: PublicClient,
     activeUser: Address,
+    runChainId: SupportedChainId,
   ): Promise<void> => {
     const unmet = await checkApprovals(activeClient, activeUser, activePlan.approvals)
     if (runRef.current !== run) return
     if (unmet.length > 0) {
+      preparedContextRef.current = {
+        chainId: runChainId,
+        user: activeUser,
+        planKey: planMemoKey(activePlan),
+      }
       setPendingApproval(unmet[0])
       setPhase('needs-approval')
       return
@@ -761,6 +881,11 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     const sim = await simulateAction(activeClient, activeUser, activePlan.call)
     if (runRef.current !== run) return
     if (sim.ok) {
+      preparedContextRef.current = {
+        chainId: runChainId,
+        user: activeUser,
+        planKey: planMemoKey(activePlan),
+      }
       setSimulatedOut(sim.primaryOut)
       setPhase('ready')
     } else {
@@ -781,8 +906,10 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     if (latchRef.current !== null) return
     const run = ++runRef.current
     setError(undefined)
+    preparedContextRef.current = null
     setSimulatedOut(undefined)
     setTxHash(undefined)
+    setTxChainId(undefined)
     setPendingApproval(undefined)
     setReverted(false)
     const activePlan = planRef.current
@@ -806,7 +933,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setPhase('checking')
     void (async () => {
       try {
-        await runCheckAndSimulate(run, activePlan, client, user)
+        await runCheckAndSimulate(run, activePlan, client, user, activeChainId)
       } catch (err) {
         if (runRef.current !== run) return
         setError(decodePendleError(err))
@@ -821,7 +948,16 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   const approve = useCallback(() => {
     const activePlan = planRef.current
     const need = pendingApproval
-    if (phase !== 'needs-approval' || !need || !activePlan || !client || !user) return
+    const preparedChainId = preparedContextRef.current?.chainId
+    if (
+      phase !== 'needs-approval' ||
+      !need ||
+      !activePlan ||
+      !client ||
+      !user ||
+      preparedChainId === undefined ||
+      !preparedContextIsCurrent(activePlan)
+    ) return
     runRef.current++ // abandon any in-flight pipeline continuation
     const latch = { id: ++latchSeq.current, key: planMemoKey(activePlan) }
     latchRef.current = latch
@@ -834,7 +970,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         const infinite =
           typeof localStorage !== 'undefined' &&
           localStorage.getItem(APPROVAL_MODE_STORAGE_KEY) === 'infinite'
-        const hash = await writeContractAsync(toWriteRequest(buildApproveCall(need, infinite)))
+        const hash = await writeContractAsync(
+          toWriteRequest(buildApproveCall(need, infinite), preparedChainId),
+        )
         const receipt = await client.waitForTransactionReceipt({ hash })
         if (released()) return
         latchRef.current = null
@@ -854,8 +992,14 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         latchRef.current = null
         if (isUserRejection(err)) {
           setError('Approval rejected in the wallet — nothing was sent.')
-          if (planMemoKey(planRef.current ?? null) !== latch.key) {
-            // Plan moved while the prompt was open — re-arm on the new plan.
+          const currentPlan = planRef.current
+          if (
+            !currentPlan ||
+            planMemoKey(currentPlan) !== latch.key ||
+            !preparedContextIsCurrent(currentPlan)
+          ) {
+            // The plan/account/network moved while the prompt was open —
+            // re-arm instead of restoring a stale approval state.
             setResetNonce((n) => n + 1)
           } else {
             setPhase('needs-approval')
@@ -867,23 +1011,31 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, pendingApproval, client, user, writeContractAsync])
+  }, [phase, pendingApproval, client, user, activeChainId, walletChainId, writeContractAsync])
 
   const execute = useCallback(() => {
     // The plan is snapshotted HERE (closure): whatever the UI rebuilds later,
     // this send keeps tracking the exact call that was simulated and signed.
     const activePlan = planRef.current
-    if (phase !== 'ready' || !activePlan || !client) return
+    const preparedChainId = preparedContextRef.current?.chainId
+    if (
+      phase !== 'ready' ||
+      !activePlan ||
+      !client ||
+      preparedChainId === undefined ||
+      !preparedContextIsCurrent(activePlan)
+    ) return
     runRef.current++ // abandon any in-flight pipeline continuation
     const latch = { id: ++latchSeq.current, key: planMemoKey(activePlan) }
     latchRef.current = latch
     setError(undefined)
+    setTxChainId(preparedChainId)
     setPhase('signing')
     void (async () => {
       /** True when reset() released the latch mid-send — abandon silently. */
       const released = (): boolean => latchRef.current?.id !== latch.id
       try {
-        const hash = await writeContractAsync(toWriteRequest(activePlan.call))
+        const hash = await writeContractAsync(toWriteRequest(activePlan.call, preparedChainId))
         if (released()) return
         setTxHash(hash)
         setPhase('pending')
@@ -916,9 +1068,14 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         if (isUserRejection(err)) {
           // Gentle note, not a failure: the user just declined the prompt.
           setError('Transaction rejected in the wallet — nothing was sent.')
-          if (planMemoKey(planRef.current ?? null) !== latch.key) {
-            // Plan moved while the prompt was open — the old simulation no
-            // longer matches it, so re-arm instead of returning to 'ready'.
+          const currentPlan = planRef.current
+          if (
+            !currentPlan ||
+            planMemoKey(currentPlan) !== latch.key ||
+            !preparedContextIsCurrent(currentPlan)
+          ) {
+            // The plan/account/network moved while the prompt was open — the
+            // old simulation no longer matches, so re-arm instead of ready.
             setResetNonce((n) => n + 1)
           } else {
             setPhase('ready')
@@ -930,15 +1087,17 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, client, writeContractAsync, queryClient])
+  }, [phase, client, activeChainId, walletChainId, user, writeContractAsync, queryClient])
 
   const reset = useCallback(() => {
     runRef.current++
     latchRef.current = null // release any in-flight send; its continuations abandon
     setPhase('idle')
     setError(undefined)
+    preparedContextRef.current = null
     setSimulatedOut(undefined)
     setTxHash(undefined)
+    setTxChainId(undefined)
     setPendingApproval(undefined)
     setReverted(false)
     // Re-arm the pipeline: with a plan still set, the effect immediately
@@ -959,6 +1118,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     error,
     simulatedOut,
     txHash,
+    txChainId,
     pendingApproval,
     reverted,
     approve,

@@ -10,8 +10,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useActiveChain } from '../lib/hooks'
 import { SUPPORTED_CHAINS } from '../lib/addresses'
+import { useNetworkSelection } from './useNetworkSelection'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
   { to: '/quickstart', label: 'Quick start', glyph: '✦' },
@@ -23,7 +23,7 @@ const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const { chainId, setChainId } = useActiveChain()
+  const { chainId, selectChain, isSelectionDisabled } = useNetworkSelection()
 
   useEffect(() => {
     if (!open) return
@@ -98,11 +98,12 @@ export function MobileNav() {
                 <button
                   key={c.id}
                   type="button"
+                  disabled={isSelectionDisabled}
                   onClick={() => {
-                    setChainId(c.id)
+                    void selectChain(c.id)
                     close()
                   }}
-                  className={`flex items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-[12px] ${
+                  className={`flex items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-[12px] disabled:cursor-wait disabled:opacity-60 ${
                     c.id === chainId
                       ? 'bg-[rgba(var(--op-accent-rgb),0.12)] font-medium text-accent-ink'
                       : 'text-fg hover:bg-surface-2'

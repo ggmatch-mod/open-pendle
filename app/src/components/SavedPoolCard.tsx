@@ -5,12 +5,10 @@
  * sweep — ONE multicall PER CHAIN for the whole grid (useRegistrySweep in
  * Home), not a full snapshot per card.
  *
- * M8: pools span networks. Each card shows a small chain badge
- * (supportedChain(pool.chainId).shortName). A card on the ACTIVE chain opens
- * directly (a market only loads on the active chain). A card on a DIFFERENT
- * chain can't be opened as-is — it offers a one-click "Switch to <chain>"
- * (setChainId, then navigate to it) so the market loads on its own network.
- * Forget is chain-explicit: forgetOn(pool.chainId, pool.market).
+ * M8: pools span networks. Each card shows a small chain badge and opens a
+ * chain-explicit route. The route supplies its own per-tab read-chain override,
+ * so read-only navigation does not change the global preference or prompt the
+ * wallet. Forget is chain-explicit: forgetOn(pool.chainId, pool.market).
  */
 
 import { useNavigate } from 'react-router-dom'
@@ -84,7 +82,7 @@ export function SavedPoolCard({
   stats?: RegistrySweepEntry
 }) {
   const navigate = useNavigate()
-  const { chainId: activeChainId, setChainId } = useActiveChain()
+  const { chainId: activeChainId } = useActiveChain()
   // Forgetting goes through the app-level undo toast; pass the card's own
   // chainId since it may belong to a non-active chain.
   const forgetWithUndo = useForgetWithUndo()
@@ -95,10 +93,8 @@ export function SavedPoolCard({
   const chainName = poolChain?.name ?? `chain ${pool.chainId}`
   const onActiveChain = pool.chainId === activeChainId
 
-  // Opening a market loads it on the ACTIVE chain, so a cross-chain card must
-  // first switch the active chain, then navigate to the market on its own chain.
+  // The chain-explicit route selects the correct read client for this tab.
   const open = () => {
-    if (!onActiveChain) setChainId(pool.chainId)
     navigate(marketPath(pool.market, pool.chainId))
   }
 
@@ -116,7 +112,7 @@ export function SavedPoolCard({
         aria-label={
           onActiveChain
             ? `Open ${clampLabel(pool.label)}`
-            : `Switch to ${chainName} and open ${clampLabel(pool.label)}`
+            : `Open ${clampLabel(pool.label)} on ${chainName}`
         }
       />
 
@@ -174,7 +170,7 @@ export function SavedPoolCard({
           onClick={open}
           className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
         >
-          Switch to {chainName} to open →
+          Open on {chainName} →
         </button>
       )}
     </div>

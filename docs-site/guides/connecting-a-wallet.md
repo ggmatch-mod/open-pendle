@@ -103,9 +103,11 @@ You connect only at the point of transacting. This means you can vet a pool comp
 
 ## The wrong-network banner and one-click switch
 
-OpenPendle has one **active network** at a time — a UI and `localStorage` choice (key `openpendle.chain`, default **Arbitrum**) that determines which chain the entire app reads from and where a transaction will be sent. Your connected wallet also has its own selected chain, and the two can disagree — for example, the app is set to Arbitrum but your wallet is still on Ethereum from an earlier session.
+OpenPendle has one **active network** at a time. It normally comes from the preferred UI choice stored under `openpendle.chain` (default **Arbitrum**); a chain-explicit market or token link can override it for that tab. The active network determines which chain the app reads from and where a transaction will be sent. Your connected wallet also has its own selected chain, and the two can disagree — for example, the app is set to Arbitrum but your wallet is still on Ethereum from an earlier session.
 
 When they differ, OpenPendle shows a **wrong-network banner** with a **one-click switch**. Clicking it asks your wallet to change to the active network (a standard `wallet_switchEthereumChain` request that your wallet must confirm), so your transaction lands on the chain you are actually viewing rather than being sent to the wrong one.
+
+An explicit selection in the desktop or mobile network menu performs the same synchronization: it changes OpenPendle's read network and asks an already-connected wallet to switch. If the request is rejected, the app keeps the selected read network and leaves the banner available for retry.
 
 ::: info The banner does not block reading
 Even while the banner is showing, **browsing still works** — reads go through the app's RPC for the active network regardless of what chain your wallet is on. The mismatch only matters when you go to sign, because a transaction is dispatched through your wallet on *its* current chain. The one-click switch simply lines the wallet up with the app before you transact.

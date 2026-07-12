@@ -40,7 +40,7 @@ Use the **network selector** in the header to choose which chain you are reading
 | Plasma | `9745` | XPL |
 | Arbitrum | `42161` | ETH |
 
-The choice is remembered locally (localStorage key `openpendle.chain`, default **Arbitrum**), so the app opens on the same network next time. A given market address exists on exactly one chain — make sure the active network matches the market you are about to open.
+The preferred choice is remembered locally (`openpendle.chain`, default **Arbitrum**), so the app opens on the same network next time. Chain-explicit market/token links override it only for that tab. If a wallet is already connected, choosing a network also asks the wallet to switch; rejecting the request leaves read-only browsing available. A given market address exists on exactly one chain — make sure the active network matches the market you are about to open.
 
 If public RPC for a chain rate-limits you, set your own endpoint in **RPC settings**; the override is stored only in your browser. See [Browsing &amp; networks](/guides/browsing).
 

@@ -25,6 +25,7 @@
  */
 
 import { useConnectModal } from '@rainbow-me/rainbowkit'
+import { useIsMutating } from '@tanstack/react-query'
 import { useAccount, useSwitchChain } from 'wagmi'
 import { useActiveChain } from '../lib/hooks'
 import type { useActionFlow } from '../lib/hooks'
@@ -66,7 +67,9 @@ export function TxButton({
 }) {
   const { isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
-  const { switchChain, isPending: isSwitching } = useSwitchChain()
+  const { switchChain, isPending } = useSwitchChain()
+  const switchMutationsPending = useIsMutating({ mutationKey: ['switchChain'] })
+  const isSwitching = isPending || switchMutationsPending > 0
   // M8: switch the wallet to the app's ACTIVE chain (was hardcoded Arbitrum).
   const { chainId: activeChainId, chain: activeChain } = useActiveChain()
 
@@ -83,6 +86,18 @@ export function TxButton({
     )
   }
 
+  // Network selection updates the active read client synchronously, while the
+  // action-flow effect reclassifies an old ready/approval phase after render.
+  // Suppress every actionable state during that gap so an A-chain simulation
+  // can never be confirmed against the newly selected B-chain context.
+  if (isSwitching) {
+    return (
+      <button type="button" disabled className={BUSY}>
+        <Spinner /> Switching network…
+      </button>
+    )
+  }
+
   const approvalSymbol = clampLabel(flow.pendingApproval?.symbol ?? 'token', 16)
 
   switch (flow.phase) {
@@ -91,10 +106,8 @@ export function TxButton({
         <button
           type="button"
           onClick={() => switchChain({ chainId: activeChainId })}
-          disabled={isSwitching}
-          className={`${BASE} bg-warn text-white hover:bg-warn disabled:cursor-wait disabled:opacity-70`}
+          className={`${BASE} bg-warn text-white hover:bg-warn`}
         >
-          {isSwitching && <Spinner />}
           Switch to {activeChain.name}
         </button>
       )

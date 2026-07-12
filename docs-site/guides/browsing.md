@@ -4,8 +4,8 @@ OpenPendle is usable before you ever connect a wallet. Every price, maturity, an
 
 If the terms `PT`, `YT`, and `SY` are new, start with [How Pendle works](/concepts/how-pendle-works) — this page assumes you already know them and focuses on the interface.
 
-::: info Nothing here needs a wallet
-Choosing a network, browsing pools, reading trust panels, changing your RPC endpoint, and switching themes are all local, read-only actions. You only need a wallet to **transact**, which is covered in [Connecting a wallet](/guides/connecting-a-wallet).
+::: info Nothing here requires a wallet
+With no wallet connected, choosing a network, browsing pools, reading trust panels, changing your RPC endpoint, and switching themes are all local, read-only actions. If a wallet is already connected, an explicit network selection also asks it to switch to the selected chain; rejecting that request does not interrupt browsing. You only need a wallet to **transact**, which is covered in [Connecting a wallet](/guides/connecting-a-wallet).
 :::
 
 ## The active network
@@ -15,7 +15,11 @@ At the top of the app is a **network selector**. It sets a single value — the 
 1. **What the app reads.** Pool lists, quotes, balances, maturities, and the header stats ticker are all fetched from the active network's RPC. Change the network and everything the app shows is re-fetched on the new chain.
 2. **Where a transaction goes.** When you eventually sign something, it is submitted to the active network. The active network — not your wallet's current chain — decides the destination. (If the two disagree, OpenPendle shows a switch prompt; see [Browsing without connecting](#browsing-without-connecting).)
 
-The active network is a UI choice, stored in your browser under the localStorage key `openpendle.chain`. It defaults to **Arbitrum** and is remembered between visits, so the app reopens on the same chain. The value is also synchronised across open tabs: change the network in one tab and the others follow.
+The selector stores a preferred network under the localStorage key `openpendle.chain`. It defaults to **Arbitrum**, is remembered between visits, and is synchronised across generic pages in open tabs. A chain-explicit market or token URL (`?chain=<id>`) overrides that preference only in its own tab. This keeps shared deep links deterministic and lets two tabs inspect markets on different networks without changing each other.
+
+When a wallet is connected, clicking the selector also requests a wallet switch to the same chain. The app changes its read network immediately; if the wallet rejects or cannot switch, read-only browsing remains on the selected chain and the wrong-network banner stays visible until the mismatch is resolved.
+
+The selector is temporarily locked while an approval or transaction is awaiting a wallet signature or receipt. This keeps the active chain, transaction status, and block-explorer link attached to the chain on which the transaction was sent.
 
 ::: warning A market lives on exactly one chain
 A `PendleMarket` address exists on the single chain it was deployed to. If the active network does not match the chain a market lives on, that market will not load, or a pasted address will resolve to nothing. When you open a pool from a shared address or an `?import=` link, make sure the active network matches the chain it was created on. See [Opening a pool](/guides/opening-a-pool).
@@ -64,7 +68,9 @@ When you do connect a wallet, its selected chain may differ from OpenPendle's ac
 
 ```mermaid
 flowchart LR
-  A[Active network<br/>openpendle.chain] -->|reads| B[Pools, quotes,<br/>balances, ticker]
+  P[Preferred network<br/>openpendle.chain] --> A[Effective active network]
+  R[Market/token URL<br/>optional chain override] --> A
+  A -->|reads| B[Pools, quotes,<br/>balances, ticker]
   A -->|destination of| C[Your transaction]
   W[Wallet's chain] -.mismatch.-> D[Wrong-network banner<br/>one-click switch]
   D -.aligns.-> C

@@ -10,13 +10,17 @@
  */
 
 import { useAccount, useSwitchChain } from 'wagmi'
+import { useIsMutating } from '@tanstack/react-query'
 import { supportedChain } from '../lib/addresses'
-import { useActiveChain } from '../lib/hooks'
+import { useActiveChain, useTransactionInFlight } from '../lib/hooks'
 
 export function WrongNetworkBanner() {
   const { isConnected, chainId: walletChainId } = useAccount()
   const { chainId: activeChainId, chain: activeChain } = useActiveChain()
   const { switchChain, isPending } = useSwitchChain()
+  const switchMutationsPending = useIsMutating({ mutationKey: ['switchChain'] })
+  const isSwitching = isPending || switchMutationsPending > 0
+  const isTransactionInFlight = useTransactionInFlight()
 
   // No wallet, or wallet already on the active chain → nothing to warn about.
   if (!isConnected || walletChainId === activeChainId) return null
@@ -36,10 +40,14 @@ export function WrongNetworkBanner() {
       </span>
       <button
         onClick={() => switchChain({ chainId: activeChainId })}
-        disabled={isPending}
+        disabled={isSwitching || isTransactionInFlight}
         className="rounded-md bg-warn px-3 py-1 font-medium text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? 'Switching…' : `Switch to ${activeChain.name}`}
+        {isTransactionInFlight
+          ? 'Transaction pending…'
+          : isSwitching
+            ? 'Switching…'
+            : `Switch to ${activeChain.name}`}
       </button>
     </div>
   )

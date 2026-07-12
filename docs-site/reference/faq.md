@@ -69,7 +69,7 @@ Six: Ethereum, BNB Smart Chain, Monad, Base, Plasma, and Arbitrum.
 | Plasma | `9745` | XPL |
 | Arbitrum | `42161` | ETH |
 
-The **active network** is a UI/`localStorage` choice (key `openpendle.chain`, default Arbitrum) that determines what the whole app reads and where a transaction is sent. If your wallet is on a different chain, a wrong-network banner offers a one-click switch; browsing still works either way. Full per-chain contract details are in [Networks & contracts](/reference/networks-and-contracts).
+The preferred network is stored under `openpendle.chain` (default Arbitrum); a chain-explicit market/token URL can override it for that tab. The resulting active network determines what the app reads and where a transaction is sent. Selecting a network asks an already-connected wallet to switch too; rejection leaves browsing available with the wrong-network banner. Full per-chain contract details are in [Networks & contracts](/reference/networks-and-contracts).
 
 ### Can I use my own RPC?
 

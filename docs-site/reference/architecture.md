@@ -121,7 +121,7 @@ Because there is no relay, there is no third party that can observe your session
 
 OpenPendle supports six networks: Ethereum (`1`), BNB Smart Chain (`56`), Monad (`143`), Base (`8453`), Plasma (`9745`), and Arbitrum (`42161`).
 
-The **active network** is a UI and `localStorage` choice — the key `openpendle.chain`, defaulting to Arbitrum — that determines what the whole app reads and where a transaction is sent. Switching networks is a client-side selection; nothing on a server changes.
+The preferred network is stored under `openpendle.chain`, defaulting to Arbitrum. A chain-explicit market/token URL overrides it only for its own tab; the resulting active network determines what the app reads and where a transaction is sent. An explicit selector click also asks a connected wallet to switch, while a rejected request leaves read-only browsing on the selected chain. All of this is client-side; nothing on a server changes.
 
 RPC is designed to keep working without your intervention while staying fully in your control:
 

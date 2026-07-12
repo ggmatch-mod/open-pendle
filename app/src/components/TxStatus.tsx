@@ -2,8 +2,8 @@
  * TxStatus (M2) — the info strip under a TxButton:
  * - ready:      binding quote from simulation — "expected {simulatedOut},
  *               min {minOut}" (minOut is already encoded in the plan)
- * - signing/pending: Arbiscan tx link as soon as the hash exists
- * - confirmed:  success note + Arbiscan link (button shows "Done")
+ * - signing/pending: chain-captured explorer link as soon as the hash exists
+ * - confirmed:  success note + explorer link (button shows "Done")
  * - failed:     decoded error from the flow (button shows "Retry")
  *
  * Also exports IndicativeQuote — the pre-approval "estimated" quote row
@@ -11,11 +11,10 @@
  */
 
 import type { ActionFlowState } from './TxButton'
-import { useActiveChain } from '../lib/hooks'
+import type { SupportedChainId } from '../lib/types'
 import { clampLabel, explorerTxUrl, formatAmount, formatPercent } from './format'
 
-function TxLink({ hash }: { hash: `0x${string}` }) {
-  const { chainId } = useActiveChain()
+function TxLink({ hash, chainId }: { hash: `0x${string}`; chainId: SupportedChainId }) {
   return (
     <a
       href={explorerTxUrl(chainId, hash)}
@@ -36,7 +35,7 @@ export function TxStatus({
   /** Output token framing for the binding quote (decimals/symbol + plan minOut). */
   out?: { symbol: string; decimals: number; minOut?: bigint }
 }) {
-  const { phase, simulatedOut, txHash, error } = flow
+  const { phase, simulatedOut, txHash, txChainId, error } = flow
   const symbol = out ? clampLabel(out.symbol, 16) : ''
 
   if (phase === 'ready' && simulatedOut !== undefined && out) {
@@ -53,10 +52,10 @@ export function TxStatus({
     )
   }
 
-  if ((phase === 'signing' || phase === 'pending') && txHash) {
+  if ((phase === 'signing' || phase === 'pending') && txHash && txChainId !== undefined) {
     return (
       <p className="text-xs text-muted">
-        Transaction sent: <TxLink hash={txHash} />
+        Transaction sent: <TxLink hash={txHash} chainId={txChainId} />
       </p>
     )
   }
@@ -65,7 +64,7 @@ export function TxStatus({
     return (
       <div className="rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-3 py-2 text-xs text-accent-ink/90">
         <span className="font-semibold text-accent-ink">Confirmed.</span>{' '}
-        {txHash && <TxLink hash={txHash} />}
+        {txHash && txChainId !== undefined && <TxLink hash={txHash} chainId={txChainId} />}
       </div>
     )
   }

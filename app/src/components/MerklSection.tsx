@@ -13,24 +13,27 @@ import { useAccount } from 'wagmi'
 import type { Address } from 'viem'
 import type { MerklChainRewards } from '../lib/hooks'
 import type { SupportedChainId } from '../lib/types'
-import { useActionFlow, useActiveChain, useMerklRewards } from '../lib/hooks'
+import { useActionFlow, useMerklRewards } from '../lib/hooks'
 import { planMerklClaim } from '../lib/merkl'
 import { supportedChain } from '../lib/addresses'
 import { TxButton } from './TxButton'
 import { TxStatus } from './TxStatus'
 import { clampLabel, formatAmount } from './format'
+import { useNetworkSelection } from './useNetworkSelection'
 
 function MerklChainRow({
   group,
   isActive,
   user,
   onSwitch,
+  selectionDisabled,
   onClaimed,
 }: {
   group: MerklChainRewards
   isActive: boolean
   user?: Address
   onSwitch: (id: SupportedChainId) => void
+  selectionDisabled: boolean
   onClaimed: () => void
 }) {
   const chainName = supportedChain(group.chainId)?.name ?? `Chain ${group.chainId}`
@@ -68,7 +71,8 @@ function MerklChainRow({
             <button
               type="button"
               onClick={() => onSwitch(group.chainId)}
-              className="flex w-full items-center justify-center rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-[rgba(var(--op-accent-rgb),0.08)]"
+              disabled={selectionDisabled}
+              className="flex w-full items-center justify-center rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-[rgba(var(--op-accent-rgb),0.08)] disabled:cursor-wait disabled:opacity-60"
             >
               Switch to {chainName} to claim
             </button>
@@ -98,7 +102,7 @@ function MerklChainRow({
 
 export function MerklSection() {
   const { isConnected, address: user } = useAccount()
-  const { chainId: activeChainId, setChainId } = useActiveChain()
+  const { chainId: activeChainId, selectChain, isSelectionDisabled } = useNetworkSelection()
   const { byChain, refetch } = useMerklRewards()
 
   // Active chain first, then the rest in their fetched order.
@@ -139,7 +143,8 @@ export function MerklSection() {
             group={g}
             isActive={g.chainId === activeChainId}
             user={user}
-            onSwitch={setChainId}
+            onSwitch={(chainId) => void selectChain(chainId)}
+            selectionDisabled={isSelectionDisabled}
             onClaimed={refetch}
           />
         ))}

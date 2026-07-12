@@ -8,9 +8,9 @@
  * Reads are cross-chain (each pool via its own chain's client). WRITES go only
  * to the ACTIVE chain (useActionFlow's constraint), so the active chain's group
  * gets a live claim button; other chains offer "Switch to <chain> to claim",
- * which flips the active chain (and the wallet-switch runs through the usual
- * wrong-network flow). Discovery is registry-driven — positions live only in
- * pools you've saved; unsaved-pool discovery ("scan my wallet") is a follow-up.
+ * which synchronizes both the active chain and a connected wallet. Discovery
+ * is registry-driven — positions live only in pools you've saved; unsaved-pool
+ * discovery ("scan my wallet") is a follow-up.
  */
 
 import { useMemo } from 'react'
@@ -20,7 +20,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import type { Address } from 'viem'
 import type { AggregatedPosition } from '../lib/hooks'
 import type { MarketSnapshot, Positions, SupportedChainId } from '../lib/types'
-import { useActionFlow, useActiveChain, useAllPositions, useRegistry } from '../lib/hooks'
+import { useActionFlow, useAllPositions, useRegistry } from '../lib/hooks'
 import { planClaimAll } from '../lib/actions'
 import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
 import { TxButton } from '../components/TxButton'
@@ -28,6 +28,7 @@ import { TxStatus } from '../components/TxStatus'
 import { MerklSection } from '../components/MerklSection'
 import { clampLabel, formatAmount } from '../components/format'
 import { useDocumentTitle } from '../components/useDocumentTitle'
+import { useNetworkSelection } from '../components/useNetworkSelection'
 import { marketPath } from '../lib/routes'
 
 const LP_DECIMALS = 18
@@ -76,14 +77,10 @@ function BalanceChips({ snapshot, positions }: { snapshot: MarketSnapshot; posit
 function PositionRow({ item }: { item: AggregatedPosition }) {
   const { pool, snapshot, positions, error } = item
   const navigate = useNavigate()
-  const { chainId: activeChainId, setChainId } = useActiveChain()
   const label = snapshot?.displayName || pool.label || pool.market
 
-  // Market reads use the app's active chain. Mirror SavedPoolCard: select the
-  // saved pool's own network before changing routes so a cross-chain position
-  // cannot be opened against the wrong RPC.
+  // The chain-explicit route selects the correct read client for this tab.
   const open = () => {
-    if (pool.chainId !== activeChainId) setChainId(pool.chainId)
     navigate(marketPath(pool.market, pool.chainId))
   }
 
@@ -147,6 +144,7 @@ function ChainGroup({
   isActive,
   user,
   onSwitch,
+  selectionDisabled,
   onClaimed,
 }: {
   chainId: SupportedChainId
@@ -154,6 +152,7 @@ function ChainGroup({
   isActive: boolean
   user?: Address
   onSwitch: (id: SupportedChainId) => void
+  selectionDisabled: boolean
   onClaimed: () => void
 }) {
   const chainName = supportedChain(chainId)?.name ?? `Chain ${chainId}`
@@ -206,7 +205,8 @@ function ChainGroup({
               <button
                 type="button"
                 onClick={() => onSwitch(chainId)}
-                className="flex w-full items-center justify-center rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-[rgba(var(--op-accent-rgb),0.08)]"
+                disabled={selectionDisabled}
+                className="flex w-full items-center justify-center rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-[rgba(var(--op-accent-rgb),0.08)] disabled:cursor-wait disabled:opacity-60"
               >
                 Switch to {chainName} to claim
               </button>
@@ -235,7 +235,7 @@ export default function PositionsPage() {
   const { isConnected } = useAccount()
   const { address: user } = useAccount()
   const { openConnectModal } = useConnectModal()
-  const { chainId: activeChainId, setChainId } = useActiveChain()
+  const { chainId: activeChainId, selectChain, isSelectionDisabled } = useNetworkSelection()
   const { pools } = useRegistry()
   const { items, status, refetch } = useAllPositions()
 
@@ -347,7 +347,8 @@ export default function PositionsPage() {
               items={g.items}
               isActive={g.chainId === activeChainId}
               user={user}
-              onSwitch={setChainId}
+              onSwitch={(chainId) => void selectChain(chainId)}
+              selectionDisabled={isSelectionDisabled}
               onClaimed={refetch}
             />
           ))}
