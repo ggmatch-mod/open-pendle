@@ -46,12 +46,13 @@ If public RPC for a chain rate-limits you, set your own endpoint in **RPC settin
 
 ## 2. Find a market
 
-A Pendle **market** (or **pool**) is an on-chain `PendleMarket` contract. Its address is what you paste into OpenPendle — **not** the PT, YT, or SY address. There are two ways to reach one:
+A Pendle **market** (or **pool**) is an on-chain `PendleMarket` contract. Its address opens the pool directly; a PT or YT instead opens Token actions and may resolve its pool, while an SY alone cannot identify one maturity. There are three ways to reach a market:
 
+- **Browse Explore.** Search and filter the [factory-indexed market directory](/guides/exploring-markets) across all supported networks, distinguish Pendle-listed from community results, then open a chain-explicit result.
 - **Paste an address.** If someone shared a market address (or a `?import=` link), paste it on the home page to load the pool live.
 - **Open one you saved.** Pools you previously remembered appear in a short preview on the home page, and in full on the [Saved Pools](/guides/saved-pools) page grouped by network.
 
-Because community pools are not listed anywhere central, most people arrive with an address from the pool's creator or their own research. Opening a market runs the **provenance gate** described next.
+Explore starts from factory events and uses Pendle's public catalog only for listing and display enrichment. Its coverage notice shows which network scans are complete; a recent market or one on an incomplete network remains available through the direct-address flow. Whichever route you use, opening a market runs the **provenance gate** described next, and discovery is never an endorsement.
 
 See [Opening a pool](/guides/opening-a-pool) for the full walkthrough.
 

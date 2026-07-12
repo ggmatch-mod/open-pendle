@@ -43,24 +43,24 @@ Five contracts are therefore in play for one pool — underlying, SY, PT, YT, ma
 This is the single most important operational fact on this page.
 
 ::: info Which address is the pool?
-The pool is the `PendleMarket` contract. Its address — **not** the PT address, **not** the YT address, **not** the SY address — is what you paste into OpenPendle to open a market. The PT, YT, and SY are reachable *from* the market once it is loaded; you never enter them directly.
+The pool is the `PendleMarket` contract. Its address — **not** the PT address, **not** the YT address, **not** the SY address — is what opens a market. Pasting a PT or YT can open Token actions and resolve a matching pool; an SY alone cannot identify one maturity.
 :::
 
-The confusion is natural, because a single pool exposes four related addresses (market, PT, YT, SY) and a block explorer or a third-party dashboard may surface any of them. Three of the four are the wrong thing to paste. Only the `PendleMarket` address loads the pool.
+The confusion is natural, because a single pool exposes four related addresses (market, PT, YT, SY) and a block explorer or a third-party dashboard may surface any of them. Only the `PendleMarket` address loads the pool directly; PT and YT lead to Token actions, and SY cannot select one maturity.
 
-### Pasting the wrong address is detected and reported
+### Pasting a component is detected and routed
 
-You do not have to memorize which of the four addresses is correct, because OpenPendle checks. When you paste an address that is a **PT, YT, or SY** rather than a market, OpenPendle detects the token type and reports it back to you — telling you the address is a component of a pool, not the pool itself — rather than silently failing or loading a broken screen. The intended fix is to find and paste the `PendleMarket` address for that same maturity.
+You do not have to memorize which of the four addresses is correct, because OpenPendle checks. When you paste a **PT or YT**, it offers Token actions, resolves the PT/YT/SY set, and looks for the associated pool. When you paste an **SY**, OpenPendle reports the type but cannot pick one pool because a single SY can back multiple maturities.
 
-This detection is a convenience, not a trust signal. Recognizing that an address is a PT does not mean the pool behind it is safe; it only means you pasted the wrong one of the four addresses.
+This detection is a convenience, not a trust signal. Recognizing a PT or resolving its pool does not mean the market behind it is safe.
 
 ::: tip Where to find the market address
-If you have a PT, YT, or SY and need the market, look for the `PendleMarket` for that asset and maturity on a block explorer or in the pool's own metadata. Once you have any working pool loaded in OpenPendle, its market address is the one you can [remember](/guides/saved-pools) for next time — saved pools store the market address, so you resolve this lookup once.
+If you have a PT or YT, paste it on the home page and open Token actions; OpenPendle may resolve one or more matching pools. If you only have an SY, find a PT, YT, or `PendleMarket` for the intended maturity on a block explorer or in the pool's metadata. Once a pool is open, you can [remember](/guides/saved-pools) its market address for next time.
 :::
 
 ## What data a pool exposes
 
-Because OpenPendle has [no operated backend, database, or indexer](/reference/architecture), core pool data is read live from the chain — from the `PendleMarket` and the contracts it points to — over a public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). Pendle's market API and, where available, public Blockscout indexes are used only by the separate convenience lookup that maps a pasted PT/YT back to a pool. The pool itself is self-describing. The main fields:
+OpenPendle has [no request-time application backend or transaction relay](/reference/architecture), so core pool data is read live from the chain — from the `PendleMarket` and the contracts it points to — over a public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). Explore's inventory is a static snapshot generated from factory events; Pendle's market API adds optional listed-market metadata and helps with the separate PT/YT pool lookup, with public Blockscout indexes as a fallback where available. The pool itself remains self-describing. The main fields:
 
 | Data | Read from | What it tells you |
 | --- | --- | --- |

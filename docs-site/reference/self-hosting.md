@@ -1,6 +1,6 @@
 # Self-hosting
 
-OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle-operated backend, database, indexer, account system, or analytics. Every build is a plain folder of files that any web server, static host, or content-addressed network can serve as-is. That design is what makes self-hosting practical: there is no OpenPendle runtime to operate or server process to keep alive behind the interface. The browser still makes the public RPC and ancillary API requests documented below.
+OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle request-time application server, user database, account system, or analytics. Every build is a plain folder of files — including a versioned factory-market snapshot — that any web server, static host, or content-addressed network can serve as-is. There is no OpenPendle runtime or server process to keep alive behind the interface. A separate scheduled job can regenerate the public catalog artifact; the browser still makes the public RPC and ancillary API requests documented below.
 
 Running your own copy is also the strongest guarantee OpenPendle can offer. The hosted site at [openpendle.com](https://openpendle.com) is a convenience, not a dependency. Because the code is open-source under the [GPL-3.0-or-later](#license-and-what-openpendle-ships) license and the build is fully self-contained, you can clone it, read every line, build it yourself, and serve it from infrastructure you control — so the interface cannot be changed out from under you, taken down, or made to depend on any party but the chain and the RPC you point at.
 
@@ -14,7 +14,7 @@ There is no functional feature you unlock by self-hosting — the hosted app and
 
 - **Censorship resistance.** A copy you serve cannot be taken offline by anyone but you. If you host it on [IPFS](#ipfs-with-dnslink), it cannot be taken offline at all as long as the pin survives.
 - **Provenance you can verify.** You build from source you have read, so you know the bytes your browser runs match the repository — not a modified bundle served to you.
-- **No new operated backend.** OpenPendle adds no application backend to trust (see [How OpenPendle works](/reference/architecture)). Self-hosting removes even the hosted deployment from your trust surface. Core use still relies on the chain, your RPC, and your wallet; ancillary features use the public data services listed below.
+- **No new request-time backend.** OpenPendle adds no application server or transaction relay to trust (see [How OpenPendle works](/reference/architecture)). Self-hosting removes even the hosted deployment from your trust surface. Core use still relies on the chain, your RPC, and your wallet; Explore also relies on the static snapshot included in your build, while ancillary features use the public data services listed below.
 - **It runs anywhere.** Because routing is hash-based and the build is a static folder, "anywhere" genuinely means anywhere — a managed static host, a spare box, or a content-addressed pin.
 
 The reason "anywhere" holds is the router. OpenPendle uses a **HashRouter**, so every route lives after the `#` in the URL (`openpendle.com/#/status`, `openpendle.com/#/about`, and so on). The server only ever serves one file — `index.html` — and the app resolves the route client-side from the fragment. A server never sees the part of the URL after `#`, so it never needs to know your routes, and you never need to configure SPA rewrite (history-fallback) rules. That single property is what lets the same unmodified `dist` folder work on a static host and on IPFS with no per-host configuration.
@@ -27,7 +27,7 @@ The reason "anywhere" holds is the router. OpenPendle uses a **HashRouter**, so 
 | **A package manager** | `npm` ships with Node and is what the commands below assume. `pnpm` or `yarn` work too if you prefer. |
 | **Git** | To clone the repository. You can also download a source tarball from GitHub if you would rather not use Git. |
 
-That is the entire build toolchain. There is no database to provision, no environment file to populate with secrets, and no API keys to obtain. Core market-by-address reads and transactions use public RPC; the bundled ancillary integrations are also keyless.
+That is the entire app build toolchain. There is no database to provision, no environment file to populate with secrets, and no API keys to obtain. Core market-by-address reads and transactions use public RPC; the bundled ancillary integrations are also keyless. A normal build includes the repository's current catalog snapshot. Running your own refresh job is optional and only needed if you want Explore to stay current independently of upstream releases.
 
 ## Clone, install, develop, build
 
@@ -56,8 +56,30 @@ What each step does:
 - **`npm run preview`** *(optional)* — serves the built `app/dist` locally so you can sanity-check the production bundle before you deploy it.
 
 ::: tip The production build is just a folder
-`app/dist` is a plain static bundle: `index.html`, hashed JS/CSS, self-hosted font files, and icons. There is nothing else to run alongside it — no Node process, no server code. If you can serve a folder of files over HTTP, you can host OpenPendle.
+`app/dist` is a plain static bundle: `index.html`, hashed JS/CSS, self-hosted font files, icons, and `/catalog/factory-markets.v1.json`. There is nothing else to run alongside it — no Node process and no server code. If you can serve a folder of files over HTTP, you can host OpenPendle. Without a scheduled refresh, Explore remains usable but its bundled snapshot gradually becomes stale.
 :::
+
+### Refreshing the factory-market snapshot
+
+The repository includes the snapshot used by ordinary builds, so this is optional. If you want your fork's directory to stay current independently, run the same deterministic catalog job before building:
+
+```sh
+cd open-pendle/app
+npm run index:factory-markets
+npm run check:factory-markets
+npm run build
+```
+
+`index:factory-markets` scans the recognized factory lineage and writes `app/public/catalog/factory-markets.v1.json`; `check:factory-markets` validates the artifact without making network requests. For reliable full-history coverage, configure one archive/log-capable RPC URL per supported chain: `ETHEREUM_RPC_URL`, `BSC_RPC_URL`, `MONAD_RPC_URL`, `BASE_RPC_URL`, `PLASMA_RPC_URL`, and `ARBITRUM_RPC_URL`. An Etherscan-compatible indexed endpoint can be supplied as `<NETWORK>_LOG_API_URL`; this is particularly useful as `BSC_LOG_API_URL` and `MONAD_LOG_API_URL`, where public RPC history is tightly range-limited. The URL may already contain its `chainid` and `apikey` query parameters. Treat provider URLs containing credentials as secrets and configure them in your scheduler rather than committing them.
+
+For the stock six-network job, the current free-first setup for the two public-endpoint gaps is:
+
+- `BSC_RPC_URL=https://bsc-mainnet.nodereal.io/v1/<NODEREAL_API_KEY>` using a [NodeReal MegaNode](https://docs.nodereal.io/docs/pricing-plan) key. Its BSC `eth_getLogs` endpoint supports bounded historical ranges, which the generator scans adaptively.
+- `MONAD_LOG_API_URL=https://api.etherscan.io/v2/api?chainid=143&apikey=<ETHERSCAN_API_KEY>` using an [Etherscan V2](https://docs.etherscan.io/getting-started) key. The generator supplies and validates `page`/`offset` itself, so do not rely on an endpoint's default page size.
+
+These complete the initial backfill while the bundled public RPCs continue to handle ordinary current-state reads. A paid all-chain Etherscan plan can replace the BSC RPC with a `BSC_LOG_API_URL` using `chainid=56`, but it is not required when the NodeReal endpoint is available.
+
+The upstream workflow runs daily. A self-host can use the same cadence, run less often, or publish a pinned snapshot and accept that newly created markets will require direct address loading until the next refresh. The publishing workflow refuses to replace a complete artifact with a partial scan. It keeps the last-known-complete snapshot instead, and the UI uses each chain's indexed block timestamp to warn once that retained artifact is stale. When running the generator manually, inspect its coverage and errors rather than publishing a partial result as complete.
 
 ### A note on asset paths and subpaths
 
@@ -145,16 +167,16 @@ Self-hosting does not weaken any of OpenPendle's safety properties, because thos
 | **Strict Content-Security-Policy** | The app sets `script-src 'self' 'wasm-unsafe-eval'`. That blocks JavaScript `eval()` and `Function()` and forbids loading remote scripts; it permits only WebAssembly instantiation (used for cryptography). No third-party or injected script can run in your copy. |
 | **Self-hosted fonts** | Fonts ship inside the bundle. There are **zero** external font requests — nothing is fetched from a font CDN, so a font provider cannot see or gate your users. |
 | **Injected-only wallets** | OpenPendle talks directly to a browser wallet's injected EIP-6963 provider. There is **no WalletConnect and no third-party relay** in the connection path. See [Connecting a wallet](/guides/connecting-a-wallet). |
-| **No OpenPendle backend to trust** | There is no OpenPendle server, database, indexer, account system, analytics, or transaction relay. Core state is read from the chain via public RPC that **you** configure. |
+| **No OpenPendle request-time backend to trust** | There is no OpenPendle application server, user database, account system, analytics, or transaction relay. Core state is read from the chain via public RPC that **you** configure; the directory is a replaceable static artifact. |
 
 The outbound requests a stock self-hosted copy makes are:
 
 - **The blockchain RPCs you point it at** — keyless public defaults per chain (wrapped in a `viem` `fallback()` transport that rolls over to a backup automatically), or your own overrides. RPC overrides are stored locally under `openpendle.rpc.<chainId>` and never leave the browser. See [Networks & contracts](/reference/networks-and-contracts).
 - **The header stats ticker** — aggregate Pendle metrics from **DefiLlama** and **CoinGecko** public APIs.
-- **PT/YT pool resolution** — Pendle's public all-markets API and keyless **Blockscout** log APIs where available. These are queried only when the token-actions page tries to map a pasted PT/YT to a pool.
+- **Explore and PT/YT pool resolution** — Explore downloads the same-origin factory-market snapshot and asks Pendle's public market API for listed enrichment. The snapshot provides the canonical PT/YT-to-pool mapping through its indexed head; Pendle and keyless **Blockscout** APIs provide live enrichment and bounded lookup fallbacks.
 - **Merkl rewards** — when a connected user opens **My positions**, the app sends the wallet address and each supported chain ID to Merkl's public rewards API to retrieve claimable amounts and proofs.
 
-None of those services is operated by OpenPendle or sits between the wallet and a signed transaction. If you want a copy that makes no ancillary third-party API calls, remove or disable the ticker, PT/YT pool-resolution, and Merkl-rewards integrations in your fork; core market-by-address reads and Pendle transactions can remain RPC-only.
+None of those services sits between the wallet and a signed transaction. If you want a copy that makes no ancillary third-party API calls, you can keep the same-origin factory snapshot while disabling Pendle enrichment, the ticker, PT/YT pool resolution, and Merkl rewards in your fork; core market-by-address reads and Pendle transactions can remain RPC-only.
 
 Two additional behaviors are inherent to the code and survive self-hosting unchanged: every transaction is **simulated against the live chain before you sign**, and token approvals **default to the exact amount**. Users may explicitly select Unlimited in transaction settings; that preference is stored locally and leaves a standing allowance until revoked, increasing exposure. None of this depends on where the interface is served from. The [provenance gate](/concepts/community-pools) — which verifies a market was created by a recognized Pendle factory before you can save or transact against it — likewise runs entirely client-side, resolving the active factory live at runtime and using the hardcoded factory set only for that validation.
 

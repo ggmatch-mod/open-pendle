@@ -74,6 +74,7 @@ export default withMermaid(
           items: [
             { text: 'Connecting a wallet', link: '/guides/connecting-a-wallet' },
             { text: 'Browsing & networks', link: '/guides/browsing' },
+            { text: 'Exploring markets', link: '/guides/exploring-markets' },
             { text: 'Opening a pool', link: '/guides/opening-a-pool' },
             { text: 'Buying PT (fixed yield)', link: '/guides/buying-pt' },
             { text: 'Buying YT (yield exposure)', link: '/guides/buying-yt' },

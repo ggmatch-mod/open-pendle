@@ -95,7 +95,7 @@ Because the per-chain contracts and the exact live factory addresses can change 
 
 ## RPC endpoints
 
-Core blockchain data — pool state, quotes, balances, maturities, provenance checks, and simulations — arrives over an **RPC endpoint**, and every transaction is submitted through one. No OpenPendle backend, database, indexer, or transaction relay sits in that path. Aggregate ticker metrics, PT/YT-to-pool discovery, and Merkl rewards use the ancillary public services listed below rather than RPC alone.
+Core blockchain data — pool state, quotes, balances, maturities, provenance checks, and simulations — arrives over an **RPC endpoint**, and every transaction is submitted through one. No OpenPendle request-time backend, database, indexer, or transaction relay sits in that path. Explore's static inventory is generated on a schedule by scanning these factory lineages; aggregate ticker metrics, Pendle listing enrichment, PT/YT-to-pool discovery, and Merkl rewards use the scoped data sources listed below.
 
 ### Keyless defaults with automatic fallback
 
@@ -123,7 +123,7 @@ An RPC endpoint answers the app's read queries, so a hostile or broken endpoint 
 
 ### Outbound requests
 
-RPC endpoints carry the blockchain reads and writes you point them at. The stock app also calls **DefiLlama/CoinGecko** for aggregate header metrics, Pendle's market API and keyless **Blockscout** log APIs while resolving a pasted PT/YT to a pool, and **Merkl** when a connected user opens **My positions**. The Merkl reward lookup includes the wallet address and chain ID. OpenPendle operates none of these services and sends no analytics or tracking beacon. A strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()`/`Function`, and fonts are self-hosted, so there are zero external font requests. See [How OpenPendle works](/reference/architecture).
+RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, uses keyless **Blockscout** log APIs as a lookup fallback where available, and calls **Merkl** when a connected user opens **My positions**. The Merkl reward lookup includes the wallet address and chain ID. OpenPendle sends no analytics or tracking beacon. A strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()`/`Function`, and fonts are self-hosted, so there are zero external font requests. See [How OpenPendle works](/reference/architecture).
 
 ## Verify for yourself
 

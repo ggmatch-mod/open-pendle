@@ -38,7 +38,7 @@ export function Logo() {
   return (
     <Link to="/" className="flex flex-shrink-0 items-center gap-[9px] no-underline">
       <BrandMark className="h-[26px] w-[26px]" />
-      <span className="text-[17.5px] font-extrabold tracking-[-.035em] text-fg">
+      <span className="hidden text-[17.5px] font-extrabold tracking-[-.035em] text-fg sm:inline">
         Open
         <span
           className="bg-clip-text text-transparent"

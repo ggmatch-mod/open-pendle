@@ -8,7 +8,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check:catalog": "node --experimental-strip-types scripts/catalog-check.mjs",
+    "check:factory-markets": "node --experimental-strip-types scripts/index-factory-markets.mjs --check",
+    "check:factory-markets:complete": "node --experimental-strip-types scripts/index-factory-markets.mjs --check --require-complete",
     "check:m12": "node --experimental-strip-types scripts/m12-token-check.mjs",
+    "index:factory-markets": "node --experimental-strip-types scripts/index-factory-markets.mjs",
     "preview": "vite preview",
     "sweep": "node --experimental-strip-types scripts/sweep.mjs"
   },

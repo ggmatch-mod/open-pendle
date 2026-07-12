@@ -9,6 +9,7 @@
  *   node --experimental-strip-types scripts/m12-token-check.mjs
  */
 
+import { readFile } from 'node:fs/promises'
 import { loadPositions } from '../src/lib/positions.ts'
 import { resolveMarketsForToken } from '../src/lib/marketResolve.ts'
 import { resolveTokenSet } from '../src/lib/tokenSnapshot.ts'
@@ -39,6 +40,7 @@ const ADDR = {
   sy: '0x3333333333333333333333333333333333333333',
   asset: '0x4444444444444444444444444444444444444444',
   market: '0x5555555555555555555555555555555555555555',
+  market2: '0x7777777777777777777777777777777777777777',
   user: '0x6666666666666666666666666666666666666666',
 }
 
@@ -208,6 +210,12 @@ try {
   const apiCalls = []
   globalThis.fetch = async (input) => {
     const url = new URL(String(input))
+    if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+      return { ok: false, status: 404, json: async () => null }
+    }
+    if (url.hostname !== 'api-v2.pendle.finance') {
+      return { ok: true, status: 200, json: async () => ({ result: [] }) }
+    }
     apiCalls.push(url)
     const skip = Number(url.searchParams.get('skip') ?? 0)
     return {
@@ -248,6 +256,109 @@ try {
     'all-markets API requests are scoped to the active chain',
   )
 
+  const bundledSnapshot = JSON.parse(
+    await readFile(new URL('../public/catalog/factory-markets.v1.json', import.meta.url), 'utf8'),
+  )
+  const bscChain = bundledSnapshot.chains.find((chain) => chain.chainId === 56)
+  const bscMarket = bscChain?.markets[0]
+  if (bscMarket === undefined) throw new Error('BSC factory fixture has no market')
+  const fixtureIndexedThrough = Math.max(
+    ...bscChain.markets.map((market) => market.blockNumber),
+  ) + 1_000
+  bscChain.complete = true
+  bscChain.indexedThrough = fixtureIndexedThrough
+  bscChain.indexedThroughHash = `0x${'aa'.repeat(32)}`
+  bscChain.indexedThroughTimestamp = 1_780_000_000
+  bscChain.reorgAnchor = {
+    blockNumber: fixtureIndexedThrough - 255,
+    blockHash: `0x${'bb'.repeat(32)}`,
+  }
+  bscChain.errors = []
+  bscChain.quarantinedLogCount = 0
+  for (const factory of bscChain.factories) factory.indexedThrough = fixtureIndexedThrough
+  if (!bundledSnapshot.coverage.completeChains.includes(56)) {
+    bundledSnapshot.coverage.completeChains.push(56)
+  }
+  bundledSnapshot.coverage.complete = bundledSnapshot.chains.every((chain) => chain.complete)
+  bscMarket.key = `56:${ADDR.market}`
+  bscMarket.address = ADDR.market
+  bscMarket.pt = ADDR.pt
+  bscMarket.yt = ADDR.yt
+  const directFallbackStarts = []
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'api-v2.pendle.finance') {
+      return { ok: true, status: 200, json: async () => ({ total: 0, results: [] }) }
+    }
+    if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+      return { ok: true, status: 200, json: async () => bundledSnapshot }
+    }
+    throw new Error(`Unexpected fixture request: ${url.hostname}`)
+  }
+  const snapshotResolved = await resolveMarketsForToken(
+    {
+      chain: { id: 56 },
+      getLogs: async ({ fromBlock }) => {
+        directFallbackStarts.push(fromBlock)
+        return []
+      },
+    },
+    56,
+    ADDR.pt,
+    ADDR.yt,
+  )
+  assert(
+    snapshotResolved[0] === ADDR.market,
+    'BNB Chain community pool resolves from the bundled six-chain factory snapshot',
+  )
+  assert(
+    directFallbackStarts.length > 0 &&
+      directFallbackStarts.every((block) => block === BigInt(bscChain.indexedThrough + 1)),
+    'complete snapshot bounds live RPC lookup to the post-snapshot block delta',
+  )
+
+  bscMarket.key = `56:${ADDR.market2}`
+  bscMarket.address = ADDR.market2
+  directFallbackStarts.length = 0
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'api-v2.pendle.finance') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          total: 1,
+          results: [{ address: ADDR.market, pt: `56-${ADDR.pt}`, yt: `56-${ADDR.yt}` }],
+        }),
+      }
+    }
+    if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+      return { ok: true, status: 200, json: async () => bundledSnapshot }
+    }
+    throw new Error(`Unexpected fixture request: ${url.hostname}`)
+  }
+  const multiMarketResolved = await resolveMarketsForToken(
+    {
+      chain: { id: 56 },
+      getLogs: async ({ fromBlock }) => {
+        directFallbackStarts.push(fromBlock)
+        return []
+      },
+    },
+    56,
+    ADDR.pt,
+    ADDR.yt,
+  )
+  assert(
+    multiMarketResolved.includes(ADDR.market) && multiMarketResolved.includes(ADDR.market2),
+    'listed and community markets sharing one PT are combined instead of short-circuiting',
+  )
+  assert(
+    directFallbackStarts.length > 0 &&
+      directFallbackStarts.every((block) => block === BigInt(bscChain.indexedThrough + 1)),
+    'multi-market refresh also scans only the bounded post-snapshot delta',
+  )
+
   globalThis.fetch = async (input) => {
     const url = new URL(String(input))
     if (url.hostname === 'api-v2.pendle.finance') {
@@ -282,6 +393,92 @@ try {
   assert(
     communityResolved[0] === ADDR.market,
     'unlisted community pool resolves from indexed factory logs',
+  )
+
+  let partialIndexRpcCalls = 0
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'api-v2.pendle.finance') {
+      return { ok: true, status: 200, json: async () => ({ total: 0, results: [] }) }
+    }
+    if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+      return { ok: false, status: 404, json: async () => null }
+    }
+    const factory = url.searchParams.get('address')?.toLowerCase()
+    if (factory === '0x2fcb47b58350cd377f94d3821e7373df60bd9ced') {
+      return { ok: false, status: 503, json: async () => null }
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        result: factory === '0xf5a7de2d276dbda3eef1b62a9e718eff4d29ddc8'
+          ? [{
+              topics: [
+                url.searchParams.get('topic0'),
+                `0x${ADDR.market2.slice(2).padStart(64, '0')}`,
+                url.searchParams.get('topic2'),
+              ],
+            }]
+          : [],
+      }),
+    }
+  }
+  const partialIndexResolved = await resolveMarketsForToken(
+    {
+      chain: { id: 42161 },
+      getLogs: async () => {
+        partialIndexRpcCalls += 1
+        return [{ args: { market: ADDR.market } }]
+      },
+    },
+    42161,
+    ADDR.pt,
+    ADDR.yt,
+  )
+  assert(
+    partialIndexResolved.includes(ADDR.market) && partialIndexResolved.includes(ADDR.market2),
+    'a partial indexed-log response is combined with the direct RPC fallback',
+  )
+  assert(partialIndexRpcCalls > 0, 'an indexed-provider failure cannot suppress RPC recovery')
+
+  const v1Topic =
+    '0x166ae5f55615b65bbd9a2496e98d4e4d78ca15bd6127c0fe2dc27b76f6c03143'
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'api-v2.pendle.finance') {
+      return { ok: true, json: async () => ({ total: 0, results: [] }) }
+    }
+    const isV1Factory =
+      url.searchParams.get('address')?.toLowerCase() ===
+      '0xf5a7de2d276dbda3eef1b62a9e718eff4d29ddc8'
+    return {
+      ok: true,
+      json: async () => ({
+        result:
+          isV1Factory && url.searchParams.get('topic0') === v1Topic
+            ? [
+                {
+                  topics: [
+                    v1Topic,
+                    `0x${ADDR.market.slice(2).padStart(64, '0')}`,
+                    url.searchParams.get('topic2'),
+                  ],
+                },
+              ]
+            : [],
+      }),
+    }
+  }
+  const legacyCommunityResolved = await resolveMarketsForToken(
+    { chain: { id: 42161 }, getLogs: async () => [] },
+    42161,
+    ADDR.pt,
+    ADDR.yt,
+  )
+  assert(
+    legacyCommunityResolved[0] === ADDR.market,
+    'legacy V1 pools resolve through their distinct four-argument factory event',
   )
 } finally {
   globalThis.fetch = originalFetch

@@ -1,6 +1,6 @@
 # What is OpenPendle
 
-OpenPendle is a free, open-source, backend-free web interface to Pendle V2's **permissionless community pools** — the yield markets that anyone can create on Pendle, and that Pendle's own app does not list. It loads a market by its on-chain address, reads its state straight from the blockchain, and lets you trade, provide liquidity, redeem, or deploy a market of your own — with no listing process, no curator, and no server sitting between you and Pendle's contracts.
+OpenPendle is a free, open-source, static web interface to Pendle V2's **permissionless market universe** — the yield markets anyone can create, whether or not Pendle's own app lists them. It indexes recognized factories' creation events for discovery, reads an opened market's state straight from the blockchain, and lets you trade, provide liquidity, redeem, or deploy a market of your own — with no curator and no server sitting between your wallet and Pendle's contracts.
 
 It is a gift to Pendle's community. It takes no fee of its own, ships no smart contracts of its own, and is not affiliated with Pendle Finance.
 
@@ -12,7 +12,7 @@ Community pools are **permissionless and unreviewed**: anyone can create one, an
 
 Pendle V2 is a permissionless protocol. **Anyone** can deploy a yield market for **any** compatible yield-bearing asset, with no whitelist and no approval — the contracts simply allow it. Pendle's official app surfaces a curated, team-listed subset of those markets. Everything beyond that subset — the long tail of community-created pools — is fully on-chain and fully tradeable, but has no first-class interface. To reach it you would otherwise be assembling raw calls to Pendle's router by hand.
 
-OpenPendle is that missing interface. Paste any Pendle V2 market address, on any of the six supported networks, and it renders the pool and its actions the same way Pendle's app renders a listed one — no gatekeeper in between.
+OpenPendle is that missing interface. Explore the indexed factory-created universe — with per-network coverage shown — or paste any Pendle V2 market address on one of the six supported networks; OpenPendle renders the same pool actions whether the market is listed or community-created.
 
 ::: info A note on terms
 A **community pool** (used interchangeably with **market**) is the on-chain `PendleMarket` contract created permissionlessly — no whitelist, no approval, and reviewed by no one. If Pendle V2's tokens (SY, PT, YT) are new to you, start with [How Pendle works](/concepts/how-pendle-works); this page assumes only that a market is an address you can point a tool at.
@@ -22,6 +22,7 @@ A **community pool** (used interchangeably with **market**) is the on-chain `Pen
 
 At a high level, OpenPendle turns a raw market address into a usable app surface. Once a market clears the [provenance gate](#provenance-gate-validation-not-endorsement), you can:
 
+- **Explore markets** — search every indexed factory-created market across all supported networks, and distinguish Pendle-listed results from unlisted community markets. See [Exploring markets](/guides/exploring-markets).
 - **Mint and redeem** — split SY (or the underlying) into `PT` + `YT`, and redeem `PT` + `YT` back to SY at any time before maturity.
 - **Swap into a fixed-yield position** — trade a token for [`PT`](/concepts/principal-tokens) to lock in a yield fixed at purchase.
 - **Swap into a yield-exposure position** — trade a token for [`YT`](/concepts/yield-tokens) to take variable, long-yield exposure.
@@ -36,9 +37,9 @@ Quotes update live as you type, every action is simulated against the live chain
 
 These are the design commitments that define how OpenPendle behaves. Each one is a deliberate constraint, not a feature that might change on a whim.
 
-### No OpenPendle-operated backend or indexer
+### No OpenPendle request-time backend
 
-OpenPendle operates no server, database, indexer, account system, tracking, or analytics. Core market state, balances, quotes, and simulations come directly from the chain through public RPC endpoints. The stock app also calls DefiLlama/CoinGecko for aggregate header metrics, Pendle's market API and, where available, Blockscout indexes for PT/YT-to-pool resolution, and Merkl when a connected user opens **My positions**. That Merkl lookup includes the wallet address and chain ID. See [How OpenPendle works](/reference/architecture) for the complete data-flow disclosure.
+OpenPendle operates no request-time application server, account database, tracking, analytics, or transaction relay. Core market state, balances, quotes, and simulations come directly from the chain through public RPC endpoints. Explore reads a static snapshot produced by a scheduled factory-event index job; Pendle's market API enriches it with listed status and display metadata rather than defining the inventory. The stock app also calls DefiLlama/CoinGecko for aggregate header metrics, Pendle's API and where available Blockscout for PT/YT-to-pool resolution, and Merkl when a connected user opens **My positions**. That Merkl lookup includes the wallet address and chain ID. See [How OpenPendle works](/reference/architecture) for the complete data-flow disclosure.
 
 ### Provenance gate (validation, not endorsement)
 
@@ -78,12 +79,12 @@ OpenPendle adds nothing on top of a trade. Pendle's own protocol fees still appl
 
 | | |
 | --- | --- |
-| **What it is** | A backend-free web frontend for Pendle V2 community pools |
+| **What it is** | A static web frontend for the factory-created Pendle V2 market universe |
 | **License** | Open source, GPL-3.0-or-later |
 | **Cost** | Free; **no fee of its own** (Pendle's protocol fees still apply) |
 | **Built by** | [ggmxbt](https://x.com/ggmxbt) — **not** affiliated with Pendle Finance |
-| **Backend** | No OpenPendle-operated server, database, indexer, accounts, tracking, or analytics |
-| **Data sources** | Public RPC for core reads; DefiLlama/CoinGecko for the ticker; Pendle's market API and, where available, Blockscout for PT/YT pool lookup; Merkl for rewards on My positions |
+| **Backend** | No OpenPendle request-time application server, account database, tracking, analytics, or transaction relay; Explore uses a generated static snapshot |
+| **Data sources** | Factory-event snapshot for inventory; Pendle API for listed enrichment; public RPC for live reads; DefiLlama/CoinGecko for the ticker; Pendle/Blockscout for token lookup; Merkl for rewards on My positions |
 | **Wallets** | Injected-only (MetaMask, Rabby, Brave, any EIP-6963) — no WalletConnect |
 | **Networks** | Ethereum, BNB Smart Chain, Monad, Base, Plasma, Arbitrum |
 | **Contracts** | Ships none of its own — calls Pendle's deployed contracts with hand-written ABIs |
@@ -106,7 +107,7 @@ The provenance gate proves a market descends from a Pendle factory. It does **no
 
 ## You → OpenPendle → the chain
 
-OpenPendle sits between your wallet and Pendle's on-chain contracts as a thin, stateless client. It reads from the chain over RPC, gates markets by provenance, simulates each transaction, and asks your wallet to sign — but it never holds your funds and never routes them through a server or a contract of its own.
+OpenPendle sits between your wallet and Pendle's on-chain contracts as a thin, stateless client. Its catalog is a read-only static artifact; actions read from the chain over RPC, gate markets by provenance, simulate each transaction, and ask your wallet to sign. It never holds your funds and never routes them through a server or a contract of its own.
 
 ```mermaid
 flowchart LR

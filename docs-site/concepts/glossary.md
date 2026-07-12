@@ -136,7 +136,7 @@ Pendle's main router at `0x888888888889758F76e7103c6CbF23ABbF58F946`, identical 
 Pendle's read-only helper contract for quotes and position math, used by OpenPendle to compute what a given action would return. It is chain-specific (resolved live per chain), unlike the shared **Router V4**. See [Networks & contracts](/reference/networks-and-contracts).
 
 **RPC (public / fallback / override).**
-The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC carries core chain reads and transactions; separate public services support the ticker, PT/YT pool lookup, and Merkl rewards. See [Browsing](/guides/browsing) and [Architecture](/reference/architecture).
+The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC carries core chain reads and transactions; Explore inventory comes from a generated factory-event snapshot, while separate public services support listed enrichment, the ticker, PT/YT pool lookup, and Merkl rewards. See [Browsing](/guides/browsing) and [Architecture](/reference/architecture).
 
 ## S
 

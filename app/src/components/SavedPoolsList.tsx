@@ -9,6 +9,7 @@
  * two views stay in sync (PLAN §3.3, M8 cross-chain registry).
  */
 
+import { Link } from 'react-router-dom'
 import { supportedChain } from '../lib/addresses'
 import { sweepKey } from '../lib/market'
 import type { RegistrySweepResult } from '../lib/market'
@@ -83,18 +84,20 @@ export function RegistryEmptyState() {
     <section className="rounded-xl border border-dashed border-hairline bg-surface p-6">
       <h2 className="text-base font-semibold text-fg">No remembered pools yet</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        The paste box on the home page is the way in — OpenPendle has no listing
-        page by design. Load a market by address, tick{' '}
-        <span className="text-accent-ink">Remember this pool</span> on its page,
-        and it will live here (stored locally in your browser, nowhere else).
+        Browse <Link to="/explore" className="font-medium text-accent-ink">Explore</Link> for
+        factory-indexed Pendle-listed and community markets, or paste any market address on the
+        home page as a direct fallback. On the pool page, tick{' '}
+        <span className="text-accent-ink">Remember this pool</span> and it will live here (stored
+        locally in your browser, nowhere else).
       </p>
       <p className="mt-3 text-sm leading-relaxed text-muted">
         <span className="text-fg">Where do I find a market address?</span>{' '}
         Community pool creators share their market (PLP) address — in Discord, on
         X, or as a block-explorer link. It's the address of the{' '}
         <span className="font-mono text-xs">PendleMarket</span> contract itself,
-        not the PT, YT or SY. If you paste a PT, YT or SY we'll tell you which it
-        is, so you can ask the pool creator for the market address.
+        not the PT, YT or SY. If you only have a PT or YT, paste it on the home
+        page to open Token actions and, when available, follow its pool link. An
+        SY can back several maturities, so it cannot identify one market by itself.
       </p>
     </section>
   )

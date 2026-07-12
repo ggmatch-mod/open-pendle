@@ -135,7 +135,11 @@
 
 /* ---- Base reset + keyframes --------------------------------------------- */
 * , *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; }
+html, body {
+  margin: 0;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
 body {
   background: var(--op-bg);
   color: var(--op-text);

@@ -7,9 +7,11 @@
  *   1. Pendle's public all-markets API — paginated and filtered by chain, so
  *      both active and expired LISTED pools resolve. Read-only and keyless.
  *      Community pools aren't indexed by Pendle, so this misses them.
- *   2. A keyless indexed-log API where available, queried by factory + PT
+ *   2. OpenPendle's bundled factory snapshot — canonical across every
+ *      supported chain and inclusive of community-created markets.
+ *   3. A keyless indexed-log API where available, queried by factory + PT
  *      topic. This covers community pools without an unbounded RPC scan.
- *   3. A best-effort direct event scan for chains without that index (or when
+ *   4. A best-effort direct event scan for chains without that index (or when
  *      it is unavailable). Default public RPCs often refuse the wide range,
  *      so this final fallback may still return [].
  * Never throws; returns [] when nothing resolves (the page then keeps its
@@ -19,6 +21,7 @@
 import type { Address, PublicClient } from 'viem'
 import { parseAbiItem, toEventSelector } from 'viem'
 import { addressBookFor } from './addresses.ts'
+import { fetchFactoryMarketSnapshot } from './catalog.ts'
 
 const PENDLE_API = 'https://api-v2.pendle.finance/core'
 const PENDLE_PAGE_SIZE = 100
@@ -85,77 +88,152 @@ async function viaPendleApi(chainId: number, pt: Address, yt: Address): Promise<
   return [...new Set(found)]
 }
 
-const CREATE_MARKET_EVENT = parseAbiItem(
+async function viaFactorySnapshot(
+  chainId: number,
+  pt: Address,
+  yt: Address,
+): Promise<{ markets: Address[]; complete: boolean; indexedThrough: number | null }> {
+  try {
+    const snapshot = await fetchFactoryMarketSnapshot()
+    const chain = snapshot?.chains.find((entry) => entry.chainId === chainId)
+    if (chain === undefined) return { markets: [], complete: false, indexedThrough: null }
+    const p = pt.toLowerCase()
+    const y = yt.toLowerCase()
+    return {
+      markets: chain.markets
+        .filter((market) => market.pt === p || market.yt === y)
+        .map((market) => market.address),
+      complete: chain.complete,
+      indexedThrough: chain.indexedThrough,
+    }
+  } catch {
+    // A missing/stale deployment artifact must not suppress live fallbacks.
+    return { markets: [], complete: false, indexedThrough: null }
+  }
+}
+
+function uniqueAddresses(...groups: Address[][]): Address[] {
+  return [...new Set(groups.flat().map((address) => address.toLowerCase() as Address))]
+}
+
+const CREATE_MARKET_V1_EVENT = parseAbiItem(
+  'event CreateNewMarket(address indexed market, address indexed PT, int256 scalarRoot, int256 initialAnchor)',
+)
+const CREATE_MARKET_V3_PLUS_EVENT = parseAbiItem(
   'event CreateNewMarket(address indexed market, address indexed PT, int256 scalarRoot, int256 initialAnchor, uint256 lnFeeRateRoot)',
 )
-const CREATE_MARKET_TOPIC = toEventSelector(CREATE_MARKET_EVENT)
+const CREATE_MARKET_V1_TOPIC = toEventSelector(CREATE_MARKET_V1_EVENT)
+const CREATE_MARKET_V3_PLUS_TOPIC = toEventSelector(CREATE_MARKET_V3_PLUS_EVENT)
 
 async function viaIndexedLogs(
   client: PublicClient,
   pt: Address,
-): Promise<Address[]> {
+  fromBlock = 0,
+): Promise<{ markets: Address[]; complete: boolean }> {
   const base = INDEXED_LOG_API[client.chain?.id ?? 0]
-  if (!base) return []
+  if (!base) return { markets: [], complete: false }
 
   const ptTopic = `0x${pt.slice(2).toLowerCase().padStart(64, '0')}`
   const found: Address[] = []
-  try {
-    const factories = addressBookFor(client).marketFactories.map((f) => f.marketFactory)
-    for (const factory of factories) {
+  let complete = true
+  const factories = addressBookFor(client).marketFactories
+  for (const factory of factories) {
+    try {
+      const topic =
+        factory.gen === 'v1' ? CREATE_MARKET_V1_TOPIC : CREATE_MARKET_V3_PLUS_TOPIC
       const url = new URL(base)
       url.searchParams.set('module', 'logs')
       url.searchParams.set('action', 'getLogs')
-      url.searchParams.set('fromBlock', '0')
+      url.searchParams.set('fromBlock', String(fromBlock))
       url.searchParams.set('toBlock', 'latest')
-      url.searchParams.set('address', factory)
-      url.searchParams.set('topic0', CREATE_MARKET_TOPIC)
+      url.searchParams.set('address', factory.marketFactory)
+      url.searchParams.set('topic0', topic)
       url.searchParams.set('topic2', ptTopic)
       url.searchParams.set('topic0_2_opr', 'and')
       const response = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!response.ok) continue
+      if (!response.ok) {
+        complete = false
+        continue
+      }
       const body = (await response.json()) as { result?: unknown }
-      if (!Array.isArray(body.result)) continue
+      if (!Array.isArray(body.result)) {
+        complete = false
+        continue
+      }
       for (const entry of body.result) {
         const topics = (entry as { topics?: unknown }).topics
         if (
           !Array.isArray(topics) ||
           typeof topics[0] !== 'string' ||
-          topics[0].toLowerCase() !== CREATE_MARKET_TOPIC.toLowerCase() ||
+          topics[0].toLowerCase() !== topic.toLowerCase() ||
           typeof topics[1] !== 'string'
         ) continue
         const address = `0x${topics[1].slice(-40)}`
         if (HEX40.test(address)) found.push(address.toLowerCase() as Address)
       }
+    } catch {
+      complete = false
     }
-  } catch {
-    // Indexed service unavailable — fall through to the direct RPC scan.
   }
-  return [...new Set(found)]
+  return { markets: [...new Set(found)], complete }
 }
 
-async function viaEvents(client: PublicClient, pt: Address): Promise<Address[]> {
-  try {
-    const factories = addressBookFor(client).marketFactories.map((f) => f.marketFactory)
-    const logs = await client.getLogs({
-      address: factories,
-      event: CREATE_MARKET_EVENT,
-      args: { PT: pt },
-      fromBlock: 'earliest',
-      toBlock: 'latest',
-    })
-    return [...new Set(logs.map((l) => l.args.market as Address))]
-  } catch {
-    // Public RPCs refuse a wide getLogs range — silently give up (the page
-    // falls back to "paste the market"). A capable custom RPC will succeed.
-    return []
+async function viaEvents(
+  client: PublicClient,
+  pt: Address,
+  fromBlock: bigint | 'earliest' = 'earliest',
+): Promise<Address[]> {
+  const factories = addressBookFor(client).marketFactories
+  const v1Factories = factories
+    .filter((factory) => factory.gen === 'v1')
+    .map((factory) => factory.marketFactory)
+  const modernFactories = factories
+    .filter((factory) => factory.gen !== 'v1')
+    .map((factory) => factory.marketFactory)
+
+  // The original factory omits lnFeeRateRoot from CreateNewMarket because its
+  // fee is factory-global. Query both deployed event ABIs; using only the
+  // modern topic silently loses every V1 market.
+  const scans: Array<Promise<Address[]>> = []
+  if (v1Factories.length > 0) {
+    scans.push(
+      client
+        .getLogs({
+          address: v1Factories,
+          event: CREATE_MARKET_V1_EVENT,
+          args: { PT: pt },
+          fromBlock,
+          toBlock: 'latest',
+        })
+        .then((logs) => logs.map((log) => log.args.market as Address))
+        .catch(() => []),
+    )
   }
+  if (modernFactories.length > 0) {
+    scans.push(
+      client
+        .getLogs({
+          address: modernFactories,
+          event: CREATE_MARKET_V3_PLUS_EVENT,
+          args: { PT: pt },
+          fromBlock,
+          toBlock: 'latest',
+        })
+        .then((logs) => logs.map((log) => log.args.market as Address))
+        .catch(() => []),
+    )
+  }
+
+  // Public RPCs often refuse these wide ranges. Each event generation fails
+  // independently so one provider limitation cannot discard the other.
+  return [...new Set((await Promise.all(scans)).flat())]
 }
 
 /**
  * Resolve the market(s) for a token's PT — Pendle's API first (active or
- * expired listed pools), then indexed factory logs where supported, then a
- * best-effort direct event scan. Returns [] when nothing resolves. `client`
- * and `chainId` must be the same (active) chain.
+ * expired listed pools), then the bundled six-chain factory snapshot, indexed
+ * logs where supported, and finally a best-effort direct event scan. Returns
+ * [] when nothing resolves. `client` and `chainId` must be the same chain.
  */
 export async function resolveMarketsForToken(
   client: PublicClient,
@@ -163,9 +241,19 @@ export async function resolveMarketsForToken(
   pt: Address,
   yt: Address,
 ): Promise<Address[]> {
-  const api = await viaPendleApi(chainId, pt, yt)
-  if (api.length > 0) return api
-  const indexed = await viaIndexedLogs(client, pt)
-  if (indexed.length > 0) return indexed
-  return viaEvents(client, pt)
+  const [api, snapshot] = await Promise.all([
+    viaPendleApi(chainId, pt, yt),
+    viaFactorySnapshot(chainId, pt, yt),
+  ])
+  const canonical = uniqueAddresses(api, snapshot.markets)
+  const deltaStart = snapshot.complete && snapshot.indexedThrough !== null
+    ? snapshot.indexedThrough + 1
+    : 0
+  const indexed = await viaIndexedLogs(client, pt, deltaStart)
+  if (indexed.complete) return uniqueAddresses(canonical, indexed.markets)
+  return uniqueAddresses(
+    canonical,
+    indexed.markets,
+    await viaEvents(client, pt, deltaStart === 0 ? 'earliest' : BigInt(deltaStart)),
+  )
 }

@@ -5,6 +5,21 @@
 
 ---
 
+## V2 direction — factory-complete discovery (started 2026-07-12)
+
+The v1 plan below is retained as the historical implementation record. V2 expands the product from “paste any community market” into the Pendle equivalent of Monarch for Morpho within OpenPendle's six-network scope: a searchable directory whose membership rule is **every `CreateNewMarket` event emitted by every recognized Pendle MarketFactory generation on Ethereum, BNB Chain, Monad, Base, Plasma, and Arbitrum**.
+
+- Factory events are canonical inventory; Pendle's public catalog is optional listing/metadata enrichment, never an admission gate.
+- Identity is `chainId:marketAddress`, with factory generation, PT, transaction/block provenance, complete SY/YT/expiry/name/time hydration, and explicit per-chain indexed-through block timestamps so stale retained snapshots are visible.
+- The runtime remains a static app. A scheduled, checkpointed job publishes `app/public/catalog/factory-markets.v1.json`, rewinds a reorg window, and fails coverage closed on RPC errors, undecodable logs, or an unrecognized active factory.
+- V1 and V3+ factory events have different signatures and are both indexed. The six-chain lineage currently contains 20 factory deployments.
+- Pendle-listed, community/unlisted, lifecycle-unknown, and metadata-incomplete are separate states. Factory provenance is still not endorsement; the live pool page revalidates every market before enabling actions.
+- The initial six-chain snapshot is complete: 920 markets (Ethereum 613, BNB Chain 52, Monad 10, Base 65, Plasma 34, Arbitrum 146), zero quarantined logs, and full card/search hydration. BNB history uses a NodeReal RPC; Monad uses Etherscan V2. The four other chains use built-in keyless indexed endpoints, and the daily publisher refuses to replace a complete artifact with a partial refresh.
+
+This supersedes the v1 “No indexer” discovery limitation while preserving the important boundary: there is still no request-time OpenPendle backend, account database, transaction relay, or custom smart contract.
+
+---
+
 ## 1. Vision
 
 OpenPendle is an open-source web interface for Pendle V2 **Community Pools** — the permissionless side of Pendle that the official app deliberately curates away. Pendle's contracts let anyone deploy an SY adapter, create a PT/YT pair and an AMM market, and trade it; but app.pendle.finance only shows pools its team has manually whitelisted, and its pool-creation flow is a hardhat repo plus a listing portal, not a UI.

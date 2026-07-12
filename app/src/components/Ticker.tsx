@@ -14,7 +14,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 // Shown until live stats load, or if every metric source fails.
 const FALLBACK: TickerItem[] = [
-  { value: 'No OpenPendle backend' },
+  { value: 'No transaction backend' },
   { value: 'No whitelist' },
   { value: 'Core data via RPC' },
   { value: 'Local pool registry' },
@@ -34,8 +34,7 @@ export function Ticker() {
   return (
     <div className="overflow-hidden border-b border-hairline bg-bg-2">
       <div
-        className="flex w-max hover:[animation-play-state:paused]"
-        style={{ animation: 'op-ticker 48s linear infinite', willChange: 'transform' }}
+        className="flex w-max [animation:op-ticker_48s_linear_infinite] [will-change:transform] hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:[will-change:auto]"
       >
         {loop.map((it, i) => (
           <span

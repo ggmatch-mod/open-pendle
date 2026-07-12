@@ -18,7 +18,7 @@ OpenPendle is free and takes no fee of its own — it is a gift to Pendle's comm
 
 ### What can I actually do here that I can't do on the official Pendle app?
 
-OpenPendle reaches Pendle's **permissionless community pools** — markets anyone can create that the official app does not list — and lets you create your own. Everything else is standard Pendle: mint and redeem, [buy PT](/guides/buying-pt), [buy YT](/guides/buying-yt), and [provide liquidity](/guides/providing-liquidity). See [Why OpenPendle](/introduction/why-openpendle) for the motivation.
+OpenPendle gives you one factory-indexed directory for **all Pendle markets** on its six supported chains, including permissionless community pools the official app does not list, and it lets you create your own. You can search listed and community markets together, open any recognized market by address, mint and redeem, [buy PT](/guides/buying-pt), [buy YT](/guides/buying-yt), and [provide liquidity](/guides/providing-liquidity). See [Why OpenPendle](/introduction/why-openpendle) for the motivation.
 
 ### Is OpenPendle open source? Can I self-host it?
 
@@ -40,11 +40,15 @@ It checks that a market descends from a Pendle factory OpenPendle recognizes; be
 
 ### Where is my data stored?
 
-Your saved pools and settings are stored in your browser only. OpenPendle operates no backend, database, indexer, account system, tracking, or analytics. The [saved-pools registry](/guides/saved-pools) lives in `localStorage` under `openpendle.pools.v1`, and custom RPC settings stay local too; that registry leaves only when you explicitly export or share it. Public RPC and ancillary API requests are covered under [Architecture](/reference/architecture).
+Your saved pools and settings are stored in your browser only. OpenPendle operates no request-time application server, user database, account system, tracking, or analytics. Explore's scheduled catalog job publishes only a public, chain-derived static snapshot; it stores no user data. The [saved-pools registry](/guides/saved-pools) lives in `localStorage` under `openpendle.pools.v1`, and custom RPC settings stay local too; that registry leaves only when you explicitly export or share it. Public RPC and ancillary API requests are covered under [Architecture](/reference/architecture).
 
 ### What outbound requests does the app make?
 
-The app calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public market API and keyless Blockscout log APIs while resolving a pasted PT/YT to a pool; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID required for its reward lookup. OpenPendle operates none of those services and sends no analytics beacon. Fonts are self-hosted, so there are zero external font requests, and a Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()` while permitting the WebAssembly used for crypto. More detail is on [Architecture](/reference/architecture).
+The app downloads a same-origin static factory-market snapshot and calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public market API for listed enrichment and PT/YT pool lookup; where available keyless Blockscout log APIs for that lookup; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID required for its reward lookup. OpenPendle sends no analytics beacon. Fonts are self-hosted, so there are zero external font requests, and a Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()` while permitting the WebAssembly used for crypto. More detail is on [Architecture](/reference/architecture).
+
+### Does Explore really include community markets?
+
+Yes, within the coverage shown in the app. Inventory comes from `CreateNewMarket` events emitted by the recognized factory generations on each supported chain; Pendle's API only adds listed status and optional metadata. A new market can be absent until the next snapshot, and a chain marked partial may be missing events. “All” therefore means all successfully indexed events in the configured factory lineage, not a safety guarantee. See [Exploring markets](/guides/exploring-markets).
 
 ## Wallets and networks
 

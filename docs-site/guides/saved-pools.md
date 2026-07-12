@@ -90,7 +90,7 @@ flowchart LR
 
 ## The privacy model
 
-Everything above rests on one architectural fact: **OpenPendle operates no backend.** There is no OpenPendle database, indexer, account, server-side session, analytics, or tracking service. The saved-pool registry is a local browser data structure; it is not uploaded to the RPC or ancillary public APIs.
+Everything above rests on one architectural fact: **OpenPendle operates no user-data backend.** There is no user database, account, server-side session, analytics, or tracking service. Explore's scheduled index job publishes only a public, chain-derived static snapshot. The saved-pool registry is a local browser data structure; it is not uploaded to that snapshot job, the RPC, or ancillary public APIs.
 
 Concretely:
 
@@ -104,7 +104,7 @@ For all of the above to hold, the app has to be disciplined about what it talks 
 
 1. **The blockchain RPC endpoints you point it at.** Every read — pool state, quotes, balances, maturities — and every transaction goes to the RPC for your active network. These are keyless public defaults by default, and you can override them per chain; see [Browsing & networks](/guides/browsing).
 2. **The header stats ticker.** For the small metrics ticker in the header only, OpenPendle fetches Pendle metrics from the **DefiLlama** and **CoinGecko** public APIs.
-3. **PT/YT pool lookup.** The token-actions page uses Pendle's public market API and, where supported, keyless **Blockscout** log APIs to map a pasted PT/YT to a pool.
+3. **Explore and PT/YT pool lookup.** Explore downloads a same-origin snapshot derived from factory events and uses Pendle's public market API for listed enrichment. Pendle's API also helps the token-actions page map a pasted PT/YT to a pool; where supported, keyless **Blockscout** log APIs provide a lookup fallback.
 4. **Merkl rewards.** When a connected user opens **My positions**, OpenPendle sends the wallet address and chain ID to Merkl's public API to retrieve claimable rewards and proofs.
 
 Saving, forgetting, exporting, and importing are **local operations** — they read and write `localStorage`. Your saved-pools registry is never transmitted to any of the services above as a side effect of saving; it is exposed only by the explicit **Export** and **`?import=` share** actions you choose to take.

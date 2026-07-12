@@ -19,7 +19,7 @@ Everything below is an expansion of that gap. Only you can close it, and you clo
 
 A **community pool** (used interchangeably with **market**) is the on-chain `PendleMarket` contract that someone created permissionlessly on Pendle V2 — no whitelist, no approval, and reviewed by no one, including Pendle. Pendle V2 is a permissionless protocol: anyone with a wallet and seed capital can deploy a market for any compatible yield-bearing asset. Pendle's official app surfaces a curated, team-listed subset of those markets; everything beyond that subset is the long tail OpenPendle exists to reach.
 
-OpenPendle loads any such market by its address and reads its state straight from the chain. There is no listing process and no curator here, by design. **A market being loadable is not an endorsement of it.** The [Community pools &amp; incentives](/concepts/community-pools) concept page covers what "permissionless and unreviewed" really means, and why native PENDLE gauge emissions and vePENDLE voting are reserved for team-listed markets while community pools rely on [Merkl](https://merkl.angle.money/) campaigns — if anyone funds one — for extra rewards.
+OpenPendle loads any such market by its address and reads its state straight from the chain. There is no OpenPendle listing process or curator; Explore inventories recognized factories' creation events and separately labels markets that also appear in Pendle's public catalog. **Factory-indexed, Pendle-listed, community, and loadable are discovery states — none is an endorsement.** The [Community pools &amp; incentives](/concepts/community-pools) concept page covers what "permissionless and unreviewed" really means, and why native PENDLE gauge emissions and vePENDLE voting are reserved for team-listed markets while community pools rely on [Merkl](https://merkl.angle.money/) campaigns — if anyone funds one — for extra rewards.
 
 ::: warning Community pools are unreviewed
 Community pools are permissionless and unreviewed — **anyone can create one, and interacting with them can lose you funds.** No one checked the asset. No one checked the SY. No one checked the person who deployed it. "Permissionless" is a statement about access, not about safety.
@@ -87,7 +87,7 @@ Pendle's own protocol fees still apply, exactly as they would through any other 
 
 ## Your data &amp; privacy
 
-OpenPendle operates no backend, database, indexer, account system, tracking, or analytics service. Core market state, balances, quotes, and simulations are read directly from the chain through public RPC endpoints. Ancillary public services are still contacted for specific features, as disclosed below; they are not OpenPendle analytics and are not in the transaction-signing path.
+OpenPendle operates no request-time application server, user database, account system, tracking, analytics service, or transaction relay. A scheduled batch indexer publishes a public static factory-market snapshot for Explore; it contains chain-derived market data, not user data. Core market state, balances, quotes, and simulations are still read directly from the chain through public RPC endpoints. Ancillary public services are contacted for specific features, as disclosed below; they are not OpenPendle analytics and are not in the transaction-signing path.
 
 What stays local, and where:
 
@@ -101,13 +101,13 @@ The pools you remember live only in your browser's local storage, and any custom
 
 - the **blockchain RPCs you point at** (keyless public defaults per chain, wrapped in a fallback transport, overridable per chain in RPC settings);
 - **DefiLlama and CoinGecko** for aggregate metrics in the header ticker;
-- Pendle's public market API and, where supported, keyless **Blockscout** log APIs when mapping a pasted PT/YT to its pool; and
+- the same-origin factory-market snapshot for Explore, Pendle's public market API for listing enrichment and PT/YT pool lookup, and where supported keyless **Blockscout** log APIs as a lookup fallback; and
 - **Merkl** when a connected user opens **My positions**. That reward lookup sends the wallet address and chain ID to Merkl so it can return claimable amounts and proofs.
 
 Moving your saved pools between browsers or devices is explicit and under your control — Export to JSON, Import, or a shareable `?import=` link that encodes your registry. The saved-pool registry itself is never sent to the RPC or ancillary APIs as a side effect of saving; it leaves only through an Export or share action you choose. See [Saved pools &amp; privacy](/guides/saved-pools) for the full registry behavior.
 
 ::: info A privacy caveat worth stating
-Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. The ancillary services above can likewise see normal request metadata; Merkl also receives the connected wallet address and chain ID. That is a property of making direct requests to public services, not OpenPendle analytics. If that matters to you, override the RPC per chain with an endpoint you trust and avoid the optional token-resolution and My-positions surfaces, or run and modify your own copy. See [Self-hosting](/reference/self-hosting).
+Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. The ancillary services above can likewise see normal request metadata; Merkl also receives the connected wallet address and chain ID. That is a property of making direct requests to public services, not OpenPendle analytics. If that matters to you, override the RPC per chain with an endpoint you trust and avoid Explore, token resolution, and My positions, or run and modify your own copy. See [Self-hosting](/reference/self-hosting).
 :::
 
 Two hardening choices reduce the interface's own attack surface, and are worth knowing about:

@@ -1,13 +1,14 @@
 # OpenPendle
 
-**An open-source, backend-free interface for Pendle V2 community pools — across six networks.**
+**An open-source, static directory and interface for factory-created Pendle V2 markets — across six networks.**
 
-Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a PT/YT pair and an AMM market, and trade it. But Pendle's own app only lists team-curated pools. OpenPendle is the missing UI for everything else — paste any market address and interact with it, on any chain Pendle is deployed to.
+Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a PT/YT pair and an AMM market, and trade it. But Pendle's own app surfaces a curated subset. OpenPendle builds its directory from factory events — listed and unlisted — and shows exactly which networks the current snapshot covers. Any recognized market can still be inspected directly by address on the six supported chains.
 
 **OpenPendle is a gift to Pendle's community and takes no fee of its own.** It is not affiliated with, endorsed by, or operated by Pendle Finance.
 
 ## What it does
 
+- **Explore every indexed factory-created market** across all six supported networks, with source, lifecycle, and network filters plus chain-explicit links.
 - **Load any Pendle V2 market** by pasting its address — no whitelist or OpenPendle backend; core market data comes straight from the chain and every transaction is simulated before you sign.
 - **Six networks:** Arbitrum, Ethereum, Base, BNB Chain, Plasma, Monad — switch from the header.
 - **Full lifecycle:** buy/sell PT & YT, mint/redeem PT+YT, wrap/unwrap SY, add/remove/zap liquidity, and a proper redeem/exit flow for matured pools.
@@ -18,9 +19,11 @@ Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a
 
 Approvals are exact-amount by default. Users can explicitly opt into unlimited approvals in transaction settings, which leaves a standing allowance and increases exposure. Pendle's own protocol fees are enforced by its contracts and flow to Pendle's treasury through any interface, including this one.
 
-## No backend, no tracking
+## Static app, no tracking
 
-A static single-page app. No OpenPendle server, database, accounts, analytics, or tracking. Remembered pools and custom RPCs live only in local storage. Outbound traffic goes to configured blockchain RPCs; DefiLlama and CoinGecko for the header ticker; Pendle's market API and, where available, keyless Blockscout indexes when resolving PT/YT tokens to pools; and Merkl when a connected user opens **My positions** (the reward lookup includes the wallet address and chain ID). Fonts are self-hosted and no remote scripts run.
+A static single-page app. No OpenPendle request-time server, database, accounts, analytics, or tracking. Explore reads a versioned static snapshot generated on a schedule from recognized Pendle factories' `CreateNewMarket` events. The same snapshot provides the primary PT/YT-to-pool mapping. Pendle's public market API only enriches those on-chain records with listed status and display metadata; it does not decide which markets exist. Remembered pools and custom RPCs live only in local storage. Other outbound traffic goes to configured blockchain RPCs; DefiLlama and CoinGecko for the header ticker; Pendle's API and, where available, keyless Blockscout indexes for live lookup fallbacks; and Merkl when a connected user opens **My positions** (the reward lookup includes the wallet address and chain ID). Fonts are self-hosted and no remote scripts run.
+
+The snapshot is discovery data, not live chain state. It can lag new blocks. Initial scans fail coverage closed, while scheduled refreshes refuse to replace a complete artifact with a partial one after an RPC outage. Each chain carries its indexed block timestamp, so Explore warns when that last-known-complete snapshot becomes stale instead of silently treating missing data as an empty market universe. Opening a market still performs the normal live on-chain reads and provenance checks before any action is enabled.
 
 ## Security model
 
@@ -51,14 +54,14 @@ OpenPendle never hardcodes Pendle's live parameters. It resolves each chain's ac
 | Path | What |
 |---|---|
 | `app/` | The frontend (Vite 8 + React 19 + TypeScript, wagmi/viem, RainbowKit, Tailwind v4) |
-| `app/scripts/` | Node fork-test harnesses (per milestone) + protocol/address checks |
+| `app/scripts/` | Node fork-test harnesses, protocol/address checks, and the factory-market snapshot generator |
 | `fork-tests/` | Foundry fork tests against live Pendle contracts |
 | `docs/research/` | Fork-tested protocol research digest + multichain address books |
 | `PLAN.md` | Architecture notes + roadmap |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short: it's a static Vite app in `app/`, run on Node 22, keep `npm run build` and `npm run lint` green, and don't add a backend or any custom smart contracts — OpenPendle only ever calls Pendle's deployed contracts with hand-written ABIs.
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: it's a static Vite app in `app/`, run on Node 22, keep `npm run build` and `npm run lint` green, and don't add a request-time backend or any custom smart contracts. The scheduled catalog job only publishes static discovery data; transactions still call Pendle's deployed contracts directly with hand-written ABIs.
 
 ## License
 

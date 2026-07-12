@@ -6,7 +6,7 @@ titleTemplate: The permissionless Pendle frontend
 hero:
   name: OpenPendle
   text: The permissionless Pendle frontend
-  tagline: An open-source, backend-free interface to Pendle V2's community pools — the markets anyone can create, that Pendle's own app doesn't list.
+  tagline: An open-source, static interface to every indexed factory-created Pendle V2 market — listed and community-created.
   image:
     src: /favicon.svg
     alt: OpenPendle
@@ -24,10 +24,10 @@ hero:
 features:
   - icon: 🔓
     title: Permissionless by design
-    details: Load any Pendle V2 market by address across six networks. No whitelist, no curation, no listing process.
+    details: Browse every indexed factory-created market or load any Pendle V2 market by address across six networks. Listed status stays visible; it never becomes a whitelist.
   - icon: 🛰️
-    title: No operated backend
-    details: Core pool data comes straight from your RPC, and every transaction is simulated before you sign. OpenPendle runs no server, database, indexer, analytics, or relay of its own.
+    title: Static and verifiable
+    details: Explore uses a generated factory-event snapshot. Core pool data comes straight from your RPC, every transaction is simulated, and no request-time server or relay sits in the signing path.
   - icon: 🔒
     title: Yours and private
     details: No OpenPendle accounts, tracking, or analytics. Saved pools and settings live only in your browser's local storage.
@@ -54,6 +54,7 @@ Community pools are **permissionless and unreviewed** — anyone can create one,
 
 ## Do things
 
+- [**Explore markets**](/guides/exploring-markets) — search the factory-created universe across six networks and filter listed vs community markets.
 - [**Browsing & doing actions**](/guides/connecting-a-wallet) — connect a wallet and use a pool.
 - [**Creating a pool**](/create/overview) — deploy your own market.
 - [**Risks & disclosures**](/reference/risks) — please read this one.

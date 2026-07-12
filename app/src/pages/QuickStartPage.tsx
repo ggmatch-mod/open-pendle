@@ -22,7 +22,7 @@ const GUIDE_HTML = `
     <header class="mast">
       <div class="eyebrow">A field guide</div>
       <h1>Pendle community pools, <span class="u">no whitelist</span></h1>
-      <p class="lede">OpenPendle is a static interface with no OpenPendle-operated backend. Paste any market by address and its core state is read straight from the chain, its controls are checked, and every transaction is simulated before you sign. Here's the whole tool, screen by screen.</p>
+      <p class="lede">OpenPendle is a static interface with no request-time OpenPendle server in the transaction path. Browse factory-indexed Pendle-listed and community markets in Explore, or paste any market by address; its core state is read straight from the chain, its controls are checked, and every transaction is simulated before you sign. Here's the whole tool, screen by screen.</p>
       <div class="nets" aria-label="Supported networks">
         <span class="net"><span class="dot"></span>Ethereum</span>
         <span class="net"><span class="dot"></span>Arbitrum</span>
@@ -39,8 +39,8 @@ const GUIDE_HTML = `
       <div class="step-grid">
         <div class="rail">
           <div class="idx">STEP 01</div>
-          <h2>Load any market by address</h2>
-          <p>No search index, no curated list, no account. Paste a Pendle&nbsp;V2 market (PLP) address and OpenPendle loads it live from the network you're on.</p>
+          <h2>Explore, or load any address</h2>
+          <p>Browse factory-indexed Pendle-listed and community markets in Explore. If a new market has not reached the scheduled snapshot, or its network coverage is incomplete, paste any Pendle&nbsp;V2 market (PLP) address and OpenPendle loads it live from the network you're on. No account required.</p>
           <ul class="notes">
             <li><span class="n">1</span><span><b>Paste box</b> — drop in any market address; it validates on-chain as you type.</span></li>
             <li><span class="n">2</span><span><b>Defaults</b> — exact-amount approvals, simulated first, registry stays on your device.</span></li>
@@ -63,6 +63,7 @@ const GUIDE_HTML = `
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
             <nav class="nav">
               <span class="pill"><span class="i">✦</span>Quick start</span>
+              <span class="pill"><span class="i">◇</span>Explore</span>
               <span class="pill"><span class="i">◈</span>Positions</span>
               <span class="pill on">Create pool</span>
               <span class="pill net"><span class="dot"></span>Arbitrum ▾</span>
@@ -75,13 +76,13 @@ const GUIDE_HTML = `
               <div>
                 <span class="chip"><span class="livedot"></span><span class="mono" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">Permissionless · on-chain</span></span>
                 <h3>Pendle community pools, <span class="u">no whitelist</span></h3>
-                <p class="sub">Load any Pendle V2 market on Arbitrum by address. No OpenPendle backend or curation — core pool data comes straight from the chain.</p>
+                <p class="sub">Explore factory-created markets or load any Arbitrum market by address. No OpenPendle server sits in the transaction path — core pool data comes straight from the chain.</p>
                 <div class="paste">
                   <label>Load any market</label>
                   <div class="pastebox"><span class="car"></span>Paste a Pendle market (PLP) address — 0x…</div>
                 </div>
                 <div class="links">
-                  <span class="p">Create a community pool →</span><span class="dvd">·</span><span class="s">Create an SY adapter →</span>
+                  <span class="p">Explore factory-created markets →</span><span class="dvd">·</span><span class="s">Create a community pool →</span>
                 </div>
                 <div class="trust-chips">
                   <span class="chip"><span class="c">✓</span>Exact approvals by default</span>
@@ -152,6 +153,7 @@ const GUIDE_HTML = `
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
             <nav class="nav">
               <span class="pill"><span class="i">✦</span>Quick start</span>
+              <span class="pill"><span class="i">◇</span>Explore</span>
               <span class="pill"><span class="i">◈</span>Positions</span>
               <span class="pill">Create pool</span>
               <span class="pill net"><span class="dot"></span>Arbitrum ▾</span>
@@ -245,6 +247,7 @@ const GUIDE_HTML = `
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
             <nav class="nav">
               <span class="pill"><span class="i">✦</span>Quick start</span>
+              <span class="pill"><span class="i">◇</span>Explore</span>
               <span class="pill"><span class="i">◈</span>Positions</span>
               <span class="pill on">Create pool</span>
               <span class="pill net"><span class="dot"></span>Arbitrum ▾</span>
@@ -315,6 +318,7 @@ const GUIDE_HTML = `
             <div class="brand"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.6 7v10L12 21.6 3.4 17V7L12 2.4Z" stroke="#6366f1" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="wm">Open<span class="b">Pendle</span></span></div>
             <nav class="nav">
               <span class="pill"><span class="i">✦</span>Quick start</span>
+              <span class="pill"><span class="i">◇</span>Explore</span>
               <span class="pill"><span class="i">◈</span>Positions</span>
               <span class="pill">Create pool</span>
               <span class="pill net"><span class="dot"></span>Arbitrum ▾</span>
@@ -366,7 +370,7 @@ const GUIDE_HTML = `
       <div class="eyebrow">Why it's built this way</div>
       <h2>Trust-minimized by construction</h2>
       <div class="why">
-        <div class="c"><div class="k">◇ No operated backend</div><h5>Core data from the chain</h5><p>OpenPendle runs no server, database or indexer of its own. Core pool data comes from an RPC you can replace; public APIs only support the ticker, PT/YT pool lookup and Merkl rewards.</p></div>
+        <div class="c"><div class="k">◇ No request-time backend</div><h5>Core data from the chain</h5><p>OpenPendle runs no request-time app server, user database or transaction relay. Explore reads a scheduled static snapshot built from factory events; Pendle's API adds listing/display enrichment and PT/YT lookup. Core pool data comes from an RPC you can replace.</p></div>
         <div class="c"><div class="k">◈ Injected-only</div><h5>Your wallet, direct</h5><p>Injected wallets only — no WalletConnect relays. Exact approvals by default; unlimited is an explicit, higher-exposure opt-in.</p></div>
         <div class="c"><div class="k">★ Local registry</div><h5>Stays on device</h5><p>Your saved-pool list and settings stay in your browser. The registry leaves only when you explicitly export or share it.</p></div>
         <div class="c"><div class="k">⌥ Open source</div><h5>Fork it</h5><p>GPL-3.0 and static — host it yourself on IPFS or anywhere. Six networks supported today.</p></div>

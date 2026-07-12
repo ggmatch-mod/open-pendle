@@ -1,6 +1,6 @@
 # Opening a pool & the trust panel
 
-Every session in OpenPendle starts the same way: you open a market. Because community pools are not listed anywhere central, there is no catalogue to browse — you reach a pool by pasting its address, and OpenPendle loads it live from the chain. This guide covers the whole entry path: where to get a market address, what happens when you paste one, how OpenPendle screens it at the **provenance gate**, what the pool view loads, and — the part that actually protects your funds — how to read the **trust panel** before you decide a pool is worth transacting on.
+Every session in OpenPendle starts the same way: you open a market. You can browse the factory-indexed universe in [Explore](/guides/exploring-markets), or open any listed or unlisted market directly by address. This guide covers the direct-address path: where to get an address, what happens when you paste one, how OpenPendle screens a market at the **provenance gate**, what the pool view loads, and — the part that actually protects your funds — how to read the **trust panel** before you decide a pool is worth transacting on.
 
 This is a guide, not a concept primer. It assumes you already know what [PT](/concepts/principal-tokens), [YT](/concepts/yield-tokens), and [SY](/concepts/standardized-yield) are; if any of those are new, read [How Pendle works](/concepts/how-pendle-works) first and come back. Everything here is about *doing* — no wallet required until you actually transact.
 
@@ -12,9 +12,10 @@ OpenPendle will only ever load and let you act on a market whose **provenance** 
 
 ```mermaid
 flowchart LR
-  A[Get a market address] --> B[Paste it on the home page]
+  A[Find a listed result in Explore<br/>or get a market address] --> B[Open or paste the market]
   B --> C{Is it a market,<br/>or a PT / YT / SY?}
-  C -->|PT / YT / SY| R[Type detected & reported<br/>— go get the market address]
+  C -->|PT / YT| R[Open Token actions<br/>and resolve its pool]
+  C -->|SY| S[One SY can back many maturities<br/>— find a PT, YT, or market]
   C -->|Market| D{Created by a recognized<br/>Pendle factory?}
   D -->|No| X[Blocked from save / transact<br/>— provenance fails]
   D -->|Yes| E[Pool loads live<br/>— read the trust panel]
@@ -25,9 +26,9 @@ Two gates sit between an address and a live pool. The first checks *what kind of
 
 ## 1. Find a market address
 
-A Pendle **pool** — the app also calls it a **market** — is a single on-chain `PendleMarket` contract. Its address is the one thing you paste into OpenPendle. It is **not** the PT address, **not** the YT address, and **not** the SY address; those are components reachable *from* the market once it loads, not entry points of their own. For why that distinction exists, see [Anatomy of a pool](/concepts/pool-anatomy).
+A Pendle **pool** — the app also calls it a **market** — is a single on-chain `PendleMarket` contract. Its address is what opens the pool page. A PT or YT address instead opens Token actions and may resolve a matching pool; an SY alone cannot identify one maturity. For why that distinction exists, see [Anatomy of a pool](/concepts/pool-anatomy).
 
-Because community pools are unlisted, you will almost always arrive with an address from one of these sources:
+For any market already in the snapshot, start in [Explore](/guides/exploring-markets) and use its **Pendle-listed** or **Community** source label as context, not an endorsement. A very recent market or one on a temporarily incomplete chain can still enter through an address from one of these sources:
 
 - **The pool's creator.** Whoever deployed the market typically shares its address — in a Discord announcement, an X post, a project's docs, or a Telegram channel. Creators sometimes share the **PLP address** (the pool's LP token) or link to the market on a block explorer; treat any of these as a lead to the underlying `PendleMarket`.
 - **A block explorer.** If you know the asset and maturity, you can locate the `PendleMarket` on the chain's explorer and copy its address directly.
@@ -35,7 +36,7 @@ Because community pools are unlisted, you will almost always arrive with an addr
 - **Your own saved pools.** Anything you previously remembered appears on the home page preview and in full on the [Saved Pools](/guides/saved-pools) page. This is the fastest path back to a pool you have already vetted.
 
 ::: tip Ask for the *market* address specifically
-When you ask a creator for a pool, ask for the **market address** (the `PendleMarket`), not "the pool token" or "the PT". A single pool exposes four related addresses — market, PT, YT, SY — and three of them are the wrong thing to paste. Naming the market up front saves a round trip. If you do end up with the wrong one, OpenPendle tells you which one you pasted (next section).
+When you ask a creator for a pool, ask for the **market address** (the `PendleMarket`), not "the pool token" or "the PT". Only the market address opens that pool directly. A PT or YT can enter Token actions, while an SY remains ambiguous across maturities (next section).
 :::
 
 ### Make sure the address matches the active network
@@ -48,14 +49,14 @@ A given market address exists on exactly **one** chain. OpenPendle reads from a 
 
 Paste the address into the open-a-market field on the home page. OpenPendle immediately inspects the address on-chain and asks the first question: **is this a `PendleMarket`, or is it a PT, YT, or SY?**
 
-You do not have to memorize which of the four addresses is correct, because OpenPendle checks for you. If you paste a **PT, YT, or SY** by mistake, it **detects the token type and reports it back to you** — telling you the address is a *component* of a pool, not the pool itself — rather than silently failing or loading a broken screen. The message points you at the fix: go find the `PendleMarket` address for that same asset and maturity, and paste that instead.
+You do not have to memorize which of the four addresses is correct, because OpenPendle checks for you. If you paste a **PT or YT**, it offers **Token actions**, which resolves the token set and looks for its pool. If it finds one or more markets, you can open the intended maturity directly. If you paste an **SY**, OpenPendle reports the type but cannot select one pool because the same SY can back many maturities; find a PT, YT, or `PendleMarket` for the maturity you want.
 
 This detection is a convenience, not a trust signal. Recognizing that an address is a PT does not say anything about whether the pool behind it is safe — it only means you pasted the wrong one of the four addresses.
 
 ::: info Example — pasting a component by mistake (illustrative)
 The addresses below are invented to show the *shape* of the flow. They are not a real pool and pasting them loads nothing.
 
-Suppose a creator's Discord message contains two addresses, and you paste the PT one, `0xPT…`, first. OpenPendle inspects it, recognizes a Principal Token, and reports: *this is a component of a pool, not the pool — paste the `PendleMarket` address*. You go back, find the market address `0xMARKET…` for the same maturity, paste that, and the pool loads. The PT, YT, and SY are all reachable from the loaded pool afterward — you never needed to enter them directly.
+Suppose a creator's Discord message contains two addresses, and you paste the PT one, `0xPT…`, first. OpenPendle recognizes a Principal Token and offers **View & act on this token**. Token actions resolves its PT, YT, and SY set and, when a matching market is found, links you to the pool. If you had pasted only an SY, you would still need a PT, YT, or market address to identify the intended maturity.
 :::
 
 → [Anatomy of a pool](/concepts/pool-anatomy) — the four addresses of one pool, in depth.
@@ -78,7 +79,7 @@ Passing the gate proves only that the market descends from a genuine Pendle fact
 
 ## 4. What loads
 
-Because OpenPendle has [no operated backend, database, or indexer](/reference/architecture), the core pool view is read **live from the chain** over public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). A pool is self-describing: the `PendleMarket` points at its PT, YT, and SY, and those in turn describe the asset. External indexes are used only by the separate PT/YT-to-pool convenience lookup. Once the gate passes, the pool view assembles and shows:
+Because OpenPendle has [no request-time application backend or transaction relay](/reference/architecture), the core pool view is read **live from the chain** over public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). A pool is self-describing: the `PendleMarket` points at its PT, YT, and SY, and those in turn describe the asset. Explore's static snapshot and Pendle enrichment help discovery and PT/YT lookup, but the opened pool's core view does not depend on that metadata. Once the gate passes, the pool view assembles and shows:
 
 | What loads | Read from | What it is |
 | --- | --- | --- |

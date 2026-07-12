@@ -1,5 +1,5 @@
 /**
- * MobileNav (M12 responsive) — the header's navigation on screens below `lg`,
+ * MobileNav (M12 responsive) — the header's navigation on screens below `xl`,
  * where the inline nav pills are hidden and the desktop network/RPC controls
  * collapse. A hamburger opens a dropdown holding the nav links (Quick start /
  * Positions / Saved pools / Create pool) and a compact network switcher, so a phone
@@ -15,6 +15,7 @@ import { useNetworkSelection } from './useNetworkSelection'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
   { to: '/quickstart', label: 'Quick start', glyph: '✦' },
+  { to: '/explore', label: 'Explore markets', glyph: '◇' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },
@@ -44,7 +45,7 @@ export function MobileNav() {
   const close = () => setOpen(false)
 
   return (
-    <div ref={ref} className="relative lg:hidden">
+    <div ref={ref} className="relative xl:hidden">
       <button
         type="button"
         aria-label="Menu"

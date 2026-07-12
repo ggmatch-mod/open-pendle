@@ -141,7 +141,7 @@
 .qsg .paste label { font-family: var(--mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
 .qsg .pastebox { margin-top: 7px; display: flex; align-items: center; height: 46px; padding: 0 15px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--faint); font-family: var(--mono); font-size: 13px; }
 .qsg .pastebox .car { width: 1.5px; height: 17px; background: var(--accent); margin-right: 2px; animation: qs-blink 1.1s steps(1) infinite; }
-.qsg .links { margin-top: 15px; display: flex; gap: 12px; align-items: center; font-size: 13px; }
+.qsg .links { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
 .qsg .links .p { color: var(--ink); font-weight: 700; }
 .qsg .links .s { color: var(--muted); font-weight: 600; }
 .qsg .links .dvd { color: var(--faint); }
@@ -284,6 +284,7 @@
   .qsg .ov { grid-template-columns: 1fr 1fr; }
   .qsg .why { grid-template-columns: 1fr; }
   .qsg .nav .pill:not(.net), .qsg .apphdr .btn { display: none; }
+  .qsg .links .dvd { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .qsg .livedot, .qsg .pastebox .car { animation: none; }

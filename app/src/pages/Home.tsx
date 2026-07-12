@@ -316,9 +316,9 @@ export default function Home() {
               </span>
             </h1>
             <p className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed text-muted">
-              Load any Pendle V2 market on {chain.name} by address. No OpenPendle backend or
-              curation — core pool data comes straight from the chain, and every transaction is
-              simulated before you sign.
+              Load any Pendle V2 market on {chain.name} by address. No OpenPendle server or
+              curation sits in the transaction path — core pool data comes straight from the
+              chain, and every transaction is simulated before you sign.
             </p>
             <div className="mt-7">
               <label className="mb-2 block font-mono text-[10.5px] uppercase tracking-[.08em] text-faint">
@@ -327,6 +327,10 @@ export default function Home() {
               <MarketPasteBox />
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13.5px]">
+              <Link to="/explore" className="font-semibold text-accent-ink no-underline">
+                Explore markets →
+              </Link>
+              <span className="text-faint">·</span>
               <Link to="/create" className="font-semibold text-accent-ink no-underline">
                 Create a community pool →
               </Link>

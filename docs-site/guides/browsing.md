@@ -57,6 +57,7 @@ Before you can save or transact against a market, OpenPendle verifies it was cre
 Because reads go through RPC and not through your wallet, the entire discovery flow works with no wallet connected:
 
 - **Pick a network** and let the app read the chain.
+- **Browse Explore** to search the factory-indexed universe across all supported networks and filter Pendle-listed vs community markets.
 - **Open a market** by pasting its address (or following a shared `?import=` link) and read its trust panel — the underlying asset, the SY contract, the maturity, and the implied APY.
 - **Save pools** to your browser's local registry for later.
 
@@ -113,7 +114,7 @@ A **theme toggle** in the header switches the interface between **dark** (the de
 
 ## Everything stays in your browser
 
-The network you pick, per-chain RPC overrides, theme, and saved pools are all held in your browser's local storage. OpenPendle operates no backend database, account system, tracking, or analytics. The app still makes direct requests to the blockchain RPCs you choose; DefiLlama/CoinGecko for the header ticker; Pendle's market API and, where available, Blockscout while resolving a pasted PT/YT to a pool; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID needed for the rewards lookup. These calls do not upload your saved-pool registry or settings. Clearing site data resets those preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
+The network you pick, per-chain RPC overrides, theme, and saved pools are all held in your browser's local storage. OpenPendle operates no user database, account system, tracking, or analytics. The app downloads its same-origin factory-market snapshot and makes direct requests to the blockchain RPCs you choose; DefiLlama/CoinGecko for the header ticker; Pendle's market API for Explore enrichment and PT/YT pool lookup; where available Blockscout for that lookup; and Merkl when a connected user opens **My positions**. Merkl receives the wallet address and chain ID needed for the rewards lookup. These calls do not upload your saved-pool registry or settings. Clearing site data resets those preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
 
 ::: info OpenPendle is a permissionless frontend
 OpenPendle validates market provenance but cannot vouch for the assets or SY contracts underneath. Experimental — use at your own risk. Not affiliated with Pendle Finance, and it takes no fee of its own.

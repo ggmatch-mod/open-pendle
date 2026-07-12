@@ -66,7 +66,7 @@ export function explorerName(chainId: SupportedChainId): string {
  * point of rendering, never to data used for logic.
  */
 export function clampLabel(s: string, max = 48): string {
-  const cleaned = s.replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+  const cleaned = s.replace(/[\p{Cc}\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/gu, '')
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned
 }
 

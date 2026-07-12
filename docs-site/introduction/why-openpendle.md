@@ -22,7 +22,7 @@ That is the gap. A market can be:
 
 To reach such a market without a dedicated frontend, you would be assembling raw calls to Pendle's router by hand, reading token addresses out of a block explorer, and computing your own expected outputs. That is a high bar, and it is a bar the listed markets do not impose. The asymmetry is the whole point: **the protocol is open to everyone, but the tooling has been open to a subset.**
 
-OpenPendle exists to serve the tail. Paste any Pendle V2 market address, on any of the six supported networks, and it renders the pool and its actions the same way a flagship app renders a listed one — no listing, no curator, no gatekeeper in between. It does not compete with curation; it covers what curation leaves out.
+OpenPendle exists to serve the whole on-chain spectrum, especially the tail. It indexes creation events from every recognized Pendle market-factory generation on its six supported networks, then renders a pool and its actions the same way whether Pendle lists it or not. You can still paste an address directly, including before a new market reaches the next snapshot. It does not compete with curation; it makes curation a visible label instead of an access boundary.
 
 ```mermaid
 flowchart TD
@@ -30,11 +30,12 @@ flowchart TD
   ALL --> LISTED[Team-listed subset<br/>curated, featured]
   ALL --> TAIL[The long tail<br/>unlisted, unreviewed, still tradeable]
   LISTED --> OFF[Official Pendle app<br/>renders the listed subset]
-  TAIL --> OP[OpenPendle<br/>renders any market by address]
-  LISTED -.-> OP
+  ALL --> OP[OpenPendle Explore<br/>indexes recognized factory events]
+  TAIL --> OP
+  LISTED --> OP
 ```
 
-The dashed edge is deliberate: OpenPendle can load a listed market too — a listed market is still just an address. It is simply the only purpose-built way to reach the unlisted ones.
+OpenPendle retains the distinction inside the shared directory: **Pendle-listed** is enrichment from Pendle's catalog, while **Community** means factory-created but absent from that catalog. Neither label is an OpenPendle endorsement.
 
 ## Official Pendle app vs OpenPendle
 
@@ -45,12 +46,12 @@ The two are not rivals; they answer different questions. The official app answer
 | **Operated by** | Pendle Finance | [ggmxbt](https://x.com/ggmxbt) — independent, **not** affiliated with Pendle |
 | **What it is for** | Discovering and using the **curated, team-listed** markets | Reaching **any** Pendle V2 market by address — the long tail curation leaves out |
 | **Market coverage** | The listed subset | Any market that clears the [provenance gate](/reference/architecture), listed or not |
-| **How you find a market** | Browse a curated list | Paste an address, or open one from your local saved-pools registry |
+| **How you find a market** | Browse a curated list | Browse the factory-indexed universe, paste any address, or open your local saved-pools registry |
 | **Curation / review** | Team-listed; a listing decision stands behind each market | **None by design** — no listing, no review; loadable ≠ endorsed |
-| **Discovery / search** | Rich discovery of featured markets | No global directory; you arrive with an address you already have |
-| **Native PENDLE gauge emissions & vePENDLE voting** | Available on team-listed markets | **Not available** — community pools are ineligible; extra rewards come via [Merkl](/create/incentives) |
-| **Backend** | Conventional web stack | **No OpenPendle-operated backend** — no server, database, indexer, accounts, tracking, or analytics |
-| **Data sources** | App's own infrastructure | Public RPC for core reads; scoped public APIs for the ticker, PT/YT pool lookup, and Merkl rewards |
+| **Discovery / search** | Rich discovery of featured markets | Searchable factory-event directory with Pendle-listed vs community source filters |
+| **Native PENDLE gauge emissions & vePENDLE voting** | Available on eligible team-listed markets | The same emissions remain visible on eligible listed markets; community pools are ineligible and use [Merkl](/create/incentives) for extra rewards |
+| **Backend** | Conventional web stack | **No request-time OpenPendle application backend** — a scheduled job publishes a static catalog; no accounts, tracking, analytics, or transaction relay |
+| **Data sources** | App's own infrastructure | Factory events for market inventory; Pendle API for listed enrichment; public RPC for core reads; scoped ticker, lookup, and rewards APIs |
 | **Hosting** | Operated by the team | **Static + hash-routed** — self-hostable on any host or IPFS |
 | **Fees added by the interface** | See Pendle's own terms | **None of its own** — Pendle's protocol fees still apply, enforced by Pendle's contracts |
 | **Best when** | You want a vetted, featured market with the deepest liquidity | You have a specific unlisted market in mind and will do your own diligence |
@@ -69,11 +70,11 @@ There is no server between you and Pendle's contracts, so there is no server tha
 
 Because the app is a static site with **hash-based routing** (URLs look like `openpendle.com/#/...`), it needs no server rewrite rules and runs anywhere static files can be served — including [IPFS](/reference/self-hosting). If any single deployment becomes unavailable, the same build can be hosted elsewhere by anyone, and it behaves identically. A frontend you can copy and rehost is far harder to censor than one that lives at exactly one address someone else controls.
 
-The [Content-Security-Policy](/reference/architecture) reinforces this posture: `script-src 'self' 'wasm-unsafe-eval'` blocks JavaScript `eval()` and `Function`, permitting only WebAssembly (used for cryptography), and fonts are self-hosted so there are zero external font requests. Core reads and transactions use the blockchain RPC you choose. Ancillary public calls go to DefiLlama/CoinGecko for the ticker, Pendle's market API and, where available, Blockscout for PT/YT pool lookup, and Merkl on **My positions**; the Merkl lookup includes the connected wallet address and chain ID. None is an OpenPendle analytics or transaction service.
+The [Content-Security-Policy](/reference/architecture) reinforces this posture: `script-src 'self' 'wasm-unsafe-eval'` blocks JavaScript `eval()` and `Function`, permitting only WebAssembly (used for cryptography), and fonts are self-hosted so there are zero external font requests. Core reads and transactions use the blockchain RPC you choose. Explore downloads the generated factory snapshot, which also supplies the primary PT/YT-to-pool mapping, and uses Pendle's API for optional listing enrichment. Other ancillary public calls go to DefiLlama/CoinGecko for the ticker, Pendle/Blockscout for live lookup fallbacks, and Merkl on **My positions**; the Merkl lookup includes the connected wallet address and chain ID. None is an OpenPendle analytics or transaction service.
 
 ### Longevity
 
-Backends rot. Servers need funding, credentials expire, databases need migration, and indexers drift out of sync with the chain. OpenPendle has **no operated server, database, indexer, or account system** to maintain — it is a bundle of static files whose core market-by-address path reads a public blockchain. If an ancillary API disappears, its ticker, discovery, or reward feature degrades, but the core RPC path does not depend on an OpenPendle service staying alive. That is a dramatically more resilient lifespan and does not depend on the original author keeping a backend running.
+Backends rot. Servers need funding, credentials expire, databases need migration, and indexers drift out of sync with the chain. OpenPendle keeps its indexing boundary small and reproducible: a scheduled job scans factory events and publishes a static artifact, with no continuously running application server, database, or account system. Anyone can regenerate or mirror that artifact. If the job or an ancillary API disappears, discovery becomes stale or degraded, but the core market-by-address RPC path and transaction flow do not depend on it staying alive.
 
 Self-hosting is what makes this concrete. Because anyone can host a copy, the interface's survival is not tied to a single operator's continued attention or ability to pay a bill. The build outlives its deployment. If you care about being able to exit a long-dated position years from now — after maturity, `PT` is still redeemable and an LP position can still be exited (see [Maturity & redemption](/concepts/maturity)) — an interface with no perishable backend is the safer bet for still being usable when you need it.
 

@@ -92,13 +92,15 @@ export default function AboutPage() {
 
         <Section title="Your data & privacy">
           <p>
-            No backend, no accounts, no tracking, no analytics. The pools you remember live only in
-            your browser's local storage; any custom RPC you set stays local too. Outbound requests
-            go to your configured blockchain RPCs, DefiLlama and CoinGecko for the header ticker,
-            Pendle's market API and, where available, Blockscout indexes when resolving a pasted
-            PT/YT to its pool, and Merkl when a connected user opens My positions. Merkl receives the
-            wallet address and chain ID needed to look up rewards. None of these calls are analytics
-            or tracking.
+            No request-time OpenPendle app server, accounts, tracking, or analytics. The pools you
+            remember live only in your browser's local storage; any custom RPC you set stays local
+            too. Explore inventory comes from a same-origin static snapshot generated on a schedule
+            from recognized factory events. Pendle's market API adds listing/display enrichment and
+            PT/YT pool lookup; it does not define which markets exist. Other outbound requests go to
+            your configured blockchain RPCs, DefiLlama and CoinGecko for the header ticker, where
+            available Blockscout indexes for token lookup, and Merkl when a connected user opens My
+            positions. Merkl receives the wallet address and chain ID needed to look up rewards.
+            None of these calls are analytics or tracking.
           </p>
         </Section>
 

@@ -7,8 +7,15 @@
  * persisted preferred chain, while explicit selector clicks also synchronize a
  * connected wallet.
  */
-import { useEffect } from 'react'
-import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import {
+  Link,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { NetworkSelector } from './components/NetworkSelector'
 import { RpcSettings } from './components/RpcSettings'
@@ -24,6 +31,7 @@ import Home from './pages/Home'
 import MarketPage from './pages/MarketPage'
 import TokenPage from './pages/TokenPage'
 import PoolsPage from './pages/PoolsPage'
+import ExplorePage from './pages/ExplorePage'
 import PositionsPage from './pages/PositionsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
@@ -57,6 +65,16 @@ function AppRoutes() {
   const chainAddressRoute = isChainAddressRoute(location.pathname)
   const requestedChainId = chainAddressRoute ? routeChainId(location.search) : undefined
   const { chainId } = useActiveChain()
+  const navigationType = useNavigationType()
+  const previousPathname = useRef(location.pathname)
+
+  useEffect(() => {
+    const pathnameChanged = previousPathname.current !== location.pathname
+    previousPathname.current = location.pathname
+    if (pathnameChanged && navigationType !== 'POP') {
+      window.scrollTo({ top: 0, left: 0 })
+    }
+  }, [location.pathname, navigationType])
 
   useEffect(() => {
     if (requestedChainId === undefined && chainAddressRoute) {
@@ -80,6 +98,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/quickstart" element={<QuickStartPage />} />
+      <Route path="/explore" element={<ExplorePage />} />
       <Route path="/pools" element={<PoolsPage />} />
       <Route path="/positions" element={<PositionsPage />} />
       <Route path="/status" element={<ProtocolStatusPage />} />
@@ -104,12 +123,12 @@ export default function App() {
         className="sticky top-0 z-50 border-b border-hairline backdrop-blur-md"
         style={{ background: 'var(--op-header)' }}
       >
-        <div className="mx-auto flex h-16 max-w-[1160px] items-center justify-between gap-4 px-7">
+        <div className="mx-auto flex h-16 max-w-[1160px] items-center justify-between gap-2 px-3 sm:gap-4 sm:px-7">
           <Logo />
           <div className="flex items-center gap-2">
             <Link
               to="/quickstart"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ✦
@@ -117,8 +136,17 @@ export default function App() {
               Quick start
             </Link>
             <Link
+              to="/explore"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] px-[13px] text-[13px] font-medium text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.12)] xl:inline-flex"
+            >
+              <span aria-hidden className="text-[12px]">
+                ◇
+              </span>
+              Explore
+            </Link>
+            <Link
               to="/positions"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ◈
@@ -127,7 +155,7 @@ export default function App() {
             </Link>
             <Link
               to="/pools"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 lg:inline-flex"
+              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ★
@@ -136,29 +164,33 @@ export default function App() {
             </Link>
             <Link
               to="/create"
-              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] lg:inline-flex"
+              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] xl:inline-flex"
               style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
             >
               Create pool
             </Link>
-            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline lg:block" />
-            <div className="hidden items-center gap-2 lg:flex">
+            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline xl:block" />
+            <div className="hidden items-center gap-2 xl:flex">
               <NetworkSelector />
               <RpcSettings />
             </div>
             <ThemeToggle />
-            <ConnectButton showBalance={false} accountStatus="address" chainStatus="icon" />
+            <ConnectButton
+              showBalance={false}
+              accountStatus={{ smallScreen: 'avatar', largeScreen: 'address' }}
+              chainStatus="none"
+            />
             <MobileNav />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1160px] flex-1 px-7">
+      <main className="mx-auto w-full max-w-[1160px] flex-1 px-4 sm:px-7">
         <AppRoutes />
       </main>
 
       <footer className="border-t border-hairline bg-bg-2">
-        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-7 py-7">
+        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-4 py-7 sm:px-7">
           <div className="flex items-center gap-[11px]">
             <BrandMark className="h-[22px] w-[22px] shrink-0" />
             <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
