@@ -320,6 +320,20 @@ export default function Home() {
               curation sits in the transaction path — core pool data comes straight from the
               chain, and every transaction is simulated before you sign.
             </p>
+            <div
+              role="note"
+              className="mt-4 flex max-w-[46ch] items-start gap-2.5 rounded-[12px] border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3.5 py-3 text-[13px] leading-relaxed text-warn"
+            >
+              <span
+                aria-hidden
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--op-warn-bd)] text-[11px] font-bold"
+              >
+                !
+              </span>
+              <p className="font-semibold">
+                OpenPendle is experimental — use it at your own risk.
+              </p>
+            </div>
             <div className="mt-7">
               <label className="mb-2 block font-mono text-[10.5px] uppercase tracking-[.08em] text-faint">
                 Load any market
