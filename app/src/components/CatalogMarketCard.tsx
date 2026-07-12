@@ -6,7 +6,22 @@ import {
 } from '../lib/catalog'
 import { supportedChain } from '../lib/addresses'
 import { marketPath } from '../lib/routes'
+import type { SupportedChainId } from '../lib/types'
 import { clampLabel, formatCompact, formatDate, formatPercent, shortAddress } from './format'
+
+/**
+ * A quiet, stable network cue for the directory cards. The text label remains
+ * the primary identifier; colour is deliberately secondary so the badge stays
+ * legible in either theme and never relies on colour alone.
+ */
+const CHAIN_BADGE_RGB: Record<SupportedChainId, string> = {
+  1: 'var(--op-chain-ethereum-rgb)',
+  56: 'var(--op-chain-bsc-rgb)',
+  143: 'var(--op-chain-monad-rgb)',
+  8453: 'var(--op-chain-base-rgb)',
+  9745: 'var(--op-chain-plasma-rgb)',
+  42161: 'var(--op-chain-arbitrum-rgb)',
+}
 
 function lifecycleLabel(market: CatalogMarket, now: number): 'Live' | 'Matured' | 'Unknown' {
   const lifecycle = currentCatalogMarketLifecycle(market, now)
@@ -42,6 +57,7 @@ export function CatalogMarketCard({
   const marketName = clampLabel(market.name || 'Unnamed market', 160)
   const protocolName = clampLabel(market.protocol || 'Unknown protocol', 120)
   const chainName = clampLabel(chain?.name ?? `chain ${market.chainId}`, 64)
+  const chainBadgeRgb = CHAIN_BADGE_RGB[market.chainId]
 
   return (
     <Link
@@ -78,9 +94,19 @@ export function CatalogMarketCard({
           </div>
         </div>
         <span
-          className="shrink-0 rounded-full border border-hairline-strong bg-surface-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-fg"
           title={chainName}
+          style={{
+            borderColor: `rgba(${chainBadgeRgb}, 0.62)`,
+            backgroundColor: `rgba(${chainBadgeRgb}, 0.10)`,
+            color: `rgb(${chainBadgeRgb})`,
+          }}
         >
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: `rgb(${chainBadgeRgb})` }}
+          />
           {chain?.shortName ?? `#${market.chainId}`}
         </span>
       </div>
