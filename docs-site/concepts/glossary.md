@@ -34,7 +34,7 @@ See **TWAP oracle** and **oracle init**. A fresh market starts with observation 
 A Pendle V2 market created permissionlessly — no whitelist, no approval, and **unreviewed by anyone** — that Pendle's official app does not list. These are the markets OpenPendle is built to reach. Anyone can create one, and interacting with them can lose you funds. See [Community pools & incentives](/concepts/community-pools).
 
 **Content-Security-Policy (CSP).**
-The browser policy OpenPendle ships with. `script-src` is `'self' 'wasm-unsafe-eval'`, which blocks JavaScript `eval()` and `Function()` while permitting **WebAssembly** (used for cryptography). Fonts are self-hosted, so there are zero external font requests. See [Architecture](/reference/architecture).
+The browser policy OpenPendle ships with. `script-src` allows the same-origin app, Cloudflare Web Analytics, and `'wasm-unsafe-eval'` for cryptography while blocking JavaScript `eval()` and `Function()`. Fonts are self-hosted. See [Architecture](/reference/architecture).
 
 ## E
 

@@ -1,6 +1,6 @@
 # Self-hosting
 
-OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle request-time application server, user database, account system, or analytics. Every build is a plain folder of files — including a versioned factory-market snapshot — that any web server, static host, or content-addressed network can serve as-is. There is no OpenPendle runtime or server process to keep alive behind the interface. A separate scheduled job can regenerate the public catalog artifact; the browser still makes the public RPC and ancillary API requests documented below.
+OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle request-time application server, user database, or account system. Every build is a plain folder of files — including a versioned factory-market snapshot — that any web server, static host, or content-addressed network can serve as-is. There is no OpenPendle runtime or server process to keep alive behind the interface. The stock build includes Cloudflare Web Analytics, which self-hosters can remove. A separate scheduled job can regenerate the public catalog artifact; the browser still makes the public RPC and ancillary API requests documented below.
 
 Running your own copy is also the strongest guarantee OpenPendle can offer. The hosted site at [openpendle.com](https://openpendle.com) is a convenience, not a dependency. Because the code is open-source under the [GPL-3.0-or-later](#license-and-what-openpendle-ships) license and the build is fully self-contained, you can clone it, read every line, build it yourself, and serve it from infrastructure you control — so the interface cannot be changed out from under you, taken down, or made to depend on any party but the chain and the RPC you point at.
 
@@ -164,10 +164,10 @@ Self-hosting does not weaken any of OpenPendle's safety properties, because thos
 
 | Property | What it means for a self-hosted copy |
 | --- | --- |
-| **Strict Content-Security-Policy** | The app sets `script-src 'self' 'wasm-unsafe-eval'`. That blocks JavaScript `eval()` and `Function()` and forbids loading remote scripts; it permits only WebAssembly instantiation (used for cryptography). No third-party or injected script can run in your copy. |
+| **Strict Content-Security-Policy** | The app blocks JavaScript `eval()` and `Function()`, permits WebAssembly used for cryptography, and allowlists Cloudflare Web Analytics as its only remote script. Self-hosters can remove the beacon and its CSP source if they do not want analytics. |
 | **Self-hosted fonts** | Fonts ship inside the bundle. There are **zero** external font requests — nothing is fetched from a font CDN, so a font provider cannot see or gate your users. |
 | **Injected-only wallets** | OpenPendle talks directly to a browser wallet's injected EIP-6963 provider. There is **no WalletConnect and no third-party relay** in the connection path. See [Connecting a wallet](/guides/connecting-a-wallet). |
-| **No OpenPendle request-time backend to trust** | There is no OpenPendle application server, user database, account system, analytics, or transaction relay. Core state is read from the chain via public RPC that **you** configure; the directory is a replaceable static artifact. |
+| **No OpenPendle request-time backend to trust** | There is no OpenPendle application server, user database, account system, or transaction relay. The stock static build includes Cloudflare Web Analytics. Core state is read from the chain via public RPC that **you** configure; the directory is a replaceable static artifact. |
 
 The outbound requests a stock self-hosted copy makes are:
 

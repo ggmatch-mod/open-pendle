@@ -39,7 +39,7 @@ These are the design commitments that define how OpenPendle behaves. Each one is
 
 ### No OpenPendle request-time backend
 
-OpenPendle operates no request-time application server, account database, tracking, analytics, or transaction relay. Core market state, balances, quotes, and simulations come directly from the chain through public RPC endpoints. Explore reads a static snapshot produced by a scheduled factory-event index job; Pendle's market API enriches it with listed status and display metadata rather than defining the inventory. The stock app also calls DefiLlama/CoinGecko for aggregate header metrics, Pendle's API and where available Blockscout for PT/YT-to-pool resolution, and Merkl when a connected user opens **My positions**. That Merkl lookup includes the wallet address and chain ID. See [How OpenPendle works](/reference/architecture) for the complete data-flow disclosure.
+OpenPendle operates no request-time application server, account database, or transaction relay. Core market state, balances, quotes, and simulations come directly from the chain through public RPC endpoints. Explore reads a static snapshot produced by a scheduled factory-event index job; Pendle's market API enriches it with listed status and display metadata rather than defining the inventory. The stock app also calls DefiLlama/CoinGecko for aggregate header metrics, Pendle's API and where available Blockscout for PT/YT-to-pool resolution, Merkl when a connected user opens **My positions**, and Cloudflare Web Analytics for page-view and performance metrics. That Merkl lookup includes the wallet address and chain ID. See [How OpenPendle works](/reference/architecture) for the complete data-flow disclosure.
 
 ### Provenance gate (validation, not endorsement)
 
@@ -83,7 +83,7 @@ OpenPendle adds nothing on top of a trade. Pendle's own protocol fees still appl
 | **License** | Open source, GPL-3.0-or-later |
 | **Cost** | Free; **no fee of its own** (Pendle's protocol fees still apply) |
 | **Built by** | [ggmxbt](https://x.com/ggmxbt) — **not** affiliated with Pendle Finance |
-| **Backend** | No OpenPendle request-time application server, account database, tracking, analytics, or transaction relay; Explore uses a generated static snapshot |
+| **Backend** | No OpenPendle request-time application server, account database, or transaction relay; Explore uses a generated static snapshot and Cloudflare provides page-view/performance analytics |
 | **Data sources** | Factory-event snapshot for inventory; Pendle API for listed enrichment; public RPC for live reads; DefiLlama/CoinGecko for the ticker; Pendle/Blockscout for token lookup; Merkl for rewards on My positions |
 | **Wallets** | Injected-only (MetaMask, Rabby, Brave, any EIP-6963) — no WalletConnect |
 | **Networks** | Ethereum, BNB Smart Chain, Monad, Base, Plasma, Arbitrum |

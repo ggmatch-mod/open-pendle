@@ -123,7 +123,7 @@ An RPC endpoint answers the app's read queries, so a hostile or broken endpoint 
 
 ### Outbound requests
 
-RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, uses keyless **Blockscout** log APIs as a lookup fallback where available, and calls **Merkl** when a connected user opens **My positions**. The Merkl reward lookup includes the wallet address and chain ID. OpenPendle sends no analytics or tracking beacon. A strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks JavaScript `eval()`/`Function`, and fonts are self-hosted, so there are zero external font requests. See [How OpenPendle works](/reference/architecture).
+RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, uses keyless **Blockscout** log APIs as a lookup fallback where available, calls **Merkl** when a connected user opens **My positions**, and uses **Cloudflare Web Analytics** for page-view and performance metrics. The Merkl reward lookup includes the wallet address and chain ID. The Content-Security-Policy blocks JavaScript `eval()`/`Function` and allowlists Cloudflare's analytics script; fonts remain self-hosted. See [How OpenPendle works](/reference/architecture).
 
 ## Verify for yourself
 

@@ -87,7 +87,7 @@ Pendle's own protocol fees still apply, exactly as they would through any other 
 
 ## Your data &amp; privacy
 
-OpenPendle operates no request-time application server, user database, account system, tracking, analytics service, or transaction relay. A scheduled batch indexer publishes a public static factory-market snapshot for Explore; it contains chain-derived market data, not user data. Core market state, balances, quotes, and simulations are still read directly from the chain through public RPC endpoints. Ancillary public services are contacted for specific features, as disclosed below; they are not OpenPendle analytics and are not in the transaction-signing path.
+OpenPendle operates no request-time application server, user database, account system, or transaction relay. A scheduled batch indexer publishes a public static factory-market snapshot for Explore; it contains chain-derived market data, not user data. Core market state, balances, quotes, and simulations are still read directly from the chain through public RPC endpoints. Ancillary public services, including Cloudflare Web Analytics for page-view and performance metrics, are contacted for the specific purposes disclosed below and are not in the transaction-signing path.
 
 What stays local, and where:
 
@@ -112,7 +112,7 @@ Reads still go to whatever RPC endpoint you are pointed at, and that endpoint ca
 
 Two hardening choices reduce the interface's own attack surface, and are worth knowing about:
 
-- **Content-Security-Policy.** `script-src 'self' 'wasm-unsafe-eval'` blocks JavaScript `eval()` and `Function`, while permitting WebAssembly (used for crypto). No remote script can be pulled or run.
+- **Content-Security-Policy.** The policy blocks JavaScript `eval()` and `Function`, permits WebAssembly used for crypto, and allowlists Cloudflare Web Analytics as the only remote script.
 - **Self-hosted fonts.** Fonts are bundled with the app; there are **zero** external font requests.
 
 Wallet connections are **injected-only** — a direct connection to a browser wallet with **no WalletConnect and no third-party relay** — so there is no external wallet service in the path either. See [Connecting a wallet](/guides/connecting-a-wallet).

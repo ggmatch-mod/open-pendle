@@ -2,7 +2,7 @@
 
 OpenPendle is a free, open-source (`GPL-3.0-or-later`) web interface to the full Pendle V2 market universe on its six supported chains. Its factory-indexed directory includes both Pendle-listed markets and permissionless [community pools](/concepts/community-pools) that the official app does not list. This page is the architecture and trust-model deep-dive: what the interface is, what it deliberately is **not**, and every boundary it draws around your funds and your privacy.
 
-The short version is a single design commitment: OpenPendle is a **thin, verifiable client** in front of contracts it does not own. It ships **no smart contracts of its own** and adds **no fee of its own** — it calls Pendle's already-deployed contracts with hand-written ABIs, and every Pendle protocol fee still applies. OpenPendle operates no request-time application server, account system, database, analytics service, or transaction relay. Core market reads and transactions go directly through the RPC endpoint you choose. Explore consumes a versioned static catalog built on a schedule from factory events, and a few clearly scoped public services provide enrichment, ticker, token-discovery, and reward data.
+The short version is a single design commitment: OpenPendle is a **thin, verifiable client** in front of contracts it does not own. It ships **no smart contracts of its own** and adds **no fee of its own** — it calls Pendle's already-deployed contracts with hand-written ABIs, and every Pendle protocol fee still applies. OpenPendle operates no request-time application server, account system, database, or transaction relay. Core market reads and transactions go directly through the RPC endpoint you choose. Explore consumes a versioned static catalog built on a schedule from factory events, and clearly scoped public services provide enrichment, ticker, token-discovery, rewards, and Cloudflare page-view/performance analytics.
 
 ::: info The trust model in one sentence
 OpenPendle reads and writes Pendle V2 directly from your browser, validates that a market genuinely came from a Pendle factory, simulates every transaction before you sign, and defaults to exact-amount approvals — but it **validates provenance, not the asset or SY underneath**, and it is **not affiliated with, endorsed by, or operated by Pendle Finance**.
@@ -15,7 +15,7 @@ Most of OpenPendle's security properties are the direct consequence of things it
 - **No OpenPendle request-time backend.** There is no OpenPendle server that holds your data, brokers transactions, or sits between your wallet and Pendle.
 - **No live application database.** Core pool state, balances, quotes, provenance, and transaction simulations are read live from the chain. A scheduled, stateless catalog job indexes recognized factories' `CreateNewMarket` logs into a static JSON snapshot for discovery and PT/YT-to-pool lookup. Pendle's public API enriches those records; where available, public Blockscout indexes provide a lookup fallback beyond the snapshot's indexed head.
 - **No accounts.** There is nothing to sign up for and no identity to link.
-- **No OpenPendle tracking or analytics.** The interface sends no telemetry or analytics beacon. As with any direct web request, the RPC and ancillary public services can observe the requests sent to them; the exact calls are listed below.
+- **Limited interface analytics.** Cloudflare Web Analytics receives page-view and performance metrics. OpenPendle does not intentionally include wallet addresses, saved pools, or settings in that beacon. As with any direct web request, the RPC and ancillary public services can observe the requests sent to them; the exact calls are listed below.
 - **No custody.** OpenPendle never holds funds. Your wallet signs; the transaction goes straight to Pendle's contracts.
 - **No contracts of its own.** OpenPendle deploys nothing. It calls Pendle's deployed contracts using ABIs written by hand and checked into the [open-source repository](https://github.com/ggmatch-mod/open-pendle).
 
@@ -151,10 +151,10 @@ Full RPC and network details are on [Networks & contracts](/reference/networks-a
 OpenPendle ships a strict **Content-Security-Policy**. The script directive is:
 
 ```
-script-src 'self' 'wasm-unsafe-eval'
+script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com
 ```
 
-- `'self'` restricts executable script to the app's own origin — no remote script can be pulled in or run.
+- `'self'` restricts the application bundle to the app's own origin; the only allowlisted remote script is Cloudflare Web Analytics.
 - `'wasm-unsafe-eval'` permits **WebAssembly** instantiation (used for cryptography) **without** enabling JavaScript `eval()` or the `Function` constructor. The dynamic-string code paths that malicious script typically abuses are blocked; WASM, which cannot be used the same way, is allowed for the crypto it needs.
 
 **Fonts are self-hosted.** They are bundled with the app, so there are **zero external font requests** — no font CDN sees your visits, and the app renders correctly offline or from an air-gapped mirror.
@@ -171,8 +171,9 @@ Given all of the above, the complete list of things that leave your browser is s
 | **Pendle market API** | Enriching Explore; resolving a pasted PT/YT | Optional listed status, names, icons, TVL/APY metadata, and token-to-pool lookup |
 | **Keyless Blockscout log APIs** | Pendle's index does not resolve that PT/YT on a supported Blockscout chain | Factory/event-topic lookup for community pools |
 | **Merkl rewards API** | A connected user opens **My positions** | The wallet address and chain ID required to retrieve claimable rewards and proofs |
+| **Cloudflare Web Analytics** | Loading and navigating the interface | Privacy-focused page-view and performance metrics |
 
-OpenPendle sends no analytics beacon and uses no error-reporting endpoint, font or script CDN, or wallet relay. These ancillary services are read-only data sources and are not in the transaction-signing path. Like the RPC provider, each service can observe ordinary request metadata such as your IP address; Merkl additionally receives the connected wallet address and chain ID described above.
+OpenPendle uses Cloudflare Web Analytics but no error-reporting endpoint, font CDN, or wallet relay. The analytics beacon is not in the transaction-signing path and is not intentionally sent wallet addresses. These ancillary services can observe ordinary request metadata such as your IP address; Merkl additionally receives the connected wallet address and chain ID described above.
 
 ::: info Everything else is local
 Your active network (`openpendle.chain`), RPC overrides (`openpendle.rpc.<chainId>`), and saved pools (`openpendle.pools.v1`) all live in your browser's `localStorage`. Those stored settings and the saved-pool registry are not uploaded to any ancillary service; the registry leaves your browser only when you explicitly export or share it. See [Saved pools & privacy](/guides/saved-pools).
@@ -191,7 +192,7 @@ Pulling the pieces together, here is the honest accounting of what you are and a
 | You are trusting | You are **not** relying on OpenPendle for |
 | --- | --- |
 | Pendle V2's deployed contracts (Router, factories, oracle) | Any judgment about whether an asset or SY is safe |
-| The RPC endpoint you point at, the published catalog artifact, and the scoped public services listed above when their features run | An OpenPendle request-time backend, account database, analytics service, or transaction relay |
+| The RPC endpoint you point at, the published catalog artifact, and the scoped public services listed above when their features run | An OpenPendle request-time backend, account database, or transaction relay |
 | Your own wallet and its signing | A WalletConnect or third-party relay (there is none) |
 | The static bundle you loaded (verifiable, self-hostable) | Endorsement of any market — provenance is not approval |
 | Pendle's governance over its factories and SY proxies | Analytics or tracking of your activity (there is none) |

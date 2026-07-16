@@ -30,7 +30,7 @@ features:
     details: Explore uses a generated factory-event snapshot. Core pool data comes straight from your RPC, every transaction is simulated, and no request-time server or relay sits in the signing path.
   - icon: 🔒
     title: Yours and private
-    details: No OpenPendle accounts, tracking, or analytics. Saved pools and settings live only in your browser's local storage.
+    details: No OpenPendle accounts or user-data backend. Saved pools and settings stay in your browser; Cloudflare provides page-view and performance analytics.
   - icon: 🎁
     title: A public good
     details: Free everywhere, GPL-3.0, and it takes no fee of its own. Not affiliated with Pendle Finance.

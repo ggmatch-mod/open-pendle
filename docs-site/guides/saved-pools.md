@@ -90,13 +90,13 @@ flowchart LR
 
 ## The privacy model
 
-Everything above rests on one architectural fact: **OpenPendle operates no user-data backend.** There is no user database, account, server-side session, analytics, or tracking service. Explore's scheduled index job publishes only a public, chain-derived static snapshot. The saved-pool registry is a local browser data structure; it is not uploaded to that snapshot job, the RPC, or ancillary public APIs.
+Everything above rests on one architectural fact: **OpenPendle operates no user-data backend.** There is no user database, account, or server-side session. Explore's scheduled index job publishes only a public, chain-derived static snapshot. The saved-pool registry is a local browser data structure; it is not uploaded to that snapshot job, the RPC, ancillary public APIs, or Cloudflare Web Analytics.
 
 Concretely:
 
 - **Your saved pools are yours.** The registry lives only in `openpendle.pools.v1` in your browser. It is not mirrored anywhere. It moves only when **you** export or share it.
 - **No accounts, no identity.** You never sign up, log in, or create a profile. There is nothing to link your saved pools, your wallet, or your activity to a server-side identity, because none exists.
-- **No tracking or analytics.** OpenPendle does not run analytics scripts or telemetry. Fonts are self-hosted, so even loading the interface makes zero external font requests, and a strict Content-Security-Policy (`script-src 'self' 'wasm-unsafe-eval'`) blocks arbitrary script injection.
+- **No saved-pool telemetry.** Saved pools are not uploaded to OpenPendle or included in analytics. The interface uses Cloudflare Web Analytics for page-view and performance metrics; fonts remain self-hosted, and the Content-Security-Policy allowlists only the app code and Cloudflare's analytics script.
 
 ### Network requests the app makes
 
@@ -106,6 +106,7 @@ For all of the above to hold, the app has to be disciplined about what it talks 
 2. **The header stats ticker.** For the small metrics ticker in the header only, OpenPendle fetches Pendle metrics from the **DefiLlama** and **CoinGecko** public APIs.
 3. **Explore and PT/YT pool lookup.** Explore downloads a same-origin snapshot derived from factory events and uses Pendle's public market API for listed enrichment. Pendle's API also helps the token-actions page map a pasted PT/YT to a pool; where supported, keyless **Blockscout** log APIs provide a lookup fallback.
 4. **Merkl rewards.** When a connected user opens **My positions**, OpenPendle sends the wallet address and chain ID to Merkl's public API to retrieve claimable rewards and proofs.
+5. **Cloudflare Web Analytics.** Loading and navigating the interface sends page-view and performance metrics through Cloudflare's analytics beacon; saved-pool contents and wallet addresses are not intentionally included.
 
 Saving, forgetting, exporting, and importing are **local operations** — they read and write `localStorage`. Your saved-pools registry is never transmitted to any of the services above as a side effect of saving; it is exposed only by the explicit **Export** and **`?import=` share** actions you choose to take.
 
