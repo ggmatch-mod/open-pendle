@@ -1,8 +1,12 @@
 # Buying PT (fixed yield)
 
-Buying **PT** swaps a token you hold into a market's [Principal Token](/concepts/principal-tokens) — the fixed-income leg of a Pendle position. You pay below par now and, if you hold to maturity, redeem **1:1 for the underlying**, locking in a fixed yield that is fully known at the moment you sign. This guide walks the swap-to-PT flow end to end in OpenPendle: choosing the action, entering an amount, reading the quote, approving the exact spend, reviewing the simulation, signing, and then what you hold and how you redeem when the market matures.
+Buying **PT** swaps a token you hold immediately through a market's AMM into its [Principal Token](/concepts/principal-tokens) — the fixed-income leg of a Pendle position. You pay below par now and, if you hold to maturity, redeem **1:1 for the underlying**, locking in a fixed yield that is fully known at execution. This guide walks that immediate swap-to-PT flow end to end in OpenPendle: choosing the action, entering an amount, reading the quote, approving the exact spend, reviewing the simulation, signing, and then what you hold and how you redeem when the market matures.
 
 This is a guide, not a concept page. It assumes you already know what PT is and why a discount becomes a fixed rate. If that is new, read [Principal Tokens (PT)](/concepts/principal-tokens) first — it derives the fixed-yield mechanic from first principles. Here we focus only on *where to click and what each field means*.
+
+::: info Immediate swap, not a limit order
+This guide takes the AMM's current executable quote. A [PT limit order](/guides/limit-orders) instead signs a PT ↔ SY order for a target APY and waits for a taker. It is available only where Pendle's live support service approves the exact market and direction—official listing alone is not enough—and it does not reserve your funds.
+:::
 
 ::: warning Community pools are unreviewed — read the trust panel first
 Buying PT locks your capital into whatever asset the market wraps until you sell or redeem. OpenPendle's [provenance gate](/reference/architecture) verifies a market was created by a Pendle factory it recognizes — it **validates provenance, not the asset or SY contract underneath**. A provenance-valid [community pool](/concepts/community-pools) can still wrap a broken, malicious, or exotic asset, and "par" is only ever worth whatever that underlying turns out to be worth. Experimental — use at your own risk. Read [Risks & disclosures](/reference/risks) and the pool's trust panel before you sign. Not affiliated with Pendle Finance.
@@ -29,6 +33,7 @@ On the open market, select the action that swaps a token **into PT** — the fix
 | Action | What you get | When to use it |
 | --- | --- | --- |
 | **Swap → PT** | A fixed-yield [PT](/concepts/principal-tokens) position | You want a known return to maturity — this guide |
+| **Limit order** | A signed PT ↔ SY order targeting an APY | You can wait for execution and Pendle's support check approves this market — see [PT limit orders](/guides/limit-orders) |
 | **Swap → YT** | A variable [yield-exposure](/concepts/yield-tokens) position | You want exposure to the underlying's yield instead |
 | **Mint** | `PT + YT` together from SY or the underlying | You want both legs at once — see [Minting & redeeming](/guides/minting-redeeming) |
 | **Add liquidity** | An [LP](/concepts/liquidity-and-amm) position | You want swap fees and any Merkl incentives, not a fixed rate |
@@ -58,7 +63,7 @@ The quote is the heart of this action. Before you commit anything, it tells you 
 | **Price / discount to par** | The per-PT price below 1 — the discount that *is* your yield. |
 
 ::: info "Implied APY" is arithmetic, not a promise
-The implied APY is derived from `price → par` over the time remaining to maturity. It is **not** a rate the protocol pays you or guarantees — it is the fixed return baked into the discount at the price you see. When you sign, the implied APY at that block becomes *your* locked rate to maturity. See the [PT concept page](/concepts/principal-tokens) for the derivation.
+The implied APY is derived from `price → par` over the time remaining to maturity. It is **not** a rate the protocol pays you or guarantees — it is the fixed return baked into the discount at the price you see. When the swap executes, the implied APY at its executed price becomes *your* locked rate to maturity. See the [PT concept page](/concepts/principal-tokens) for the derivation.
 :::
 
 The whole point of a PT buy is that the maturity payoff in underlying terms is knowable in advance. If you hold to maturity, the "amount at maturity" line is what you receive — regardless of whether the underlying's variable yield ran hot or cold in between. That variability now belongs to whoever holds the [YT](/concepts/yield-tokens).
@@ -67,7 +72,7 @@ The whole point of a PT buy is that the maturity payoff in underlying terms is k
 
 If your input token is an ERC-20, the router needs an allowance to move it. OpenPendle requests an **exact-amount** approval — scoped to precisely the amount you are spending on this trade. It does **not** request an unlimited allowance.
 
-- The spender is Pendle's **Router V4** at `0x888888888889758F76e7103c6CbF23ABbF58F946` (the same address on all six chains) — the contract that executes all Pendle trades, liquidity, and exits.
+- The spender is Pendle's **Router V4** at `0x888888888889758F76e7103c6CbF23ABbF58F946` (the same address on all six chains) — the contract that executes immediate AMM trades, liquidity, and exits. Limit orders use the separate Limit Router.
 - You will typically sign **two** transactions: first the approval, then the swap. This is normal ERC-20 behaviour.
 - If your input is the chain's **native coin** (e.g. ETH), there is no ERC-20 approval — native value is sent with the swap itself, so you sign only once.
 
@@ -171,14 +176,16 @@ A lower PT price means a *deeper* discount and a *higher* implied APY; a price n
 
 - **Do I need to hold SY first?** No. The swap-to-PT route prices your input token into PT for you and delivers PT to your wallet. Holding SY yourself is only relevant if you want to [mint `PT + YT`](/guides/minting-redeeming) directly.
 - **Can I exit before maturity?** Yes — sell PT back into the AMM at the current price, which re-introduces the price risk you avoided by holding. Only holding to maturity delivers the fixed outcome.
+- **Could I set a target APY instead?** Only on the dynamically supported subset. A PT ↔ SY limit order may fill partially, fully, or not at all; placement reserves no funds. See [PT limit orders](/guides/limit-orders).
 - **Is the fixed yield risk-free?** No. It removes yield-*rate* uncertainty but leaves the asset itself, pre-maturity price moves, and SY/provenance risk intact. See the [PT concept page](/concepts/principal-tokens) and [Risks & disclosures](/reference/risks).
-- **Where do Pendle's fees go?** They are Pendle's, enforced by Pendle's contracts and already in your quote. OpenPendle takes no fee of its own.
+- **Where do Pendle's fees go?** They are Pendle's, enforced by Pendle's contracts and already in this AMM quote. Pendle's mutable limit-order fee is a separate path. OpenPendle takes no fee of its own.
 
 ## See also
 
 - [Principal Tokens (PT)](/concepts/principal-tokens) — what PT is and why a discount is a fixed yield, from first principles.
 - [Maturity & redemption](/concepts/maturity) — what happens at par and how redemption works after maturity.
 - [Opening a pool](/guides/opening-a-pool) — loading a market and passing the provenance gate.
+- [PT limit orders](/guides/limit-orders) — the target-APY alternative to an immediate PT ↔ SY swap.
 - [Buying YT (yield exposure)](/guides/buying-yt) — the variable-yield counterpart to this action.
 - [Minting & redeeming](/guides/minting-redeeming) — splitting SY into `PT + YT` and recombining before maturity.
 - [Risks & disclosures](/reference/risks) — please read before you transact.

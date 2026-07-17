@@ -2,7 +2,7 @@
 
 Every session in OpenPendle starts the same way: you open a market. You can browse the factory-indexed universe in [Explore](/guides/exploring-markets), or open any listed or unlisted market directly by address. This guide covers the direct-address path: where to get an address, what happens when you paste one, how OpenPendle screens a market at the **provenance gate**, what the pool view loads, and — the part that actually protects your funds — how to read the **trust panel** before you decide a pool is worth transacting on.
 
-This is a guide, not a concept primer. It assumes you already know what [PT](/concepts/principal-tokens), [YT](/concepts/yield-tokens), and [SY](/concepts/standardized-yield) are; if any of those are new, read [How Pendle works](/concepts/how-pendle-works) first and come back. Everything here is about *doing* — no wallet required until you actually transact.
+This is a guide, not a concept primer. It assumes you already know what [PT](/concepts/principal-tokens), [YT](/concepts/yield-tokens), and [SY](/concepts/standardized-yield) are; if any of those are new, read [How Pendle works](/concepts/how-pendle-works) first and come back. Everything here is about *doing* — no wallet required until you authorize an on-chain action or limit order.
 
 ::: warning Loadable is not the same as safe
 OpenPendle will only ever load and let you act on a market whose **provenance** it can verify — that a Pendle factory it recognizes created it. That check says nothing about whether the **asset or the SY underneath** is sound. A pool that opens cleanly, passes the gate, and renders a full trust panel can still wrap a broken, exotic, or outright malicious asset. Community pools are permissionless and unreviewed — anyone can create one, and interacting with them can lose you funds. Read the trust panel below before you commit anything, and read [Risks & disclosures](/reference/risks) before you sign. Not affiliated with Pendle Finance.
@@ -89,7 +89,7 @@ Because OpenPendle has [no request-time application backend or transaction relay
 | **Implied APY** | Derived from the PT price | The fixed yield implied by the current PT price — a live reading, never a promise. |
 | **Underlying / SY details** | The SY | The wrapped asset, its decimals, and the tokens the SY accepts in and out. |
 | **Factory provenance** | The market | The factory that deployed the market — the field the gate validated. |
-| **Available actions** | Derived from state | Mint / redeem, swap to PT or YT, add / remove liquidity — or, after maturity, redeem PT and exit LP. |
+| **Available actions** | Derived from state and feature support | Mint / redeem, immediate swaps to PT or YT, add / remove liquidity, and—only when Pendle's live service approves the market and direction—PT ↔ SY limit orders. After maturity, redeem PT and exit LP. |
 
 Two things to keep in mind about this data:
 
@@ -164,17 +164,20 @@ The saved-pool registry leaves your browser only when *you* choose to export or 
 
 ## After it loads: what you can do
 
-With a pool open and its trust panel read, connect a wallet to act on it. OpenPendle is **injected-only** — it talks to a browser wallet directly, with no WalletConnect (see [Connecting a wallet](/guides/connecting-a-wallet)). Every action behaves the same way: quotes update live as you type, the transaction is **simulated against the live chain before you sign**, and token approvals default to the **exact amount**. Unlimited approval requires an explicit settings opt-in and leaves greater standing exposure. All trades, liquidity, and exits route through Pendle's **Router V4** (`0x888888888889758F76e7103c6CbF23ABbF58F946`). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply.
+With a pool open and its trust panel read, connect a wallet to act on it. OpenPendle is **injected-only** — it talks to a browser wallet directly, with no WalletConnect (see [Connecting a wallet](/guides/connecting-a-wallet)). Immediate on-chain actions quote live as you type, are **simulated against the live chain before you sign**, and default token approvals to the **exact amount**. Unlimited approval requires an explicit settings opt-in and leaves greater standing exposure. AMM trades, liquidity, and exits route through Pendle's **Router V4** (`0x888888888889758F76e7103c6CbF23ABbF58F946`). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply.
+
+A PT limit order is different: it is a PT ↔ SY EIP-712 message published to Pendle's hosted API for later filling through the Limit Router. OpenPendle exposes it only when Pendle's live support response matches the exact market and direction—official listing alone is not enough—and validates its fields, signer, fee root, and local/on-chain hash before submission. Placement does **not** reserve or escrow funds. See [PT limit orders](/guides/limit-orders).
 
 From a loaded, in-flight pool you can:
 
-- **Swap to PT** for a fixed yield locked in at purchase — see [Buying PT](/guides/buying-pt).
+- **Swap to PT immediately** through the AMM for a fixed yield locked in at execution — see [Buying PT](/guides/buying-pt).
+- **Place a supported PT limit order** for a target APY without taking the current quote immediately — see [PT limit orders](/guides/limit-orders).
 - **Swap to YT** for yield exposure — see [Buying YT](/guides/buying-yt).
 - **Mint / redeem** — split SY (or the underlying) into `PT + YT`, or recombine them, any time before maturity — see [Minting & redeeming](/guides/minting-redeeming).
 - **Add / remove liquidity** to earn swap fees and any Merkl incentives — see [Providing liquidity](/guides/providing-liquidity).
 
 ::: warning Opening is free; signing is not
-Steps 1 through 6 need no wallet and move no funds — you can browse and read every trust panel with nothing connected. The moment you connect and sign, you are transacting against a permissionless, unreviewed market. Simulation shows the *expected* result; it cannot make an unsafe asset safe. Only sign after you have read the trust panel and understand the asset.
+Steps 1 through 6 need no wallet and move no funds — you can browse and read every trust panel with nothing connected. The moment you connect and sign, you are authorizing an on-chain action or an executable order against a permissionless, unreviewed market. Simulation or order validation shows the *expected mechanics*; neither can make an unsafe asset safe. Only sign after you have read the trust panel and understand the asset.
 :::
 
 ## Next
@@ -183,5 +186,6 @@ Steps 1 through 6 need no wallet and move no funds — you can browse and read e
 - [Standardized Yield (SY)](/concepts/standardized-yield) — the contract closest to the money, and why the SY is where the risk lives.
 - [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" really means.
 - [Buying PT](/guides/buying-pt) — the most common first action, step by step.
+- [PT limit orders](/guides/limit-orders) — target-APY orders on the dynamically supported subset.
 - [Saved pools & privacy](/guides/saved-pools) — how the client-side registry works.
 - [Risks & disclosures](/reference/risks) — please read this before you transact.

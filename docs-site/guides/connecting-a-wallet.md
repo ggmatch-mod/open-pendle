@@ -2,10 +2,10 @@
 
 OpenPendle connects to your wallet in the most direct way possible: it talks to a wallet that is **injected into the page by a browser extension or in-app browser**, and nothing else. There is no WalletConnect, no QR code, no relay server, and no account to create. This page explains that model, which wallets work, how connecting differs on desktop and mobile, why WalletConnect is deliberately absent, the connect steps themselves, and the wrong-network banner that keeps your transactions on the right chain.
 
-You do not need to read this before browsing. Reading a pool, switching networks, and inspecting what a market wraps all work with no wallet at all — see [Browsing & networks](/guides/browsing). You connect a wallet only when you are ready to sign a transaction.
+You do not need to read this before browsing. Reading a pool, switching networks, inspecting what a market wraps, and viewing [Yield alerts](/guides/yield-alerts) all work with no wallet at all — see [Browsing & networks](/guides/browsing). You connect a wallet only when you are ready to sign an on-chain transaction or a supported PT limit order.
 
 ::: warning Connecting is not the risky part — signing is
-Connecting a wallet only shares your public address and lets the site request signatures; it moves no funds on its own. The risk begins when you approve a transaction against a **community pool** — a permissionless market anyone can create, that no one has vetted. OpenPendle validates a market's *provenance* (that a Pendle factory it recognizes created it); it does **not** and cannot vouch for the asset or the SY contract underneath. Read [Risks & disclosures](/reference/risks) before you sign anything. Not affiliated with Pendle Finance.
+Connecting a wallet only shares your public address and lets the site request signatures; it moves no funds on its own. The risk begins when you approve a transaction or sign an executable order against a **community pool** — a permissionless market anyone can create, that no one has vetted. OpenPendle validates a market's *provenance* (that a Pendle factory it recognizes created it); it does **not** and cannot vouch for the asset or the SY contract underneath. Read [Risks & disclosures](/reference/risks) before you sign anything. Not affiliated with Pendle Finance.
 :::
 
 ## The injected-only model
@@ -16,7 +16,7 @@ Nothing sits between the page and your wallet. There is:
 
 - **No WalletConnect** and no other pairing protocol.
 - **No relay, bridge, or backend** — OpenPendle has no server of its own to route through (see [How OpenPendle works](/reference/architecture)).
-- **No account, login, or email.** Your address is the only identity. It appears in normal RPC reads/signatures and, when you open **My positions**, in the disclosed Merkl rewards lookup; OpenPendle does not intentionally send it through the Cloudflare analytics beacon.
+- **No account, login, or email.** Your address is the only identity. It appears in normal RPC reads/signatures, in the disclosed Merkl rewards lookup when you open **My positions**, and in Pendle's maker-order requests when you use PT limit orders. OpenPendle does not intentionally send it through the Cloudflare analytics beacon.
 
 This follows directly from OpenPendle's architecture. The whole app is static files that read the chain over public RPC and hold their state in your browser, so it can run from any static host or from IPFS with no server rewrites. A wallet-connection method that required a relay server would break that property; an injected provider needs no server, so it is the only method OpenPendle ships.
 
@@ -75,8 +75,8 @@ Leaving out WalletConnect is a deliberate design choice, not an omission. Wallet
 OpenPendle optimises instead for a **minimal, self-contained, censorship-resistant** trust surface, consistent with the rest of the app:
 
 - **No third party in the connection.** Injected wallets keep the link between page and wallet entirely on your device. There is no relay that could log metadata, go offline, or be blocked.
-- **Nothing external to depend on.** OpenPendle is meant to run unchanged from IPFS or any static host. A relay dependency would undercut that; an injected provider needs no server at all.
-- **A tighter wallet path.** The app's Content-Security-Policy blocks JavaScript `eval()` and allowlists only the same-origin app code and Cloudflare's analytics script; fonts are self-hosted. OpenPendle still makes the direct data requests disclosed under [Architecture](/reference/architecture): its same-origin factory-market snapshot, your RPC, DefiLlama/CoinGecko for the ticker, Pendle's API for Explore enrichment and PT/YT lookup, where available Blockscout for that lookup, Merkl on **My positions**, and Cloudflare Web Analytics. None is a wallet relay; adding WalletConnect would create a separate service in the signing/session path.
+- **No external wallet-session service to depend on.** OpenPendle is meant to run unchanged from IPFS or any static host. A relay dependency would undercut that; an injected provider needs no server at all.
+- **A tighter wallet path.** The app's Content-Security-Policy blocks JavaScript `eval()` and allowlists only the same-origin app code and Cloudflare's analytics script; fonts are self-hosted. OpenPendle still makes the direct data requests disclosed under [Architecture](/reference/architecture): its same-origin factory-market snapshot, your RPC, DefiLlama/CoinGecko for the ticker, Pendle's APIs for Explore enrichment, PT/YT lookup, Yield alerts, and limit orders, where available Blockscout for pool lookup, Merkl on **My positions**, and Cloudflare Web Analytics. Limit-order maker reads and placement send the address to Pendle, and placement sends the complete signed order. None is a wallet relay; adding WalletConnect would create a separate service in the signing/session path.
 
 The trade-off is the mobile flow above: without WalletConnect, connecting on a phone means using a wallet's in-app browser or Brave mobile rather than pairing a separate wallet app to a normal tab. For a backend-free, self-hostable interface, that is the intended balance.
 
@@ -88,7 +88,7 @@ The trade-off is the mobile flow above: without WalletConnect, connecting on a p
 4. **Approve in the wallet.** Your wallet shows its own prompt asking to share your address with the site. Approve it. OpenPendle never sees your keys or seed phrase — only the public address you approve.
 5. **Check the network.** Confirm your wallet's chain matches the **active network** you are viewing. If it does not, use the wrong-network banner's one-click switch, described next.
 
-Once connected, the actions on a market become available. Every one of them **quotes live as you type** and **simulates against the live chain before you sign**. Approvals default to the exact amount; Unlimited is an explicit, higher-exposure transaction-setting opt-in. See [Opening a pool](/guides/opening-a-pool) for what you can do next, and [Buying PT](/guides/buying-pt) for the most common first action.
+Once connected, the actions on a market become available. On-chain actions **quote live as you type** and **simulate against the live chain before you sign**. A PT limit order instead validates its generated EIP-712 fields, signer, fee root, and local/on-chain hash before publication to Pendle's API; support is checked live and is stricter than official listing. Approvals default to the exact amount; Unlimited is an explicit, higher-exposure transaction-setting opt-in. See [Opening a pool](/guides/opening-a-pool) for what you can do next, [Buying PT](/guides/buying-pt) for an immediate AMM buy, and [PT limit orders](/guides/limit-orders) for the off-chain order flow.
 
 ## Browsing works without a wallet
 
@@ -97,6 +97,7 @@ It is worth stating plainly: **connecting is optional for reading.** OpenPendle 
 - Switch between all six supported networks.
 - Open any market by pasting its address and run the provenance gate.
 - Read the trust panel — the underlying asset, the SY, the maturity, the implied APY.
+- View [Yield alerts](/guides/yield-alerts), which are read-only and do not subscribe you to notifications.
 - Browse and manage your [saved pools](/guides/saved-pools), which live in your browser, not in any account.
 
 You connect only at the point of transacting. This means you can vet a pool completely before your wallet is ever involved — the recommended order, given that community pools are unreviewed.
@@ -138,5 +139,6 @@ Your keys and seed phrase never touch OpenPendle in any of these cases — the w
 - [Opening a pool](/guides/opening-a-pool) — the provenance gate and trust panel, before you transact.
 - [Networks & contracts](/reference/networks-and-contracts) — the six supported chains and their IDs.
 - [Buying PT](/guides/buying-pt) — the most common first action once connected.
+- [PT limit orders](/guides/limit-orders) — supported market-level orders and their signing model.
 - [How OpenPendle works](/reference/architecture) — why the app is backend-free and injected-only.
 - [Risks & disclosures](/reference/risks) — please read before you sign anything.

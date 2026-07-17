@@ -5,7 +5,7 @@ A reference for every term used across these docs, defined tightly and cross-lin
 If you are new to Pendle, read [How Pendle works](/concepts/how-pendle-works) first — it introduces most of these terms in the order they matter. This page is for looking one up quickly afterward.
 
 ::: info Not affiliated with Pendle
-OpenPendle is an independent, open-source interface to Pendle V2. It is not affiliated with, endorsed by, or operated by Pendle Finance, and it takes no fee of its own (Pendle's own protocol fees still apply). Where a term below describes Pendle's protocol, it describes Pendle's public, on-chain mechanics — not something OpenPendle adds.
+OpenPendle is an independent, open-source interface to Pendle V2. It is not affiliated with, endorsed by, or operated by Pendle Finance, and it takes no fee of its own (Pendle's own protocol fees still apply). Where a term below describes Pendle's protocol, it describes Pendle's public on-chain or disclosed off-chain mechanics — not something OpenPendle adds.
 :::
 
 ## A
@@ -23,7 +23,7 @@ The on-chain pool inside every Pendle market that lets people swap between **PT*
 See **implied APY**. "Fixed APY" is the same figure viewed from the buyer's side: the return a **PT** buyer locks in by holding to **maturity**. Both are arithmetic derived from the current PT price and time to maturity, not a rate the protocol promises to pay.
 
 **Active network.**
-The chain OpenPendle currently reads from and sends transactions to. It is a UI / `localStorage` choice (key `openpendle.chain`, default Arbitrum), independent of your wallet's chain; a wrong-network banner offers a one-click switch when they differ. See [Networks & contracts](/reference/networks-and-contracts).
+The chain OpenPendle currently reads from, sends transactions to, and uses in a PT limit order's signing domain. It is a UI / `localStorage` choice (key `openpendle.chain`, default Arbitrum), independent of your wallet's chain; a wrong-network banner offers a one-click switch when they differ. See [Networks & contracts](/reference/networks-and-contracts).
 
 ## C
 
@@ -43,6 +43,9 @@ The Ethereum standard that defines **SY** (Standardized Yield): a single, unifor
 
 **EIP-6963.**
 The browser standard for discovering multiple injected wallet providers. OpenPendle connects to any injected EIP-6963 provider — MetaMask, Rabby, Brave, and others — with no WalletConnect and no third-party relay. See [Connecting a wallet](/guides/connecting-a-wallet).
+
+**EIP-712.**
+The standard for signing structured, domain-separated data. A supported PT limit order names Pendle's Limit Router, chain ID, and exact order fields in this format so OpenPendle and the wallet can verify what the signature authorizes. See [PT limit orders](/guides/limit-orders).
 
 **Expiry / maturity.**
 The fixed date, set when a market is created, at which the position resolves: **PT** becomes redeemable 1:1 for the **underlying**, **YT** is worth 0, and the market stops trading. "Expiry" and "maturity" are used interchangeably. See [Maturity & redemption](/concepts/maturity).
@@ -72,6 +75,12 @@ The shortfall an **LP** suffers versus simply holding the two deposited assets, 
 A wallet that exposes a provider object directly in the browser page (via **EIP-6963**), such as a MetaMask or Rabby extension. OpenPendle is injected-only: on desktop use the extension; on mobile you must open the site inside a wallet's in-app dApp browser or in Brave mobile, because a normal mobile browser tab has no injected wallet. See [Connecting a wallet](/guides/connecting-a-wallet).
 
 ## L
+
+**Limit order (PT).**
+An off-chain EIP-712 order to exchange PT ↔ SY at a target implied APY, published to Pendle's hosted API for later filling. It is available only when Pendle's live support response approves the exact market and direction—a stricter condition than official listing. It may fill partially, fully, or not at all, and placement does not reserve or escrow funds. See [PT limit orders](/guides/limit-orders).
+
+**Limit Router.**
+Pendle's order-validation and settlement contract at `0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321`, identical on all six supported chains. It holds order nonces and mutable fee roots, checks signatures, executes fills, and processes on-chain cancellations. It is separate from **Router V4**, which handles immediate AMM actions. See [Networks & contracts](/reference/networks-and-contracts).
 
 **Long yield.**
 A position that profits when the **underlying** accrues more yield than the market implied — taken by holding **YT**. It is the opposite view to **fixed yield**: you keep full variable-rate exposure. See [Yield Tokens](/concepts/yield-tokens).
@@ -130,13 +139,13 @@ The principal half of a split — a yield-bearing asset with its future yield st
 Two distinct actions share the word. `PT + YT → SY` recombines both halves back into **SY**, available any time before **maturity**. Redeeming **PT** for the **underlying** happens **at or after** maturity, once PT equals par. See [Minting & redeeming](/guides/minting-redeeming) and [Maturity & redemption](/concepts/maturity).
 
 **Router V4 (`PendleRouterV4`).**
-Pendle's main router at `0x888888888889758F76e7103c6CbF23ABbF58F946`, identical on all six chains, through which OpenPendle sends all trades, liquidity actions, and exits. OpenPendle simulates every such transaction before you sign and defaults to exact-amount approvals. See [Architecture](/reference/architecture).
+Pendle's main AMM router at `0x888888888889758F76e7103c6CbF23ABbF58F946`, identical on all six chains, through which OpenPendle sends immediate swaps, liquidity actions, and exits. OpenPendle simulates every such transaction before you sign and defaults to exact-amount approvals. PT limit orders use the separate **Limit Router**. See [Architecture](/reference/architecture).
 
 **RouterStatic.**
 Pendle's read-only helper contract for quotes and position math, used by OpenPendle to compute what a given action would return. It is chain-specific (resolved live per chain), unlike the shared **Router V4**. See [Networks & contracts](/reference/networks-and-contracts).
 
 **RPC (public / fallback / override).**
-The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC carries core chain reads and transactions; Explore inventory comes from a generated factory-event snapshot, while separate public services support listed enrichment, the ticker, PT/YT pool lookup, and Merkl rewards. See [Browsing](/guides/browsing) and [Architecture](/reference/architecture).
+The endpoint OpenPendle reads the chain through. Each chain ships a keyless public default wrapped in a viem `fallback()` transport that rolls over to a backup automatically; you can override it per chain (key `openpendle.rpc.<chainId>`), stored locally, and saving reloads the app. RPC carries core chain reads and transactions; Explore inventory comes from a generated factory-event snapshot, while separate public services support listed enrichment, the ticker, PT/YT pool lookup, Yield alerts, limit orders, and Merkl rewards. See [Browsing](/guides/browsing) and [Architecture](/reference/architecture).
 
 ## S
 
@@ -147,10 +156,10 @@ The client-side list of pools you have chosen to remember, stored in `localStora
 The initial liquidity a pool deploy adds, and the token used for it — whatever the **SY** accepts. If that includes native ETH (the SY lists `address(0)` among its inputs), the deploy sends ETH as `msg.value` with no approval; otherwise you approve the exact seed amount first. See [Deploying a market](/create/deploying-a-market).
 
 **Simulate-before-sign.**
-OpenPendle's practice of simulating every transaction against the live chain *before* you sign it, so the quoted result is the result the chain will execute at that block. See [Architecture](/reference/architecture).
+OpenPendle's practice of simulating every on-chain transaction against the live chain *before* you sign it, so the quoted result is the result the chain will execute at that block. An off-chain limit order instead receives strict EIP-712 field, signer, fee-root, and hash checks. See [Architecture](/reference/architecture).
 
 **Swap.**
-Trading a token into or out of **PT** (a **fixed-yield** position) or **YT** (a **long-yield** position) through **Router V4**. Quotes update live as you type, and each swap simulates before signing with exact approvals by default. See [Buying PT](/guides/buying-pt) and [Buying YT](/guides/buying-yt).
+Trading a token immediately into or out of **PT** (a **fixed-yield** position) or **YT** (a **long-yield** position) through **Router V4**. Quotes update live as you type, and each swap simulates before signing with exact approvals by default. A PT **limit order** is a separate, off-chain PT ↔ SY order rather than an immediate AMM swap. See [Buying PT](/guides/buying-pt), [PT limit orders](/guides/limit-orders), and [Buying YT](/guides/buying-yt).
 
 **SY (Standardized Yield).**
 The uniform **EIP-5115** wrapper Pendle puts around a yield-bearing asset, presenting many different yield sources through one interface. SY is what splits into **PT** + **YT** and what the **AMM** pairs PT against; you rarely touch it directly. See [Standardized Yield](/concepts/standardized-yield).
@@ -185,6 +194,9 @@ The compiled-code format OpenPendle's **CSP** permits (`'wasm-unsafe-eval'`) whi
 The ERC-20 wrapper of a chain's native coin (for example wrapped ETH or wrapped BNB). It is chain-specific and resolved live. Note that Pendle's SY templates wrap an ERC-20 or ERC-4626 asset — there is no native-ETH SY template — though a pool deploy can still *seed* with native ETH when the SY accepts it. See [Networks & contracts](/reference/networks-and-contracts).
 
 ## Y
+
+**Yield alert.**
+A read-only 24-hour PT implied-APY mover on an active Pendle API-listed market that passes OpenPendle's complete-history and $1 million all-hours AMM-liquidity gates. “Significant” also requires at least 50 basis points and 10% relative movement, excluding markets with 72 hours or less until maturity. The page needs no wallet and sends no notification. See [Yield alerts](/guides/yield-alerts).
 
 **Yield contract.**
 The Pendle contract, deployed by a yield-contract **factory**, that mints and redeems a **PT** + **YT** pair from a given **SY** for one **maturity**. See [Anatomy of a pool](/concepts/pool-anatomy).

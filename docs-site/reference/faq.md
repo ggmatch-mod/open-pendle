@@ -14,21 +14,21 @@ No. OpenPendle is an independent, open-source interface built by [ggmxbt](https:
 
 ### Does it cost anything? Does it take a fee?
 
-OpenPendle is free and takes no fee of its own — it is a gift to Pendle's community. Pendle's own protocol fees (its swap-fee cap, the YT interest fee, and so on) still apply, because those are enforced by Pendle's contracts rather than by this interface. You can read Pendle's live fee parameters on the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page.
+OpenPendle is free and takes no fee of its own — it is a gift to Pendle's community. Pendle's own protocol fees (its AMM swap-fee cap, YT interest fee, mutable limit-order fee, and so on) still apply, because those are enforced by Pendle's contracts rather than by this interface. Limit-order placement is gasless, but an approval or on-chain cancellation costs gas. You can read Pendle's live fee parameters on the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page.
 
 ### What can I actually do here that I can't do on the official Pendle app?
 
-OpenPendle gives you one factory-indexed directory for **all Pendle markets** on its six supported chains, including permissionless community pools the official app does not list, and it lets you create your own. You can search listed and community markets together, open any recognized market by address, mint and redeem, [buy PT](/guides/buying-pt), [buy YT](/guides/buying-yt), and [provide liquidity](/guides/providing-liquidity). See [Why OpenPendle](/introduction/why-openpendle) for the motivation.
+OpenPendle gives you one factory-indexed directory for **all Pendle markets** on its six supported chains, including permissionless community pools the official app does not list, and it lets you create your own. You can search listed and community markets together, open any recognized market by address, view [Yield alerts](/guides/yield-alerts), mint and redeem, make an immediate [PT swap](/guides/buying-pt), place a supported [PT ↔ SY limit order](/guides/limit-orders), [buy YT](/guides/buying-yt), and [provide liquidity](/guides/providing-liquidity). See [Why OpenPendle](/introduction/why-openpendle) for the motivation.
 
 ### Is OpenPendle open source? Can I self-host it?
 
-Yes. It is released under **GPL-3.0-or-later** and is a plain static site — no backend, no server rewrite rules — so you can host it anywhere, including from IPFS. The source is on [GitHub](https://github.com/ggmatch-mod/open-pendle). See [Self-hosting](/reference/self-hosting) for how.
+Yes. It is released under **GPL-3.0-or-later** and is a plain static site — no OpenPendle runtime backend and no server rewrite rules — so you can host it anywhere, including from IPFS. Feature-specific public-API calls still come directly from the browser. The source is on [GitHub](https://github.com/ggmatch-mod/open-pendle). See [Self-hosting](/reference/self-hosting) for how.
 
 ## Safety, trust, and privacy
 
 ### Is it safe?
 
-OpenPendle validates a market's **provenance** — that it was created by a Pendle factory it recognizes — before it lets you save or transact against it, and it **simulates every transaction** against the live chain before you sign. Approvals default to the exact amount; users can explicitly opt into unlimited approvals in transaction settings, which leaves a standing allowance and increases exposure. But provenance is validation, not endorsement: OpenPendle cannot vouch for the asset or the SY contract underneath a pool. Read [Risks & disclosures](/reference/risks) in full before you transact.
+OpenPendle validates a market's **provenance** — that it was created by a Pendle factory it recognizes — before it lets you save or transact against it, and it **simulates every on-chain transaction** against the live chain before you sign. PT limit orders use a separate typed-data validation path before publication to Pendle's API. Approvals default to the exact amount; users can explicitly opt into unlimited approvals in transaction settings, which leaves a standing allowance and increases exposure. But provenance is validation, not endorsement: OpenPendle cannot vouch for the asset or the SY contract underneath a pool. Read [Risks & disclosures](/reference/risks) in full before you transact.
 
 ::: warning Community pools are unreviewed
 A market being loadable in OpenPendle is not an endorsement of it. Anyone can permissionlessly create a Pendle market wrapping any asset, and OpenPendle cannot check the asset or SY behind it. Never interact with a pool unless you trust whoever created it and the assets underneath.
@@ -44,7 +44,15 @@ Your saved pools and settings are stored in your browser only. OpenPendle operat
 
 ### What outbound requests does the app make?
 
-The app downloads a same-origin static factory-market snapshot and calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public market API for listed enrichment and PT/YT pool lookup; where available keyless Blockscout log APIs for that lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Merkl receives the wallet address and chain ID required for its reward lookup. Fonts are self-hosted, and the Content-Security-Policy allowlists only the same-origin app code, Cloudflare's analytics script, and the WebAssembly capability used for crypto. More detail is on [Architecture](/reference/architecture).
+The app downloads a same-origin static factory-market snapshot and calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public APIs for listed enrichment, PT/YT pool lookup, Yield-alert catalog/history data, and limit-order support, books, generation, placement, and maker-order reads; where available keyless Blockscout log APIs for pool lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Merkl receives the wallet address and chain ID required for its reward lookup. Pendle receives the maker address and complete signed order on placement, and the maker address on order-history reads. Fonts are self-hosted, and the Content-Security-Policy allowlists only the same-origin app code, Cloudflare's analytics script, and the WebAssembly capability used for crypto. More detail is on [Architecture](/reference/architecture).
+
+### Are PT limit orders available on every officially listed market?
+
+No. OpenPendle checks Pendle's support endpoint live for the exact market, YT, SY, chain, and direction. Its answer is stricter than official listing: only a supported subset can use PT ↔ SY limit orders, and an unavailable check is never treated as support. Orders are signed off-chain and do not reserve or escrow funds. See [PT limit orders](/guides/limit-orders).
+
+### Can Yield alerts notify me?
+
+Not yet. [Yield alerts](/guides/yield-alerts) is currently a separate, wallet-less page with no browser push, email, Telegram, or X delivery. It reports qualified 24-hour PT implied-APY moves and surfaces partial data coverage when Pendle histories fail.
 
 ### Does Explore really include community markets?
 
@@ -54,7 +62,7 @@ Yes, within the coverage shown in the app. Inventory comes from `CreateNewMarket
 
 ### Which wallets work? Why is there no WalletConnect?
 
-OpenPendle is **injected-only**: it connects directly to a browser wallet — MetaMask, Rabby, Brave, or any injected EIP-6963 provider — with no WalletConnect and no third-party relay. Avoiding WalletConnect is what keeps the app backend-free, private, and trivial to self-host from a static host or IPFS; the trade-off is the mobile flow described below. See [Connecting a wallet](/guides/connecting-a-wallet).
+OpenPendle is **injected-only**: it connects directly to a browser wallet — MetaMask, Rabby, Brave, or any injected EIP-6963 provider — with no WalletConnect and no third-party relay. Avoiding WalletConnect keeps the wallet-session path free of a relay and trivial to self-host from a static host or IPFS; the trade-off is the mobile flow described below. See [Connecting a wallet](/guides/connecting-a-wallet).
 
 ### How do I use it on mobile?
 
@@ -142,4 +150,6 @@ The full live per-chain list is on the app's [Protocol Status & Contracts](https
 - [Architecture](/reference/architecture) — backend-free design, CSP, and data flow
 - [Networks & contracts](/reference/networks-and-contracts) — the six chains and shared addresses
 - [Community pools](/concepts/community-pools) — what "permissionless and unreviewed" means
+- [Yield alerts](/guides/yield-alerts) — qualified 24-hour fixed-yield movers
+- [PT limit orders](/guides/limit-orders) — availability, signing, fills, and cancellation
 - [Self-hosting](/reference/self-hosting) — run your own copy

@@ -7,7 +7,7 @@
  * persisted preferred chain, while explicit selector clicks also synchronize a
  * connected wallet.
  */
-import { useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import {
   Link,
   Route,
@@ -38,6 +38,18 @@ import AboutPage from './pages/AboutPage'
 import QuickStartPage from './pages/QuickStartPage'
 import { useActiveChain } from './lib/hooks'
 import { isChainAddressRoute, routeChainId } from './lib/routes'
+
+const AlertsPage = lazy(() => import('./pages/AlertsPage'))
+
+function PageFallback() {
+  return (
+    <div className="space-y-4 py-10" aria-busy="true" aria-label="Loading page">
+      <div className="h-7 w-56 animate-pulse rounded bg-surface-2" />
+      <div className="h-24 animate-pulse rounded-xl bg-surface" />
+      <div className="h-52 animate-pulse rounded-xl bg-surface" />
+    </div>
+  )
+}
 
 function NotFound() {
   return (
@@ -99,6 +111,14 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/quickstart" element={<QuickStartPage />} />
       <Route path="/explore" element={<ExplorePage />} />
+      <Route
+        path="/alerts"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <AlertsPage />
+          </Suspense>
+        }
+      />
       <Route path="/pools" element={<PoolsPage />} />
       <Route path="/positions" element={<PositionsPage />} />
       <Route path="/status" element={<ProtocolStatusPage />} />
@@ -123,12 +143,12 @@ export default function App() {
         className="sticky top-0 z-50 border-b border-hairline backdrop-blur-md"
         style={{ background: 'var(--op-header)' }}
       >
-        <div className="mx-auto flex h-16 max-w-[1160px] items-center justify-between gap-2 px-3 sm:gap-4 sm:px-7">
+        <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-2 px-3 sm:gap-4 sm:px-7">
           <Logo />
           <div className="flex items-center gap-2">
             <Link
               to="/quickstart"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ✦
@@ -137,7 +157,7 @@ export default function App() {
             </Link>
             <Link
               to="/explore"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] px-[13px] text-[13px] font-medium text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.12)] xl:inline-flex"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] px-[13px] text-[13px] font-medium text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.12)] xl:inline-flex"
             >
               <span aria-hidden className="text-[12px]">
                 ◇
@@ -145,8 +165,17 @@ export default function App() {
               Explore
             </Link>
             <Link
+              to="/alerts"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
+            >
+              <span aria-hidden className="text-[12px] text-accent-ink">
+                ↕
+              </span>
+              Yield alerts
+            </Link>
+            <Link
               to="/positions"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ◈
@@ -155,7 +184,7 @@ export default function App() {
             </Link>
             <Link
               to="/pools"
-              className="hidden h-[34px] items-center gap-2 rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
             >
               <span aria-hidden className="text-[12px] text-accent-ink">
                 ★
@@ -164,7 +193,7 @@ export default function App() {
             </Link>
             <Link
               to="/create"
-              className="hidden h-[34px] items-center rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] xl:inline-flex"
+              className="hidden h-[34px] items-center whitespace-nowrap rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] xl:inline-flex"
               style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
             >
               Create pool

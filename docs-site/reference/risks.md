@@ -32,12 +32,14 @@ OpenPendle's safeguards protect the *mechanics of transacting*. They do not, and
 ### What it checks
 
 - **Provenance gate.** Before you can save a market or transact against it, OpenPendle verifies that the market was created by a **Pendle factory it recognizes**. Because Pendle's factories are governance-mutable, the currently active factory is resolved **live** at runtime; the hardcoded factory set is used only for this provenance validation. The check confirms the market genuinely descends from Pendle's deployment machinery — that it is a real Pendle market and not a look-alike contract wearing a Pendle market's shape.
-- **Simulate before sign.** Every transaction is simulated against the live chain before you are asked to sign it, so a call that would revert is caught before you spend gas — and you see the expected outcome before committing funds.
+- **Simulate before sign.** Every on-chain transaction is simulated against the live chain before you are asked to sign it, so a call that would revert is caught before you spend gas — and you see the expected outcome before committing funds.
 - **Exact approvals by default; unlimited by explicit opt-in.** The default scopes an approval to the amount the current action needs. Transaction settings also offer **Unlimited**, which leaves a maximum standing allowance until you revoke it. Unlimited approval may reduce repeat approval transactions, but increases what the approved contract could pull and is particularly risky for an untrusted SY.
+- **Strict limit-order validation.** For PT ↔ SY limit orders, OpenPendle requires a matching live support configuration and fee root, validates every generated EIP-712 field and domain value, compares local and on-chain order hashes, recovers the signer, and checks the signature through Pendle's Limit Router before publishing it. The first version supports EOAs only.
 
 ### What it cannot do
 
 - **It cannot vouch for the underlying asset or the SY contract a pool wraps.** A factory-valid market can still wrap a malicious, broken, or exotic asset. Provenance answers "did this come from a Pendle factory?" — never "is this asset safe?", "is this SY honest?", or "is whoever deployed this trustworthy?"
+- **It cannot guarantee a limit order will fill or remain fillable.** Placement reserves no funds. Execution depends on Pendle's off-chain order service, takers, your balance and allowance, mutable fees, and live on-chain state.
 
 That last point deserves emphasis, because it is where people get hurt.
 
@@ -71,6 +73,9 @@ It helps to separate the risks OpenPendle can shrink from the risks it structura
 | The SY is upgradeable, adapter-driven, or stranger-owned | You | **No** — a per-market detail you must inspect |
 | `PT` fails to redeem at par because the asset failed | You | **No** — a property of the asset, not the interface |
 | Ordinary [AMM](/concepts/liquidity-and-amm) / impermanent-loss and PT-vs-SY exposure on an LP position | You | **No** — inherent to providing liquidity |
+| A signed limit order remains active after you move funds or place overlapping orders | You | **Partly** — OpenPendle shows order state, but placement does not reserve or escrow tokens |
+| A limit-order cancellation races a fill before the cancellation is mined | You | **No** — both compete against live on-chain state |
+| Pendle's hosted limit-order API is unavailable, changes behavior, or omits a market | You | **Partly** — OpenPendle fails closed on invalid or unavailable support and order data, but cannot provide the service independently |
 | Smart-contract risk in Pendle V2 itself | You | **No** — OpenPendle ships no contracts of its own |
 
 Read the trust panel on each pool, inspect the asset and SY directly, and **never interact with one unless you trust whoever created it and the assets underneath.** The provenance gate has not, and will not, do that for you.
@@ -79,10 +84,12 @@ Read the trust panel on each pool, inspect the asset and SY directly, and **neve
 
 OpenPendle charges **nothing** and adds **no fee of its own**. It is a gift to Pendle's community, and there is no OpenPendle cut layered on top of any action.
 
-Pendle's own protocol fees still apply, exactly as they would through any other interface — the swap-fee cap, the YT interest fee, and so on. Those are charged and enforced by **Pendle's contracts**, not by this interface, and OpenPendle takes none of them. You can read the live, per-chain fee parameters on the app's [Protocol Status &amp; Contracts](https://openpendle.com/#/status) page, which resolves them from the chain in real time; the fixed entry-point addresses are also documented under [Networks &amp; contracts](/reference/networks-and-contracts).
+Pendle's own protocol fees still apply, exactly as they would through any other interface — the AMM swap-fee cap, the YT interest fee, and so on. Those are charged and enforced by **Pendle's contracts**, not by this interface, and OpenPendle takes none of them. You can read the live, per-chain fee parameters on the app's [Protocol Status &amp; Contracts](https://openpendle.com/#/status) page, which resolves them from the chain in real time; the fixed entry-point addresses are also documented under [Networks &amp; contracts](/reference/networks-and-contracts).
+
+Pendle's Limit Router has its own **mutable annualized fee parameter**, represented by the live fee root OpenPendle checks before signing. The actual fill fee depends on direction and time remaining until market maturity, and declines toward maturity. It is separate from the AMM's swap-fee path and can change, so do not assume an AMM quote and a limit order have identical fee treatment. Publishing a signed order is gasless, but an ERC-20 approval and an on-chain cancellation each require a transaction and network gas. A fill can also race a cancellation until that cancellation is mined.
 
 ::: info No fee of its own — what that does *not* mean
-"No fee of its own" is a statement about OpenPendle, not about the cost of transacting. You still pay network gas, you still pay Pendle's protocol fees where they apply, and the price you get on any swap is whatever the [AMM](/concepts/liquidity-and-amm) quotes at that moment. OpenPendle simply adds nothing of its own on top.
+"No fee of its own" is a statement about OpenPendle, not about the cost of transacting. You still pay network gas, you still pay Pendle's AMM or limit-order protocol fees where they apply, and the price you get on any immediate swap is whatever the [AMM](/concepts/liquidity-and-amm) quotes at that moment. OpenPendle simply adds nothing of its own on top.
 :::
 
 ## Your data &amp; privacy
@@ -101,13 +108,16 @@ The pools you remember live only in your browser's local storage, and any custom
 
 - the **blockchain RPCs you point at** (keyless public defaults per chain, wrapped in a fallback transport, overridable per chain in RPC settings);
 - **DefiLlama and CoinGecko** for aggregate metrics in the header ticker;
-- the same-origin factory-market snapshot for Explore, Pendle's public market API for listing enrichment and PT/YT pool lookup, and where supported keyless **Blockscout** log APIs as a lookup fallback; and
-- **Merkl** when a connected user opens **My positions**. That reward lookup sends the wallet address and chain ID to Merkl so it can return claimable amounts and proofs.
+- the same-origin factory-market snapshot for Explore, Pendle's public market API for listing enrichment and PT/YT pool lookup, and where supported keyless **Blockscout** log APIs as a lookup fallback;
+- Pendle's active-market and hourly-history APIs when you open **Yield alerts**. That page is wallet-less, but its current browser-side fanout sends the requested market histories directly to Pendle;
+- Pendle's hosted limit-order API when a market page checks support or loads the book, and when you retrieve or place orders. Maker-order reads include the wallet address; placement includes the market and token context, maker, amount, APY, expiry, nonce, and signed order;
+- **Merkl** when a connected user opens **My positions**. That reward lookup sends the wallet address and chain ID to Merkl so it can return claimable amounts and proofs; and
+- **Cloudflare Web Analytics** when the stock interface loads and is navigated, for page-view and performance metrics. The beacon is not intentionally sent wallet addresses or saved-pool contents.
 
 Moving your saved pools between browsers or devices is explicit and under your control — Export to JSON, Import, or a shareable `?import=` link that encodes your registry. The saved-pool registry itself is never sent to the RPC or ancillary APIs as a side effect of saving; it leaves only through an Export or share action you choose. See [Saved pools &amp; privacy](/guides/saved-pools) for the full registry behavior.
 
 ::: info A privacy caveat worth stating
-Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. The ancillary services above can likewise see normal request metadata; Merkl also receives the connected wallet address and chain ID. That is a property of making direct requests to public services, not OpenPendle analytics. If that matters to you, override the RPC per chain with an endpoint you trust and avoid Explore, token resolution, and My positions, or run and modify your own copy. See [Self-hosting](/reference/self-hosting).
+Reads still go to whatever RPC endpoint you are pointed at, and that endpoint can see the requests your browser makes to it — the addresses you look up, roughly when, and from your IP. The ancillary services above can likewise see normal request metadata. Merkl receives the connected wallet address and chain ID; Pendle receives the maker address and signed payload when you place a limit order. That is a property of making direct requests to public services, not the Cloudflare analytics beacon. If that matters to you, override the RPC per chain with an endpoint you trust and avoid the relevant ancillary features, or run and modify your own copy. See [Self-hosting](/reference/self-hosting).
 :::
 
 Two hardening choices reduce the interface's own attack surface, and are worth knowing about:

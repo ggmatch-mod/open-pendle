@@ -30,8 +30,11 @@ import type { SupportedChainId } from './types.ts'
 // Cross-chain constants — the same vanity/deterministic address everywhere.
 // ---------------------------------------------------------------------------
 
-/** Router V4 — all trades/liquidity/exits. Same address on all 6 chains (fork-verified, no market allowlist). */
+/** Router V4 — AMM trades, liquidity, and exits. Same address on all 6 chains (fork-verified, no market allowlist). */
 export const ROUTER_V4: Address = '0x888888888889758F76e7103c6CbF23ABbF58F946'
+
+/** Pendle Limit Router — EIP-712 PT/YT order settlement and cancellation. */
+export const LIMIT_ROUTER: Address = '0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321'
 
 /**
  * PendleCommonPoolDeployHelperV2 ("commonDeploy") — one-tx pool (+ optional SY)
@@ -89,6 +92,7 @@ export interface AddressBook {
   chainId: SupportedChainId
   // Cross-chain (same address everywhere, mirrored here for convenience).
   router: Address
+  limitRouter: Address
   commonDeploy: Address
   syFactory: Address
   pyYtLpOracle: Address
@@ -134,6 +138,7 @@ function makeBook(
   return {
     chainId,
     router: ROUTER_V4,
+    limitRouter: LIMIT_ROUTER,
     commonDeploy: COMMON_DEPLOY,
     syFactory: SY_FACTORY,
     pyYtLpOracle: PY_LP_ORACLE,

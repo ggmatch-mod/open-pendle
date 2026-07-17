@@ -13,13 +13,13 @@ With no wallet connected, choosing a network, browsing pools, reading trust pane
 At the top of the app is a **network selector**. It sets a single value — the **active network** — that governs the entire session in two ways:
 
 1. **What the app reads.** Pool lists, quotes, balances, maturities, and the header stats ticker are all fetched from the active network's RPC. Change the network and everything the app shows is re-fetched on the new chain.
-2. **Where a transaction goes.** When you eventually sign something, it is submitted to the active network. The active network — not your wallet's current chain — decides the destination. (If the two disagree, OpenPendle shows a switch prompt; see [Browsing without connecting](#browsing-without-connecting).)
+2. **Where a transaction or signed order belongs.** On-chain actions are submitted to the active network, and a PT limit order is signed for that network's Limit Router domain. The active network — not your wallet's current chain — decides the destination. (If the two disagree, OpenPendle shows a switch prompt; see [Browsing without connecting](#browsing-without-connecting).)
 
 The selector stores a preferred network under the localStorage key `openpendle.chain`. It defaults to **Arbitrum**, is remembered between visits, and is synchronised across generic pages in open tabs. A chain-explicit market or token URL (`?chain=<id>`) overrides that preference only in its own tab. This keeps shared deep links deterministic and lets two tabs inspect markets on different networks without changing each other.
 
 When a wallet is connected, clicking the selector also requests a wallet switch to the same chain. The app changes its read network immediately; if the wallet rejects or cannot switch, read-only browsing remains on the selected chain and the wrong-network banner stays visible until the mismatch is resolved.
 
-The selector is temporarily locked while an approval or transaction is awaiting a wallet signature or receipt. This keeps the active chain, transaction status, and block-explorer link attached to the chain on which the transaction was sent.
+The selector is temporarily locked while an approval, transaction, or limit-order signature flow is in progress. This keeps the active chain, transaction status, order domain, and block-explorer link attached to the intended network.
 
 ::: warning A market lives on exactly one chain
 A `PendleMarket` address exists on the single chain it was deployed to. If the active network does not match the chain a market lives on, that market will not load, or a pasted address will resolve to nothing. When you open a pool from a shared address or an `?import=` link, make sure the active network matches the chain it was created on. See [Opening a pool](/guides/opening-a-pool).
@@ -42,7 +42,7 @@ The **native token** is the chain's gas asset — what you pay transaction fees 
 
 ### What is and isn't the same across chains
 
-Some Pendle contracts share **one address on all six chains**, deployed to the same address everywhere. The one you will encounter most is Pendle's **Router V4** at `0x888888888889758F76e7103c6CbF23ABbF58F946`, through which all trades, liquidity operations, and exits route. Others in this always-identical set include `PendleCommonPoolDeployHelperV2` at `0x2Ed473F528E5B320f850d17ADfe0e558f0298aA9`, the `PendleCommonSYFactory` at `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8`, and `Multicall3` at `0xcA11bde05977b3631167028862bE2a173976CA11`.
+Some Pendle contracts share **one address on all six chains**, deployed to the same address everywhere. Pendle's **Router V4** at `0x888888888889758F76e7103c6CbF23ABbF58F946` handles immediate AMM trades, liquidity operations, and exits. The separate **Limit Router** at `0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321` validates, fills, and cancels supported PT limit orders. Others in this always-identical set include `PendleCommonPoolDeployHelperV2` at `0x2Ed473F528E5B320f850d17ADfe0e558f0298aA9`, the `PendleCommonSYFactory` at `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8`, and `Multicall3` at `0xcA11bde05977b3631167028862bE2a173976CA11`.
 
 Other contracts are **chain-specific**: the `PENDLE` token, `RouterStatic`, the treasury, the governance multisig, the wrapped-native token, and — importantly — the market and yield-contract **factories**. Because these differ per chain (and because Pendle's factories are governance-mutable), OpenPendle resolves the live per-chain values at runtime rather than hardcoding them. The full, live per-chain contract list is on the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page, and can be verified against [Networks & contracts](/reference/networks-and-contracts).
 
@@ -58,6 +58,7 @@ Because reads go through RPC and not through your wallet, the entire discovery f
 
 - **Pick a network** and let the app read the chain.
 - **Browse Explore** to search the factory-indexed universe across all supported networks and filter Pendle-listed vs community markets.
+- **Open Yield alerts** to inspect qualified 24-hour PT implied-APY movers. This is a page, not a notification subscription.
 - **Open a market** by pasting its address (or following a shared `?import=` link) and read its trust panel — the underlying asset, the SY contract, the maturity, and the implied APY.
 - **Save pools** to your browser's local registry for later.
 
@@ -114,7 +115,7 @@ A **theme toggle** in the header switches the interface between **dark** (the de
 
 ## Everything stays in your browser
 
-The network you pick, per-chain RPC overrides, theme, and saved pools are all held in your browser's local storage. OpenPendle operates no user database or account system. The app downloads its same-origin factory-market snapshot and makes direct requests to the blockchain RPCs you choose; DefiLlama/CoinGecko for the header ticker; Pendle's market API for Explore enrichment and PT/YT pool lookup; where available Blockscout for that lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Merkl receives the wallet address and chain ID needed for the rewards lookup. These calls do not upload your saved-pool registry or settings. Clearing site data resets those preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
+The network you pick, per-chain RPC overrides, theme, and saved pools are all held in your browser's local storage. OpenPendle operates no user database or account system. The app downloads its same-origin factory-market snapshot and makes direct requests to the blockchain RPCs you choose; DefiLlama/CoinGecko for the header ticker; Pendle's APIs for Explore enrichment, PT/YT pool lookup, Yield-alert data, and limit-order support, books, generation, placement, and maker-order reads; where available Blockscout for pool lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Merkl receives the wallet address and chain ID needed for the rewards lookup. Pendle receives the maker address and signed payload when you place a limit order. These calls do not upload your saved-pool registry or settings. Clearing site data resets those preferences to their defaults (Arbitrum, keyless RPC, dark theme, no saved pools). To move saved pools between browsers or devices, see [Saved pools & privacy](/guides/saved-pools).
 
 ::: info OpenPendle is a permissionless frontend
 OpenPendle validates market provenance but cannot vouch for the assets or SY contracts underneath. Experimental — use at your own risk. Not affiliated with Pendle Finance, and it takes no fee of its own.
@@ -124,6 +125,8 @@ OpenPendle validates market provenance but cannot vouch for the assets or SY con
 
 - [Connecting a wallet](/guides/connecting-a-wallet) — injected-only connection, and the wrong-network switch.
 - [Opening a pool](/guides/opening-a-pool) — the provenance gate and the trust panel, step by step.
+- [Yield alerts](/guides/yield-alerts) — read-only PT fixed-yield movers with no notifications.
+- [PT limit orders](/guides/limit-orders) — market-level support, signing, fills, and cancellation.
 - [Networks & contracts](/reference/networks-and-contracts) — the full per-chain address list.
 - [How OpenPendle works](/reference/architecture) — the static, RPC-first architecture and ancillary-service disclosure.
 - [Saved pools & privacy](/guides/saved-pools) — moving your client-side registry between devices.

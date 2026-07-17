@@ -10,6 +10,7 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
+  UserRejectedRequestError,
   decodeErrorResult,
   maxUint256,
 } from 'viem'
@@ -19,6 +20,22 @@ import { MULTICALL3 } from './addresses.ts'
 import { erc20Abi, pendleErrorsAbi } from './pendleAbi.ts'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+/** Wallet prompt rejection (EIP-1193 code 4001) is a neutral user choice. */
+export function isUserRejection(error: unknown): boolean {
+  if (
+    error instanceof BaseError &&
+    error.walk((item) => item instanceof UserRejectedRequestError)
+  ) {
+    return true
+  }
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 4001
+  )
+}
 
 function isNative(token: Address): boolean {
   return token.toLowerCase() === ZERO_ADDRESS

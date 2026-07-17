@@ -6,7 +6,7 @@ Thanks for your interest. OpenPendle is a static, backend-free interface to Pend
 
 - **No backend.** OpenPendle is a static SPA and stays that way — no server, database, or hosted API of our own.
 - **No custom smart contracts.** The app only calls Pendle's already-deployed contracts with hand-written ABIs. Anything that would require deploying our own contract is out of scope.
-- **No tracking.** No analytics, no third-party scripts, no external asset fetches (fonts are self-hosted).
+- **No new tracking by default.** The hosted site currently uses Cloudflare Web Analytics. Do not add another tracker, remote asset, or third-party script without explicit approval and a matching privacy disclosure (fonts stay self-hosted).
 - **Read live from the chain.** Don't hardcode governance-mutable values (fees, factory addresses) — resolve them at runtime, as the existing code does.
 
 ## Development

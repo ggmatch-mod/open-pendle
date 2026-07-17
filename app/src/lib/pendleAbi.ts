@@ -178,6 +178,24 @@ export const erc20Abi = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
 ])
 
+/**
+ * Pendle's off-chain order settlement contract. Placement is an EIP-712
+ * signature submitted to Pendle Core; cancellation and nonce invalidation are
+ * direct on-chain writes to this router.
+ */
+export const limitRouterAbi = parseAbi([
+  'struct Order { uint256 salt; uint256 expiry; uint256 nonce; uint8 orderType; address token; address YT; address maker; address receiver; uint256 makingAmount; uint256 lnImpliedRate; uint256 failSafeRate; bytes permit; }',
+  'function nonce(address maker) view returns (uint256)',
+  'function DOMAIN_SEPARATOR() view returns (bytes32)',
+  'function hashOrder(Order order) view returns (bytes32)',
+  'function _checkSig(Order order, bytes signature) view returns (bytes32 orderHash, uint256 remainingMakerAmount, uint256 filledMakerAmount)',
+  'function getLnFeeRateRoot(address YT) view returns (uint256)',
+  'function orderStatusesRaw(bytes32[] orderHashes) view returns (uint256[] remainingsRaw, uint256[] filledAmounts)',
+  'function cancelSingle(Order order)',
+  'function cancelBatch(Order[] orders)',
+  'function increaseNonce()',
+])
+
 // ---------------------------------------------------------------------------
 // M3 additions — PT/YT swap surface (data layer). Router signatures from the
 // verified IPActionSwapPTV3/IPActionSwapYTV3 sources (research scratchpad);

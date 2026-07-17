@@ -27,10 +27,10 @@ export default function AboutPage() {
       <header className="mt-4">
         <h1 className="text-[28px] font-bold tracking-[-.03em] text-fg">About OpenPendle</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          OpenPendle is a free, open-source, backend-free interface to Pendle V2's{' '}
+          OpenPendle is a free, open-source, static interface to Pendle V2's{' '}
           <span className="text-fg">permissionless community pools</span> — the markets anyone can
-          create, that Pendle's own app doesn't list. It reads straight from the chain and simulates
-          every transaction before you sign.{' '}
+          create, that Pendle's own app doesn't list. Core market state comes straight from the chain;
+          transactions are simulated before signing, while limit orders use separately validated typed data.{' '}
           <span className="text-accent-ink">It is a gift to Pendle's community and takes no fee of its own.</span>
         </p>
       </header>
@@ -67,7 +67,9 @@ export default function AboutPage() {
             factory OpenPendle recognizes (a provenance gate) before it lets you save or transact;
             it simulates every transaction against the chain before you sign; and it defaults to
             exact-amount token approvals. Unlimited approval is an explicit transaction-setting
-            opt-in that leaves a standing allowance and increases exposure.
+            opt-in that leaves a standing allowance and increases exposure. For supported PT limit
+            orders, it independently checks the typed-data domain, every signed field, the signer,
+            and the Limit Router's on-chain hash before sending the order to Pendle's service.
           </p>
           <p>
             <span className="text-fg">It can't:</span> vouch for the underlying asset or the SY
@@ -81,8 +83,9 @@ export default function AboutPage() {
           <p>
             OpenPendle charges <span className="text-accent-ink">nothing</span> and adds no fee of
             its own. Pendle's own protocol fees still apply — the swap-fee cap, the YT interest fee,
-            and so on — enforced by Pendle's contracts, not by this interface. You can read those
-            live on the{' '}
+            limit-order fees, and so on — enforced by Pendle's contracts, not by this interface.
+            Limit-order fees are separate from AMM swap fees and can change. You can read Pendle's
+            factory and AMM fee values live on the{' '}
             <Link to="/status" className="text-accent-ink hover:underline">
               Protocol Status &amp; Contracts
             </Link>{' '}
@@ -92,15 +95,17 @@ export default function AboutPage() {
 
         <Section title="Your data & privacy">
           <p>
-            No request-time OpenPendle app server, accounts, tracking, or analytics. The pools you
-            remember live only in your browser's local storage; any custom RPC you set stays local
-            too. Explore inventory comes from a same-origin static snapshot generated on a schedule
-            from recognized factory events. Pendle's market API adds listing/display enrichment and
-            PT/YT pool lookup; it does not define which markets exist. Other outbound requests go to
-            your configured blockchain RPCs, DefiLlama and CoinGecko for the header ticker, where
-            available Blockscout indexes for token lookup, and Merkl when a connected user opens My
-            positions. Merkl receives the wallet address and chain ID needed to look up rewards.
-            None of these calls are analytics or tracking.
+            There is no request-time OpenPendle app server or account system. The hosted site uses
+            Cloudflare Web Analytics. The pools you remember live only in your browser's local storage;
+            any custom RPC you set stays local too. Explore inventory comes from a same-origin static
+            snapshot generated on a schedule from recognized factory events. Pendle's API supplies
+            listing/display data, Alerts history, and the hosted limit-order service. Alerts send no
+            wallet address. Generating, submitting, and reading your limit orders sends Pendle your
+            wallet address, chain, market/YT, token, amount, target rate, expiry, and signed order. A
+            signed order can remain executable until it fills, expires, or an on-chain cancellation is
+            confirmed. Other outbound requests go to configured blockchain RPCs, DefiLlama and CoinGecko
+            for the header ticker, available Blockscout indexes for token lookup, and Merkl when a
+            connected user opens My positions. Merkl receives the wallet address and chain ID.
           </p>
         </Section>
 

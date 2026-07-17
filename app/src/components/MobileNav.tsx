@@ -16,6 +16,7 @@ import { useNetworkSelection } from './useNetworkSelection'
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
   { to: '/quickstart', label: 'Quick start', glyph: '✦' },
   { to: '/explore', label: 'Explore markets', glyph: '◇' },
+  { to: '/alerts', label: 'Yield alerts', glyph: '↕' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },

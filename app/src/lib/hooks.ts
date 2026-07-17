@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi'
-import { BaseError, UserRejectedRequestError } from 'viem'
 import type { Address, PublicClient } from 'viem'
 import type {
   ActionPlan,
@@ -32,7 +31,13 @@ import { resolveMarketsForToken } from './marketResolve'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { previewExitPostExp, readDepegInfo } from './maturity'
-import { buildApproveCall, checkApprovals, decodePendleError, simulateAction } from './txflow'
+import {
+  buildApproveCall,
+  checkApprovals,
+  decodePendleError,
+  isUserRejection,
+  simulateAction,
+} from './txflow'
 import { activeChainForLocation } from './routes'
 import {
   forgetPool,
@@ -85,15 +90,20 @@ export function useTransactionInFlight(): boolean {
   )
 }
 
-function useTrackTransactionPhase(phase: TxPhase): void {
+export function useTransactionGuard(active: boolean): void {
   const flowId = useRef(0)
   if (flowId.current === 0) flowId.current = ++nextActionFlowId
-  const active = phase === 'approving' || phase === 'signing' || phase === 'pending'
 
   useEffect(() => {
     setTransactionInFlight(flowId.current, active)
     return () => setTransactionInFlight(flowId.current, false)
   }, [active])
+}
+
+function useTrackTransactionPhase(phase: TxPhase): void {
+  useTransactionGuard(
+    phase === 'approving' || phase === 'signing' || phase === 'pending',
+  )
 }
 
 /** Debounce a changing value; returns the value as of `delayMs` ago. */
@@ -717,19 +727,6 @@ export function useResolveMarket(snapshot?: MarketSnapshot): {
  *   during approving/signing/pending/confirmed and picked up only when the
  *   send resolves or reset() runs (see latchRef below)
  */
-/** True when the user declined the wallet prompt (EIP-1193 code 4001) — not a failure state. */
-function isUserRejection(err: unknown): boolean {
-  if (err instanceof BaseError && err.walk((e) => e instanceof UserRejectedRequestError)) {
-    return true
-  }
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code?: unknown }).code === 4001
-  )
-}
-
 /** JSON-stable key for a plan (bigints stringified); the ABI is implied by address+functionName. */
 function planMemoKey(plan: ActionPlan | null | undefined): string | null {
   if (!plan) return null

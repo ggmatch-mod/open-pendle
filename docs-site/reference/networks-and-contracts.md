@@ -35,7 +35,8 @@ A set of Pendle's contracts is deployed to the **same address on all six chains*
 
 | Contract | Address | Role |
 | --- | --- | --- |
-| Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | Every trade, liquidity add/remove, and exit routes through it |
+| Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | AMM trades, liquidity add/remove, and exits route through it |
+| Limit Router | `0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321` | PT limit-order fills, cancellations, nonces, fee roots, and signature checks |
 | `PendleCommonPoolDeployHelperV2` | `0x2Ed473F528E5B320f850d17ADfe0e558f0298aA9` | One-transaction pool deploy, optionally bundling an SY deploy |
 | `PendleCommonSYFactory` | `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8` | Permissionless SY deploys from its registered templates |
 | `PendlePYLpOracle` | `0x5542be50420E88dd7D5B4a3D488FA6ED82F6DAc2` | TWAP oracle used to price PT / YT / LP |
@@ -45,7 +46,8 @@ A set of Pendle's contracts is deployed to the **same address on all six chains*
 
 A few notes on what each one means in practice:
 
-- **Router V4** is the single contract your trades, liquidity actions, and exits flow through. When one of those actions needs approval, Router V4 receives the allowance: exact-amount by default, or unlimited only after an explicit settings opt-in. See [Buying PT](/guides/buying-pt), [Buying YT](/guides/buying-yt), and [Providing liquidity](/guides/providing-liquidity).
+- **Router V4** is the contract your immediate AMM trades, liquidity actions, and exits flow through. When one of those actions needs approval, Router V4 receives the allowance: exact-amount by default, or unlimited only after an explicit settings opt-in. See [Buying PT](/guides/buying-pt), [Buying YT](/guides/buying-yt), and [Providing liquidity](/guides/providing-liquidity).
+- **Limit Router** is the separate settlement and validation contract for [PT limit orders](/guides/limit-orders). OpenPendle's MVP signs PT ↔ SY orders for this EIP-712 domain, compares local and on-chain hashes, and uses it for cancellation. SY or PT approval for a limit order goes to this router, not Router V4. Pendle's live limit-order fee root is mutable and is checked before signing.
 - **`PendleCommonPoolDeployHelperV2`** and **`PendleCommonSYFactory`** are the creation surface — the helper deploys a market (and can bundle the SY in the same transaction), and the factory deploys an SY from its registered templates. See [Creating a pool: overview](/create/overview), [Creating an SY](/create/standardized-yield), and [Deploying a market](/create/deploying-a-market).
 - **`PendlePYLpOracle`** provides the time-weighted prices used to value PT, YT, and LP. It reads from a market's on-chain observation buffer, which is why a freshly deployed market may need an oracle cardinality bump before *other* protocols can price it. See [Initializing the price oracle](/create/price-oracle).
 - **`Multicall3`** is the canonical community deployment present at the same address across most EVM chains; OpenPendle uses it to fold many core reads into one RPC round-trip, which keeps browsing responsive without an OpenPendle-operated backend or indexer. See [How OpenPendle works](/reference/architecture).
@@ -123,7 +125,7 @@ An RPC endpoint answers the app's read queries, so a hostile or broken endpoint 
 
 ### Outbound requests
 
-RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, uses keyless **Blockscout** log APIs as a lookup fallback where available, calls **Merkl** when a connected user opens **My positions**, and uses **Cloudflare Web Analytics** for page-view and performance metrics. The Merkl reward lookup includes the wallet address and chain ID. The Content-Security-Policy blocks JavaScript `eval()`/`Function` and allowlists Cloudflare's analytics script; fonts remain self-hosted. See [How OpenPendle works](/reference/architecture).
+RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, and uses keyless **Blockscout** log APIs as a lookup fallback where available. **Yield alerts** request Pendle's active catalog and hourly market histories directly from the browser. **PT limit orders** use Pendle's hosted API for live support, book data, generated order fields, signed-order placement, and maker-order reads; maker reads and placement disclose the wallet address and placement sends the complete signed order. **Merkl** receives the wallet address and chain ID when a connected user opens **My positions**. **Cloudflare Web Analytics** receives page-view and performance metrics from the stock interface; the beacon is not intentionally sent wallet addresses. The Content-Security-Policy blocks JavaScript `eval()`/`Function` and allowlists Cloudflare's analytics script; fonts remain self-hosted. See [How OpenPendle works](/reference/architecture).
 
 ## Verify for yourself
 
@@ -141,6 +143,7 @@ Every address on this page is in EIP-55 checksummed form and is copied verbatim 
 
 - [Browsing & networks](/guides/browsing) — the network selector, custom-RPC field, and wrong-network banner in the interface.
 - [How OpenPendle works](/reference/architecture) — the static, RPC-first, simulate-before-sign architecture and ancillary-service disclosure.
+- [PT limit orders](/guides/limit-orders) — how the shared Limit Router and Pendle's hosted order API divide responsibilities.
 - [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" means, and how provenance is checked.
 - [Anatomy of a pool](/concepts/pool-anatomy) — how the market, PT, YT, and SY contracts wire together.
 - [Creating a pool: overview](/create/overview) — the factories and helper a deploy calls, and what you receive.

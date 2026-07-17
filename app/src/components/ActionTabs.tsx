@@ -1,12 +1,12 @@
 /**
- * ActionTabs (M2/M3/M4/M12) — the shared action area. Market mode exposes four
- * live tabs (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, Liquidity). Token mode is
+ * ActionTabs (M2/M3/M4/M12) — the shared action area. Market mode exposes five
+ * live tabs (Wrap/Unwrap, Mint/Redeem, Trade PT & YT, PT Limits, Liquidity). Token mode is
  * used by the market-less PT/YT page and exposes only the actions its synthetic
  * snapshot can support without a market (Wrap/Unwrap and Mint/Redeem).
  * SlippageControl in the header is shared by every mounted panel.
  */
 
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { MarketSnapshot, Positions } from '../lib/types'
 import { LiquidityPanel } from './LiquidityPanel'
 import { MintRedeemPanel } from './MintRedeemPanel'
@@ -14,12 +14,15 @@ import { SlippageControl } from './SlippageControl'
 import { TradePanel } from './TradePanel'
 import { WrapUnwrapPanel } from './WrapUnwrapPanel'
 
-type TabId = 'wrap' | 'mint' | 'trade' | 'liquidity'
+const LimitOrderPanel = lazy(() => import('./LimitOrderPanel'))
+
+type TabId = 'wrap' | 'mint' | 'trade' | 'limit' | 'liquidity'
 
 const LIVE_TABS: Array<{ id: TabId; label: string }> = [
   { id: 'wrap', label: 'Wrap / Unwrap' },
   { id: 'mint', label: 'Mint / Redeem' },
   { id: 'trade', label: 'Trade PT & YT' },
+  { id: 'limit', label: 'PT Limits' },
   { id: 'liquidity', label: 'Liquidity' },
 ]
 
@@ -52,7 +55,7 @@ export function ActionTabs({
         <h2 className="text-base font-semibold text-fg">
           {variant === 'token' ? 'Token actions' : 'Actions'}
         </h2>
-        <SlippageControl disabled={flowBusy} />
+        {tab !== 'limit' && <SlippageControl disabled={flowBusy} />}
       </div>
 
       <div
@@ -100,6 +103,15 @@ export function ActionTabs({
             refetchPositions={refetchPositions}
             onBusyChange={setFlowBusy}
           />
+        ) : tab === 'limit' ? (
+          <Suspense fallback={<p className="text-sm text-muted">Loading PT limit orders…</p>}>
+            <LimitOrderPanel
+              snapshot={snapshot}
+              positions={positions}
+              refetchPositions={refetchPositions}
+              onBusyChange={setFlowBusy}
+            />
+          </Suspense>
         ) : (
           <LiquidityPanel
             snapshot={snapshot}

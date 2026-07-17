@@ -27,10 +27,10 @@ features:
     details: Browse every indexed factory-created market or load any Pendle V2 market by address across six networks. Listed status stays visible; it never becomes a whitelist.
   - icon: 🛰️
     title: Static and verifiable
-    details: Explore uses a generated factory-event snapshot. Core pool data comes straight from your RPC, every transaction is simulated, and no request-time server or relay sits in the signing path.
+    details: Explore uses a generated factory-event snapshot. Core pool data comes straight from your RPC, every on-chain transaction is simulated, and no OpenPendle request-time server or relay sits in the signing path.
   - icon: 🔒
     title: Yours and private
-    details: No OpenPendle accounts or user-data backend. Saved pools and settings stay in your browser; Cloudflare provides page-view and performance analytics.
+    details: No OpenPendle accounts or user-data backend. Saved pools and settings stay in your browser; feature APIs and Cloudflare receive only the requests disclosed in the docs.
   - icon: 🎁
     title: A public good
     details: Free everywhere, GPL-3.0, and it takes no fee of its own. Not affiliated with Pendle Finance.
@@ -55,6 +55,8 @@ Community pools are **permissionless and unreviewed** — anyone can create one,
 ## Do things
 
 - [**Explore markets**](/guides/exploring-markets) — search the factory-created universe across six networks and filter listed vs community markets.
+- [**Yield alerts**](/guides/yield-alerts) — inspect qualified 24-hour PT fixed-yield moves; no wallet or notifications.
+- [**PT limit orders**](/guides/limit-orders) — target an APY on the subset Pendle's live service supports.
 - [**Browsing & doing actions**](/guides/connecting-a-wallet) — connect a wallet and use a pool.
 - [**Creating a pool**](/create/overview) — deploy your own market.
 - [**Risks & disclosures**](/reference/risks) — please read this one.
