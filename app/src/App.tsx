@@ -38,6 +38,7 @@ import AboutPage from './pages/AboutPage'
 import QuickStartPage from './pages/QuickStartPage'
 import { useActiveChain } from './lib/hooks'
 import { isChainAddressRoute, routeChainId } from './lib/routes'
+import { markAppReady } from './lib/preloadRecovery'
 
 const AlertsPage = lazy(() => import('./pages/AlertsPage'))
 const LoopingPage = lazy(() => import('./pages/LoopingPage'))
@@ -142,10 +143,15 @@ function AppRoutes() {
 }
 
 export default function App() {
+  useEffect(() => {
+    markAppReady()
+  }, [])
+
   return (
     <ForgetUndoProvider>
     <div
-      data-openpendle-release="looping-preview-v1"
+      data-openpendle-release="looping-preview-v1.1"
+      data-openpendle-startup="ready"
       className="flex min-h-screen flex-col bg-bg text-fg antialiased"
     >
       <WrongNetworkBanner />

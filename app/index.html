@@ -33,7 +33,20 @@
     <meta name="twitter:image" content="https://openpendle.com/og-image.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main
+        data-openpendle-startup="pending"
+        role="status"
+        style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#0a0b0e;color:#eceef2;font-family:system-ui,-apple-system,sans-serif"
+      >
+        <div style="max-width:440px;text-align:center">
+          <strong style="font-size:20px">OpenPendle is loading</strong>
+          <p style="margin:12px 0 0;color:#949ba7;line-height:1.6">
+            If this message remains visible, reload once to fetch the current release.
+          </p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- Cloudflare Web Analytics -->
     <script

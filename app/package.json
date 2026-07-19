@@ -11,6 +11,7 @@
     "check:alerts": "node --experimental-strip-types scripts/alerts-check.mjs",
     "check:limit-orders": "node --experimental-strip-types scripts/limit-order-check.mjs",
     "check:looping": "node --experimental-strip-types scripts/looping-check.mjs",
+    "check:startup": "node --experimental-strip-types scripts/startup-recovery-check.mjs",
     "check:wallet-storage": "node --experimental-strip-types scripts/wagmi-storage-check.mjs",
     "check:catalog": "node --experimental-strip-types scripts/catalog-check.mjs",
     "check:factory-markets": "node --experimental-strip-types scripts/index-factory-markets.mjs --check",

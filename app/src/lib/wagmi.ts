@@ -35,6 +35,12 @@ import {
   createSafeWagmiBaseStorage,
   deserializeWagmiStorage,
 } from './wagmiStorage'
+import { prepareBrowserStorage, sanitizeRainbowKitStorage } from './rainbowKitStorage'
+
+// RainbowKit and injected-wallet helpers touch localStorage during provider
+// setup. Normalize that dependency state before any connector is constructed.
+const browserStorage = prepareBrowserStorage()
+sanitizeRainbowKitStorage(() => browserStorage)
 
 /**
  * Back-compat: the legacy single-chain RPC reader. Existing components import
