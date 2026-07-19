@@ -144,7 +144,10 @@ function AppRoutes() {
 export default function App() {
   return (
     <ForgetUndoProvider>
-    <div className="flex min-h-screen flex-col bg-bg text-fg antialiased">
+    <div
+      data-openpendle-release="looping-preview-v1"
+      className="flex min-h-screen flex-col bg-bg text-fg antialiased"
+    >
       <WrongNetworkBanner />
       <Ticker />
 
