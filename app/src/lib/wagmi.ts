@@ -21,7 +21,7 @@ import { connectorsForWallets } from '@rainbow-me/rainbowkit'
 import { injectedWallet } from '@rainbow-me/rainbowkit/wallets'
 import { fallback, getAddress, isAddress } from 'viem'
 import type { Address, Chain } from 'viem'
-import { createConfig, http } from 'wagmi'
+import { createConfig, createStorage, http } from 'wagmi'
 import { arbitrum, base, bsc, mainnet, monad, plasma } from 'wagmi/chains'
 import type { SupportedChainId } from './types'
 import {
@@ -30,6 +30,11 @@ import {
   getChainRpcUrl,
   getChainRpcUrls,
 } from './addresses'
+import {
+  WAGMI_STORAGE_PREFIX,
+  createSafeWagmiBaseStorage,
+  deserializeWagmiStorage,
+} from './wagmiStorage'
 
 /**
  * Back-compat: the legacy single-chain RPC reader. Existing components import
@@ -171,10 +176,17 @@ const connectors = connectorsForWallets(
   { appName: 'OpenPendle', projectId: 'openpendle-injected-only' },
 )
 
+const wagmiStorage = createStorage({
+  key: WAGMI_STORAGE_PREFIX,
+  storage: createSafeWagmiBaseStorage(),
+  deserialize: deserializeWagmiStorage,
+})
+
 export const wagmiConfig = createConfig({
   connectors,
   chains,
   transports,
+  storage: wagmiStorage,
   // Batch eth_calls through Multicall3 — public RPCs rate-limit hard (PLAN §3.2).
   batch: { multicall: true },
 })

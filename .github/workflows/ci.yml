@@ -23,6 +23,7 @@ jobs:
       - run: npm run check:alerts
       - run: npm run check:limit-orders
       - run: npm run check:looping
+      - run: npm run check:wallet-storage
       - run: npm run check:catalog
       - run: npm run check:factory-markets:complete
       - run: npm run check:m12
