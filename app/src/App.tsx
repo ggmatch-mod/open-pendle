@@ -40,6 +40,7 @@ import { useActiveChain } from './lib/hooks'
 import { isChainAddressRoute, routeChainId } from './lib/routes'
 
 const AlertsPage = lazy(() => import('./pages/AlertsPage'))
+const LoopingPage = lazy(() => import('./pages/LoopingPage'))
 
 function PageFallback() {
   return (
@@ -119,6 +120,14 @@ function AppRoutes() {
           </Suspense>
         }
       />
+      <Route
+        path="/looping"
+        element={
+          <Suspense fallback={<PageFallback />}>
+            <LoopingPage />
+          </Suspense>
+        }
+      />
       <Route path="/pools" element={<PoolsPage />} />
       <Route path="/positions" element={<PositionsPage />} />
       <Route path="/status" element={<ProtocolStatusPage />} />
@@ -172,6 +181,15 @@ export default function App() {
                 ↕
               </span>
               Yield alerts
+            </Link>
+            <Link
+              to="/looping"
+              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
+            >
+              <span aria-hidden className="text-[12px] text-accent-ink">
+                ↻
+              </span>
+              Looping
             </Link>
             <Link
               to="/positions"
