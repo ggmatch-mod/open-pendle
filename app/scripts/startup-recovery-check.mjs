@@ -79,7 +79,7 @@ const entryListeners = new Map()
 const windowListeners = new Map()
 const appendedScripts = []
 const entryElement = {
-  src: 'https://openpendle.com/assets/index-old.js',
+  src: 'https://openpendle.com/assets-v2/index-old.js',
   addEventListener: (name, listener) => entryListeners.set(name, listener),
 }
 const fallbackTitle = { textContent: 'OpenPendle is loading' }

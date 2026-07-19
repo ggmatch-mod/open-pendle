@@ -12,7 +12,7 @@
 
   function entryScript() {
     return document.querySelector(
-      'script[type="module"][data-openpendle-entry], script[type="module"][src^="/assets/index-"], script[type="module"][src*="/src/main.tsx"]',
+      'script[type="module"][data-openpendle-entry], script[type="module"][src^="/assets-v2/index-"], script[type="module"][src^="/assets/index-"], script[type="module"][src*="/src/main.tsx"]',
     )
   }
 
