@@ -15,21 +15,31 @@ import { StartupErrorBoundary } from './components/StartupErrorBoundary.tsx'
 const queryClient = new QueryClient()
 installPreloadRecovery()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <StartupErrorBoundary>
-      <ThemeProvider>
-        <WagmiProvider config={wagmiConfig}>
-          <QueryClientProvider client={queryClient}>
-            <ThemedRainbowKit>
-              {/* HashRouter: IPFS/static-host friendly — no server-side rewrites needed. */}
-              <HashRouter>
-                <App />
-              </HashRouter>
-            </ThemedRainbowKit>
-          </QueryClientProvider>
-        </WagmiProvider>
-      </ThemeProvider>
-    </StartupErrorBoundary>
-  </StrictMode>,
-)
+const rootElement = document.getElementById('root')!
+if (rootElement.dataset.openpendleMounted !== 'true') {
+  const root = createRoot(rootElement)
+  rootElement.dataset.openpendleMounted = 'true'
+  try {
+    root.render(
+      <StrictMode>
+        <StartupErrorBoundary>
+          <ThemeProvider>
+            <WagmiProvider config={wagmiConfig}>
+              <QueryClientProvider client={queryClient}>
+                <ThemedRainbowKit>
+                  {/* HashRouter: IPFS/static-host friendly — no server-side rewrites needed. */}
+                  <HashRouter>
+                    <App />
+                  </HashRouter>
+                </ThemedRainbowKit>
+              </QueryClientProvider>
+            </WagmiProvider>
+          </ThemeProvider>
+        </StartupErrorBoundary>
+      </StrictMode>,
+    )
+  } catch (error) {
+    delete rootElement.dataset.openpendleMounted
+    throw error
+  }
+}

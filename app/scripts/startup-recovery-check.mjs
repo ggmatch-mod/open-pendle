@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import vm from 'node:vm'
 
 const listeners = new Map()
 const sessionValues = new Map()
@@ -29,6 +31,7 @@ globalThis.window = {
     readyCallback = callback
   },
 }
+globalThis.document = { documentElement: { dataset: {} } }
 
 const { installPreloadRecovery, markAppReady } = await import('../src/lib/preloadRecovery.ts')
 installPreloadRecovery()
@@ -60,5 +63,63 @@ assert.equal(readyUrl.hash, '#/looping')
 assert.equal(sessionValues.size, 0)
 
 delete globalThis.window
+delete globalThis.document
+
+const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8')
+const entryRecoveryPosition = indexSource.indexOf('src="/startup-recovery.js"')
+const moduleEntryPosition = indexSource.indexOf('data-openpendle-entry')
+assert.ok(entryRecoveryPosition >= 0)
+assert.ok(moduleEntryPosition > entryRecoveryPosition)
+
+const entryRecoverySource = await readFile(
+  new URL('../public/startup-recovery.js', import.meta.url),
+  'utf8',
+)
+const entryListeners = new Map()
+const windowListeners = new Map()
+const appendedScripts = []
+const entryElement = {
+  src: 'https://openpendle.com/assets/index-old.js',
+  addEventListener: (name, listener) => entryListeners.set(name, listener),
+}
+const fallbackTitle = { textContent: 'OpenPendle is loading' }
+const fallbackCopy = { textContent: 'Loading' }
+const fallbackElement = {
+  querySelector: (selector) => (selector === 'strong' ? fallbackTitle : fallbackCopy),
+}
+const classicDocument = {
+  addEventListener: () => {},
+  createElement: () => ({
+    addEventListener: () => {},
+    setAttribute: () => {},
+    src: '',
+    type: '',
+  }),
+  head: { appendChild: (script) => appendedScripts.push(script) },
+  querySelector: (selector) => {
+    if (selector.includes('"ready"') || selector.includes('"error"')) return null
+    if (selector.includes('data-openpendle-entry')) return entryElement
+    if (selector.includes('"pending"')) return fallbackElement
+    return null
+  },
+}
+const classicWindow = {
+  addEventListener: (name, listener) => windowListeners.set(name, listener),
+  location: { href: 'https://openpendle.com/#/looping' },
+  setTimeout: () => {},
+}
+vm.runInNewContext(entryRecoverySource, {
+  Date,
+  URL,
+  document: classicDocument,
+  window: classicWindow,
+})
+assert.equal(typeof windowListeners.get('error'), 'function')
+windowListeners.get('error')()
+assert.equal(appendedScripts.length, 1)
+assert.equal(appendedScripts[0].type, 'module')
+assert.ok(new URL(appendedScripts[0].src).searchParams.get('_op_boot_retry'))
+windowListeners.get('error')()
+assert.equal(appendedScripts.length, 1)
 
 console.log('startup recovery checks passed')

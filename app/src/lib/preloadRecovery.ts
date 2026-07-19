@@ -21,6 +21,8 @@ function recentReloadAttempt(url: URL): boolean {
 
 export function installPreloadRecovery(): void {
   if (typeof window === 'undefined') return
+  if (document.documentElement.dataset.openpendlePreloadRecovery === 'installed') return
+  document.documentElement.dataset.openpendlePreloadRecovery = 'installed'
   window.addEventListener('vite:preloadError', (event) => {
     const url = new URL(window.location.href)
     if (reloadStarted || recentReloadAttempt(url)) return
