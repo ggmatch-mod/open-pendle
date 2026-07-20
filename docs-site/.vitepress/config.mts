@@ -35,7 +35,7 @@ export default withMermaid(
       siteTitle: 'OpenPendle Docs',
 
       nav: [
-        { text: 'Introduction', link: '/introduction/what-is-openpendle' },
+        { text: 'Quickstart', link: '/introduction/quickstart' },
         { text: 'Concepts', link: '/concepts/how-pendle-works' },
         { text: 'Guides', link: '/guides/connecting-a-wallet' },
         { text: 'Create', link: '/create/overview' },
@@ -48,9 +48,9 @@ export default withMermaid(
           text: 'Introduction',
           collapsed: false,
           items: [
+            { text: 'Quickstart', link: '/introduction/quickstart' },
             { text: 'What is OpenPendle', link: '/introduction/what-is-openpendle' },
             { text: 'Why OpenPendle', link: '/introduction/why-openpendle' },
-            { text: 'Quickstart', link: '/introduction/quickstart' },
           ],
         },
         {
@@ -75,6 +75,7 @@ export default withMermaid(
             { text: 'Connecting a wallet', link: '/guides/connecting-a-wallet' },
             { text: 'Browsing & networks', link: '/guides/browsing' },
             { text: 'Exploring markets', link: '/guides/exploring-markets' },
+            { text: 'PT looping', link: '/guides/looping' },
             { text: 'Yield alerts', link: '/guides/yield-alerts' },
             { text: 'Opening a pool', link: '/guides/opening-a-pool' },
             { text: 'Buying PT (fixed yield)', link: '/guides/buying-pt' },
@@ -82,6 +83,7 @@ export default withMermaid(
             { text: 'Buying YT (yield exposure)', link: '/guides/buying-yt' },
             { text: 'Minting & redeeming', link: '/guides/minting-redeeming' },
             { text: 'Providing liquidity', link: '/guides/providing-liquidity' },
+            { text: 'Positions & rewards', link: '/guides/positions' },
             { text: 'Saved pools & privacy', link: '/guides/saved-pools' },
           ],
         },

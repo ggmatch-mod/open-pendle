@@ -23,6 +23,7 @@ A **community pool** (used interchangeably with **market**) is the on-chain `Pen
 At a high level, OpenPendle turns a raw market address into a usable app surface. Once a market clears the [provenance gate](#provenance-gate-validation-not-endorsement), you can:
 
 - **Explore markets** — search every indexed factory-created market across all supported networks, and distinguish Pendle-listed results from unlisted community markets. See [Exploring markets](/guides/exploring-markets).
+- **Model PT loops** — match Pendle PT collateral with Morpho markets, compare leverage and liquidation distance, and inspect a read-only entry and exit outline. Transaction execution is currently disabled. See [PT looping](/guides/looping).
 - **Track fixed-yield moves** — use the separate, wallet-less [Yield alerts](/guides/yield-alerts) page to inspect qualified 24-hour PT implied-APY changes. It does not send notifications.
 - **Mint and redeem** — split SY (or the underlying) into `PT` + `YT`, and redeem `PT` + `YT` back to SY at any time before maturity.
 - **Swap into a fixed-yield position** — trade a token immediately through the AMM for [`PT`](/concepts/principal-tokens) to lock in a yield fixed at execution.
@@ -32,6 +33,7 @@ At a high level, OpenPendle turns a raw market address into a usable app surface
 - **Redeem at maturity** — after maturity, redeem `PT` for the underlying, and exit any LP position.
 - **Create a market** — deploy a new community pool (and, optionally, the [SY](/concepts/standardized-yield) it wraps) in a single transaction. See [Create: overview](/create/overview).
 - **Remember pools** — save markets to a local, client-side registry so you can find them again. See [Saved pools & privacy](/guides/saved-pools).
+- **Review positions and rewards** — inspect PT, YT, LP, and SY balances across saved pools and claim supported rewards by network. See [Positions & rewards](/guides/positions).
 
 On-chain quotes update live as you type, every on-chain transaction is simulated against the live chain before you sign, and token approvals default to the exact amount you are spending. Limit orders use a separate typed-data validation path before publication to Pendle's API.
 
@@ -90,7 +92,7 @@ OpenPendle adds nothing on top of an action. Pendle's own AMM and mutable limit-
 | **Cost** | Free; **no fee of its own** (Pendle's protocol fees still apply) |
 | **Built by** | [ggmxbt](https://x.com/ggmxbt) — **not** affiliated with Pendle Finance |
 | **Backend** | No OpenPendle request-time application server, account database, or transaction relay; Explore uses a generated static snapshot, feature-scoped calls go directly to public APIs, and Cloudflare provides page-view/performance analytics |
-| **Data sources** | Factory-event snapshot for inventory; public RPC for live reads; Pendle APIs for enrichment, alerts, and limit orders; DefiLlama/CoinGecko for the ticker; Pendle/Blockscout for token lookup; Merkl for rewards on My positions |
+| **Data sources** | Factory-event snapshot for inventory; public RPC for live reads; Pendle APIs for enrichment, alerts, and limit orders; Morpho's API for Looping discovery; DefiLlama/CoinGecko for the ticker; Pendle/Blockscout for token lookup; Merkl for rewards on My positions |
 | **Wallets** | Injected-only (MetaMask, Rabby, Brave, any EIP-6963) — no WalletConnect |
 | **Networks** | Ethereum, BNB Smart Chain, Monad, Base, Plasma, Arbitrum |
 | **Contracts** | Ships none of its own — calls Pendle's deployed contracts with hand-written ABIs |
@@ -130,10 +132,12 @@ Your keys stay in your wallet; OpenPendle prepares on-chain transactions and val
 ## See also
 
 - [Why OpenPendle](/introduction/why-openpendle) — the case for a permissionless, backend-free frontend.
-- [Quickstart](/introduction/quickstart) — connect, open a pool, and make your first action.
+- [Quickstart](/introduction/quickstart) — choose a goal and follow its safest path through OpenPendle.
 - [How Pendle works](/concepts/how-pendle-works) — PT, YT, SY, and maturity from first principles.
 - [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" really means.
 - [Yield alerts](/guides/yield-alerts) — the read-only fixed-yield-mover page.
+- [PT looping](/guides/looping) — market matching, leverage modeling, and the current preview boundary.
 - [PT limit orders](/guides/limit-orders) — support, signing, funds, fees, and cancellation.
+- [Positions & rewards](/guides/positions) — balances and claims across saved pools.
 - [How OpenPendle works](/reference/architecture) — the no-backend architecture and security model in detail.
 - [Risks & disclosures](/reference/risks) — please read this before you transact.

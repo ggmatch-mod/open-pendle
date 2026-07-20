@@ -122,7 +122,7 @@ The trade is explicit and worth stating plainly: OpenPendle buys you **reach** �
 ## Next
 
 - [What is OpenPendle](/introduction/what-is-openpendle) — a plain description of what the app does and what it is not.
-- [Quickstart](/introduction/quickstart) — from opening the app to your first transaction.
+- [Quickstart](/introduction/quickstart) — choose a goal and follow its safest path through OpenPendle.
 - [How Pendle works](/concepts/how-pendle-works) — PT, YT, SY, and maturity from first principles.
 - [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" really means, and how Merkl fits.
 - [How OpenPendle works](/reference/architecture) — the no-backend architecture and security model in detail.

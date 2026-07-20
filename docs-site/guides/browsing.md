@@ -59,6 +59,7 @@ Because reads go through RPC and not through your wallet, the entire discovery f
 - **Pick a network** and let the app read the chain.
 - **Browse Explore** to search the factory-indexed universe across all supported networks and filter Pendle-listed vs community markets.
 - **Open Yield alerts** to inspect qualified 24-hour PT implied-APY movers. This is a page, not a notification subscription.
+- **Open Looping** to match Pendle PT collateral with Morpho markets, model leverage, and inspect the read-only transaction outline. Execution remains disabled.
 - **Open a market** by pasting its address (or following a shared `?import=` link) and read its trust panel — the underlying asset, the SY contract, the maturity, and the implied APY.
 - **Save pools** to your browser's local registry for later.
 
@@ -126,6 +127,7 @@ OpenPendle validates market provenance but cannot vouch for the assets or SY con
 - [Connecting a wallet](/guides/connecting-a-wallet) — injected-only connection, and the wrong-network switch.
 - [Opening a pool](/guides/opening-a-pool) — the provenance gate and the trust panel, step by step.
 - [Yield alerts](/guides/yield-alerts) — read-only PT fixed-yield movers with no notifications.
+- [PT looping](/guides/looping) — exact market matching, leverage modeling, and the current preview boundary.
 - [PT limit orders](/guides/limit-orders) — market-level support, signing, fills, and cancellation.
 - [Networks & contracts](/reference/networks-and-contracts) — the full per-chain address list.
 - [How OpenPendle works](/reference/architecture) — the static, RPC-first architecture and ancillary-service disclosure.

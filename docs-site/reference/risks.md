@@ -110,6 +110,7 @@ The pools you remember live only in your browser's local storage, and any custom
 - **DefiLlama and CoinGecko** for aggregate metrics in the header ticker;
 - the same-origin factory-market snapshot for Explore, Pendle's public market API for listing enrichment and PT/YT pool lookup, and where supported keyless **Blockscout** log APIs as a lookup fallback;
 - Pendle's active-market and hourly-history APIs when you open **Yield alerts**. That page is wallet-less, but its current browser-side fanout sends the requested market histories directly to Pendle;
+- Morpho's public market API when you open **Looping**. The current Looping page uses that data for research and does not publish a signed transaction;
 - Pendle's hosted limit-order API when a market page checks support or loads the book, and when you retrieve or place orders. Maker-order reads include the wallet address; placement includes the market and token context, maker, amount, APY, expiry, nonce, and signed order;
 - **Merkl** when a connected user opens **My positions**. That reward lookup sends the wallet address and chain ID to Merkl so it can return claimable amounts and proofs; and
 - **Cloudflare Web Analytics** when the stock interface loads and is navigated, for page-view and performance metrics. The beacon is not intentionally sent wallet addresses or saved-pool contents.

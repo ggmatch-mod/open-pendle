@@ -18,36 +18,17 @@ import {
 } from '../lib/addresses'
 import { useActiveChain } from '../lib/hooks'
 
-export function RpcSettings() {
+export function RpcSettingsForm({ compact = false }: { compact?: boolean }) {
   const { chainId, chain } = useActiveChain()
-  const [open, setOpen] = useState(false)
-  const [value, setValue] = useState('')
-  const popoverRef = useRef<HTMLDivElement>(null)
-
   const defaultUrl = DEFAULT_RPCS[chainId]
+  const [value, setValue] = useState(() => getChainRpcUrl(chainId))
 
-  // Load the active chain's current RPC when opening (or when the active chain
-  // changes while open).
   useEffect(() => {
-    if (open) setValue(getChainRpcUrl(chainId))
-  }, [open, chainId])
-
-  // Close on outside click.
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [open])
+    setValue(getChainRpcUrl(chainId))
+  }, [chainId])
 
   const trimmed = value.trim()
   const isValidUrl = isAllowedRpcUrl(trimmed)
-  // A dot marks a non-default (custom) endpoint for the active chain.
-  const isCustom = getChainRpcUrl(chainId) !== defaultUrl
 
   const save = () => {
     if (!isValidUrl) return
@@ -61,8 +42,75 @@ export function RpcSettings() {
   }
 
   return (
+    <div>
+      <h3 className={`${compact ? 'text-xs' : 'text-sm'} font-semibold text-fg`}>
+        Custom RPC endpoint — {chain.name}
+      </h3>
+      <p className={`mt-1 text-faint ${compact ? 'text-[11px] leading-relaxed' : 'text-xs'}`}>
+        All {chain.name} reads use this endpoint. Each network keeps its own local override;
+        saving reloads the app.
+      </p>
+      <input
+        type="url"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save()
+        }}
+        placeholder={defaultUrl}
+        spellCheck={false}
+        aria-label={`Custom ${chain.name} RPC endpoint`}
+        className="mt-3 w-full rounded-md border border-hairline-strong bg-bg px-3 py-2 font-mono text-xs text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent"
+      />
+      {!isValidUrl && trimmed.length > 0 && (
+        <p className="mt-1 text-xs text-danger">
+          {window.location.protocol === 'https:'
+            ? 'Must be an HTTPS URL on the hosted app.'
+            : 'Must be an HTTP(S) URL.'}
+        </p>
+      )}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={reset}
+          className="rounded-md px-2 py-1.5 text-xs text-muted hover:text-fg"
+        >
+          Reset to default
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!isValidUrl}
+          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Save &amp; reload
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function RpcSettings() {
+  const { chainId, chain } = useActiveChain()
+  const [open, setOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const isCustom = getChainRpcUrl(chainId) !== DEFAULT_RPCS[chainId]
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
+  return (
     <div className="relative" ref={popoverRef}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -85,47 +133,7 @@ export function RpcSettings() {
           aria-label="RPC settings"
           className="absolute right-0 z-20 mt-2 w-80 rounded-[14px] border border-hairline bg-surface p-4 shadow-[var(--op-shadow-lg)]"
         >
-          <h3 className="text-sm font-semibold text-fg">
-            Custom RPC endpoint — {chain.name}
-          </h3>
-          <p className="mt-1 text-xs text-faint">
-            All {chain.name} reads go through this RPC. Public endpoints
-            rate-limit; a personal endpoint (Alchemy, Infura, dRPC…) is smoother.
-            Each network has its own override. Saving reloads the app.
-          </p>
-          <input
-            type="url"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') save()
-            }}
-            placeholder={defaultUrl}
-            spellCheck={false}
-            className="mt-3 w-full rounded-md border border-hairline-strong bg-bg px-3 py-2 font-mono text-xs text-fg placeholder-[color:var(--op-faint)] outline-none focus:border-accent"
-          />
-          {!isValidUrl && trimmed.length > 0 && (
-            <p className="mt-1 text-xs text-danger">
-              {window.location.protocol === 'https:'
-                ? 'Must be an HTTPS URL on the hosted app.'
-                : 'Must be an HTTP(S) URL.'}
-            </p>
-          )}
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <button
-              onClick={reset}
-              className="rounded-md px-2 py-1.5 text-xs text-muted hover:text-fg"
-            >
-              Reset to default
-            </button>
-            <button
-              onClick={save}
-              disabled={!isValidUrl}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Save &amp; reload
-            </button>
-          </div>
+          <RpcSettingsForm />
         </div>
       )}
     </div>

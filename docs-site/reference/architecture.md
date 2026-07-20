@@ -2,7 +2,7 @@
 
 OpenPendle is a free, open-source (`GPL-3.0-or-later`) web interface to the full Pendle V2 market universe on its six supported chains. Its factory-indexed directory includes both Pendle-listed markets and permissionless [community pools](/concepts/community-pools) that the official app does not list. This page is the architecture and trust-model deep-dive: what the interface is, what it deliberately is **not**, and every boundary it draws around your funds and your privacy.
 
-The short version is a single design commitment: OpenPendle is a **thin, verifiable client** in front of contracts it does not own. It ships **no smart contracts of its own** and adds **no fee of its own** — it calls Pendle's already-deployed contracts with hand-written ABIs, and every Pendle protocol fee still applies. OpenPendle operates no request-time application server, account system, database, or transaction relay. Core market reads and transactions go directly through the RPC endpoint you choose. Explore consumes a versioned static catalog built on a schedule from factory events. Yield alerts and limit orders make direct, feature-scoped browser requests to Pendle's public APIs, while other disclosed public services provide enrichment, ticker, token discovery, rewards, and Cloudflare page-view/performance analytics.
+The short version is a single design commitment: OpenPendle is a **thin, verifiable client** in front of contracts it does not own. It ships **no smart contracts of its own** and adds **no fee of its own** — it calls Pendle's already-deployed contracts with hand-written ABIs, and every Pendle protocol fee still applies. OpenPendle operates no request-time application server, account system, database, or transaction relay. Core market reads and transactions go directly through the RPC endpoint you choose. Explore consumes a versioned static catalog built on a schedule from factory events. Yield alerts, Looping, and limit orders make direct, feature-scoped browser requests to public protocol APIs, while other disclosed public services provide enrichment, ticker, token discovery, rewards, and Cloudflare page-view/performance analytics.
 
 ::: info The trust model in one sentence
 OpenPendle reads and writes Pendle V2 directly from your browser, validates that a market genuinely came from a Pendle factory, simulates every transaction before you sign, and defaults to exact-amount approvals — but it **validates provenance, not the asset or SY underneath**, and it is **not affiliated with, endorsed by, or operated by Pendle Finance**.
@@ -12,7 +12,7 @@ OpenPendle reads and writes Pendle V2 directly from your browser, validates that
 
 Most of OpenPendle's security properties are the direct consequence of things it refuses to have. It is easier to trust a system when there is less of it to trust.
 
-- **No OpenPendle request-time backend.** There is no OpenPendle server that holds your data, brokers transactions, or sits between your wallet and Pendle. Yield-alert data and off-chain limit orders currently go from your browser directly to Pendle's APIs.
+- **No OpenPendle request-time backend.** There is no OpenPendle server that holds your data, brokers transactions, or sits between your wallet and Pendle. Yield-alert data, Looping discovery, and off-chain limit orders currently go from your browser directly to public Pendle and Morpho APIs.
 - **No live application database.** Core pool state, balances, quotes, provenance, and transaction simulations are read live from the chain. A scheduled, stateless catalog job indexes recognized factories' `CreateNewMarket` logs into a static JSON snapshot for discovery and PT/YT-to-pool lookup. Pendle's public API enriches those records; where available, public Blockscout indexes provide a lookup fallback beyond the snapshot's indexed head.
 - **No accounts.** There is nothing to sign up for and no identity to link.
 - **Limited interface analytics.** Cloudflare Web Analytics receives page-view and performance metrics. OpenPendle does not intentionally include wallet addresses, saved pools, or settings in that beacon. As with any direct web request, the RPC and ancillary public services can observe the requests sent to them; the exact calls are listed below.
@@ -62,6 +62,7 @@ flowchart LR
   UI -->|aggregate header metrics| STATS[(DefiLlama / CoinGecko<br/>public metrics APIs)]
   UI -->|listed enrichment +<br/>post-snapshot lookup fallback| INDEX[(Pendle market API /<br/>Blockscout log APIs)]
   UI -->|active catalog + hourly histories| ALERTS[(Pendle yield-data API)]
+  UI -->|PT collateral markets| MORPHO[(Morpho market API)]
   UI -->|support, book, generated data,<br/>signed order + maker-order reads| LIMITAPI[(Pendle limit-order API)]
   UI -->|wallet address + chain ID<br/>on My positions| MERKL[(Merkl rewards API)]
   JOB[Scheduled catalog job] -->|scan CreateNewMarket<br/>across recognized factories| CHAIN[(Supported-chain RPCs)]
@@ -78,9 +79,11 @@ Factory events are the inventory source because they answer the protocol-level q
 
 A valid factory event can still produce an incomplete card if later contract hydration or API enrichment fails. Such a market stays addressable and is marked incomplete rather than silently dropped. A malformed or undecodable factory log is quarantined from normal results and counted in the snapshot report. None of these discovery states bypasses the market page's live provenance gate.
 
-### Yield-alert and limit-order API paths
+### Yield-alert, Looping, and limit-order API paths
 
 The [Yield alerts](/guides/yield-alerts) page is read-only and wallet-less. It requests Pendle's active listed-market catalog, then fetches a complete 25-point hourly history for each current-liquidity candidate. The browser applies the exact 24-hour window, $1 million all-hours AMM-liquidity gate, and significant-move rules locally. Failed histories are surfaced as partial coverage rather than silently treated as zero movement. This fanout currently happens independently in each visitor's browser. A future production cache or scheduled aggregation service could reduce repeated requests, but it would be a new OpenPendle data component and would need its own freshness and privacy disclosure.
+
+The [PT looping](/guides/looping) directory joins Pendle's factory-indexed PT inventory to public Morpho market data in the browser. Its leverage model and human-readable entry and exit outline are client-side research tools. The page does not request approvals or signatures and cannot broadcast a looping transaction.
 
 [PT limit orders](/guides/limit-orders) are a hybrid path. Availability, order-book data, generated order fields, placement, and maker-order history come from Pendle's hosted off-chain API. OpenPendle supports PT ↔ SY only and checks that the live support response matches the exact chain, market, YT, SY, and direction; support is stricter than official listing. Before an EOA signs, OpenPendle validates every typed-data field, the domain, recovered signer, and local and on-chain order hashes. The signed order is posted to Pendle's API, while approval, fill, and cancellation state remains on Pendle's Limit Router. Funds are not escrowed or reserved by placement.
 
@@ -182,6 +185,7 @@ Given all of the above, the complete list of things that leave your browser is s
 | **Factory-market snapshot** | Loading Explore | Same-origin static inventory derived from recognized factories' `CreateNewMarket` events; includes schema and coverage metadata |
 | **Pendle market API** | Enriching Explore; resolving a pasted PT/YT | Optional listed status, names, icons, TVL/APY metadata, and token-to-pool lookup |
 | **Pendle yield-data API** | Loading **Yield alerts** | Active listed-market catalog and exact hourly APY / AMM-liquidity histories; no wallet is required |
+| **Morpho market API** | Loading **Looping** | Public Morpho market metadata and borrow-liquidity data used for exact PT-collateral matching |
 | **Pendle limit-order API** | Checking support; loading the book or maker orders; generating and publishing an order | Market and token context; for maker reads and placement, the wallet address and exact signed-order fields |
 | **Keyless Blockscout log APIs** | Pendle's index does not resolve that PT/YT on a supported Blockscout chain | Factory/event-topic lookup for community pools |
 | **Merkl rewards API** | A connected user opens **My positions** | The wallet address and chain ID required to retrieve claimable rewards and proofs |

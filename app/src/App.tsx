@@ -1,7 +1,6 @@
 /**
- * OpenPendle app shell (reskin) — ticker + sticky header (split logo, Saved-pools
- * pill, Create-pool, network/RPC controls, theme toggle, connect), hash-routed
- * pages, and a footer with the Protocol-status link + license marker.
+ * OpenPendle app shell — ticker + sticky product navigation, compact wallet /
+ * profile controls, hash-routed pages, and the footer.
  *
  * The active-network shell keeps URL-bound market/token reads separate from the
  * persisted preferred chain, while explicit selector clicks also synchronize a
@@ -16,15 +15,12 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router-dom'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { NetworkSelector } from './components/NetworkSelector'
-import { RpcSettings } from './components/RpcSettings'
 import { MobileNav } from './components/MobileNav'
+import { HeaderAccountControls } from './components/HeaderAccountControls'
 import { WrongNetworkBanner } from './components/WrongNetworkBanner'
 import { ForgetUndoProvider } from './components/ForgetUndo'
 import { Ticker } from './components/Ticker'
 import { Logo, BrandMark } from './components/Logo'
-import { ThemeToggle } from './theme/ThemeToggle'
 import CreatePoolPage from './pages/CreatePoolPage'
 import CreateSyPage from './pages/CreateSyPage'
 import Home from './pages/Home'
@@ -165,15 +161,6 @@ export default function App() {
           <Logo />
           <div className="flex items-center gap-2">
             <Link
-              to="/quickstart"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px] text-accent-ink">
-                ✦
-              </span>
-              Quick start
-            </Link>
-            <Link
               to="/explore"
               className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] px-[13px] text-[13px] font-medium text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.12)] xl:inline-flex"
             >
@@ -181,15 +168,6 @@ export default function App() {
                 ◇
               </span>
               Explore
-            </Link>
-            <Link
-              to="/alerts"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px] text-accent-ink">
-                ↕
-              </span>
-              Yield alerts
             </Link>
             <Link
               to="/looping"
@@ -201,24 +179,6 @@ export default function App() {
               Looping
             </Link>
             <Link
-              to="/positions"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px] text-accent-ink">
-                ◈
-              </span>
-              Positions
-            </Link>
-            <Link
-              to="/pools"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px] text-accent-ink">
-                ★
-              </span>
-              Saved pools
-            </Link>
-            <Link
               to="/create"
               className="hidden h-[34px] items-center whitespace-nowrap rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] xl:inline-flex"
               style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
@@ -226,16 +186,7 @@ export default function App() {
               Create pool
             </Link>
             <span className="mx-0.5 hidden h-[22px] w-px bg-hairline xl:block" />
-            <div className="hidden items-center gap-2 xl:flex">
-              <NetworkSelector />
-              <RpcSettings />
-            </div>
-            <ThemeToggle />
-            <ConnectButton
-              showBalance={false}
-              accountStatus={{ smallScreen: 'avatar', largeScreen: 'address' }}
-              chainStatus="none"
-            />
+            <HeaderAccountControls />
             <MobileNav />
           </div>
         </div>

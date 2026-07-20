@@ -1,11 +1,11 @@
 /**
  * MobileNav (M12 responsive) — the header's navigation on screens below `xl`,
  * where the inline nav pills are hidden and the desktop network/RPC controls
- * collapse. A hamburger opens a dropdown holding the nav links (Quick start /
- * Looping / Positions / Saved pools / Create pool) and a compact network switcher, so a phone
- * user can still navigate and change chains (the inline NetworkSelector +
- * RpcSettings are desktop-only; RPC overrides stay a desktop feature). Closes
- * on outside click, Escape, or selecting an item.
+ * collapse. A hamburger opens a dropdown holding the product and personal
+ * links plus a compact network switcher, so a phone user can still navigate
+ * and change chains. Disconnected users reach RPC overrides on desktop;
+ * connected users also get them in the Profile menu on mobile. Closes on
+ * outside click, Escape, or selecting an item.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -14,18 +14,26 @@ import { SUPPORTED_CHAINS } from '../lib/addresses'
 import { useNetworkSelection } from './useNetworkSelection'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
-  { to: '/quickstart', label: 'Quick start', glyph: '✦' },
   { to: '/explore', label: 'Explore markets', glyph: '◇' },
   { to: '/alerts', label: 'Yield alerts', glyph: '↕' },
   { to: '/looping', label: 'Looping', glyph: '↻' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },
+  {
+    to: 'https://docs.openpendle.com/introduction/quickstart',
+    label: 'Docs & quick start',
+    glyph: '?',
+    external: true,
+  },
 ]
+
+const MOBILE_NAV_PANEL_ID = 'openpendle-mobile-nav-panel'
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const { chainId, selectChain, isSelectionDisabled } = useNetworkSelection()
 
   useEffect(() => {
@@ -34,7 +42,10 @@ export function MobileNav() {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
     }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
@@ -49,9 +60,11 @@ export function MobileNav() {
   return (
     <div ref={ref} className="relative xl:hidden">
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Menu"
         aria-expanded={open}
+        aria-controls={MOBILE_NAV_PANEL_ID}
         onClick={() => setOpen((o) => !o)}
         className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] border border-hairline bg-surface text-fg hover:bg-surface-2"
       >
@@ -61,7 +74,10 @@ export function MobileNav() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[236px] overflow-hidden rounded-[14px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)]">
+        <div
+          id={MOBILE_NAV_PANEL_ID}
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-[236px] overflow-hidden rounded-[14px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)]"
+        >
           <nav className="py-1">
             {NAV.map((item) =>
               item.external ? (

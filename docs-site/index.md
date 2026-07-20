@@ -12,8 +12,8 @@ hero:
     alt: OpenPendle
   actions:
     - theme: brand
-      text: Get started
-      link: /introduction/what-is-openpendle
+      text: Open the Quickstart
+      link: /introduction/quickstart
     - theme: alt
       text: Understand Pendle
       link: /concepts/how-pendle-works
@@ -42,9 +42,9 @@ Community pools are **permissionless and unreviewed** — anyone can create one,
 
 ## New here?
 
+- [**Quickstart**](/introduction/quickstart) — choose a goal, then follow the safe core flow.
 - [**What is OpenPendle**](/introduction/what-is-openpendle) — what it does, and what makes it different.
 - [**Why OpenPendle**](/introduction/why-openpendle) — the case for a permissionless, backend-free Pendle frontend.
-- [**Quickstart**](/introduction/quickstart) — from zero to your first transaction.
 
 ## Learn Pendle
 
@@ -54,9 +54,11 @@ Community pools are **permissionless and unreviewed** — anyone can create one,
 
 ## Do things
 
+- [**Model a PT loop**](/guides/looping) — compare Pendle PT yield with Morpho borrowing and inspect the read-only entry and exit outline; execution is currently disabled.
 - [**Explore markets**](/guides/exploring-markets) — search the factory-created universe across six networks and filter listed vs community markets.
 - [**Yield alerts**](/guides/yield-alerts) — inspect qualified 24-hour PT fixed-yield moves; no wallet or notifications.
 - [**PT limit orders**](/guides/limit-orders) — target an APY on the subset Pendle's live service supports.
+- [**Positions & rewards**](/guides/positions) — inspect balances across saved pools and claim supported rewards by network.
 - [**Browsing & doing actions**](/guides/connecting-a-wallet) — connect a wallet and use a pool.
 - [**Creating a pool**](/create/overview) — deploy your own market.
 - [**Risks & disclosures**](/reference/risks) — please read this one.
