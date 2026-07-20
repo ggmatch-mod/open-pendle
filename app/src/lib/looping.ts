@@ -1026,6 +1026,47 @@ function scenarioNumber(
 }
 
 /**
+ * UI leverage ceiling for the research slider. The default policy keeps 1% of
+ * LLTV unused with no additional price stress, then floors the result below the
+ * strict boundary to a complete slider step.
+ */
+export function calculateLoopingLeverageCap(
+  lltv: bigint,
+  options: {
+    collateralPriceDrop?: number
+    lltvBuffer?: number
+    step?: number
+    absoluteCap?: number
+  } = {},
+): number {
+  if (typeof lltv !== 'bigint' || lltv <= 0n || lltv >= WAD) {
+    return fail('leverageCap.lltv', 'must be a bigint strictly between 0 and 1e18')
+  }
+  const collateralPriceDrop = scenarioNumber(
+    options.collateralPriceDrop ?? 0,
+    'leverageCap.collateralPriceDrop',
+    0,
+    1 - Number.EPSILON,
+  )
+  const lltvBuffer = scenarioNumber(
+    options.lltvBuffer ?? 0.01,
+    'leverageCap.lltvBuffer',
+    0,
+    1 - Number.EPSILON,
+  )
+  const step = scenarioNumber(options.step ?? 0.05, 'leverageCap.step', Number.MIN_VALUE, 1)
+  const absoluteCap = scenarioNumber(
+    options.absoluteCap ?? 100,
+    'leverageCap.absoluteCap',
+    1,
+  )
+  const conservativeLltv = Number(lltv) / 1e18 * (1 - lltvBuffer)
+  const strictBoundary = 1 / (1 - conservativeLltv * (1 - collateralPriceDrop))
+  const stepped = Math.floor((strictBoundary - step * 1e-9) / step) * step
+  return Math.max(1, Math.min(absoluteCap, stepped))
+}
+
+/**
  * Conservative, normalized estimate only. It assumes debt stays constant under
  * the price stress, costs scale with gross PT exposure, and no rewards offset
  * borrow costs. It is not a quote, oracle valuation, or liquidation guarantee.

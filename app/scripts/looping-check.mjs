@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import {
   MorphoMarketValidationError,
+  calculateLoopingLeverageCap,
   calculateLoopingScenario,
   fetchLoopingMarkets,
   joinMorphoMarketsToPendlePts,
@@ -534,6 +535,62 @@ const unsafe = calculateLoopingScenario({
 assert.equal(unsafe.withinProtocolLltv, false)
 assert.equal(unsafe.withinConservativeLimit, false)
 assert.equal(unsafe.priceDropToLiquidation, 0)
+
+console.log('Leverage slider reaches the 1% liquidation buffer and marks 10% headroom')
+const leverageCap = calculateLoopingLeverageCap(MORPHO_LTV)
+assert.ok(Math.abs(leverageCap - 10.6) < 1e-12)
+const atLeverageCap = calculateLoopingScenario({
+  leverage: leverageCap,
+  ptApy: 0.1,
+  borrowApy: 0.05,
+  lltv: MORPHO_LTV,
+  holdingPeriodYears: 1,
+  collateralPriceDrop: 0,
+  lltvBuffer: 0.01,
+})
+const aboveLeverageCap = calculateLoopingScenario({
+  leverage: leverageCap + 0.05,
+  ptApy: 0.1,
+  borrowApy: 0.05,
+  lltv: MORPHO_LTV,
+  holdingPeriodYears: 1,
+  collateralPriceDrop: 0,
+  lltvBuffer: 0.01,
+})
+assert.equal(atLeverageCap.withinConservativeLimit, true)
+assert.equal(aboveLeverageCap.withinConservativeLimit, false)
+assert.ok(atLeverageCap.priceDropToLiquidation >= 0.01)
+assert.ok(aboveLeverageCap.priceDropToLiquidation < 0.01)
+
+const eightySixPercentLltv = 860000000000000000n
+const eightySixPercentMaximum = calculateLoopingLeverageCap(eightySixPercentLltv)
+const eightySixPercentWarning = calculateLoopingLeverageCap(eightySixPercentLltv, {
+  collateralPriceDrop: 0,
+  lltvBuffer: 0.1,
+  step: 0.05,
+  absoluteCap: 100,
+})
+assert.ok(Math.abs(eightySixPercentMaximum - 6.7) < 1e-12)
+assert.ok(Math.abs(eightySixPercentWarning - 4.4) < 1e-12)
+assert.ok(eightySixPercentWarning < eightySixPercentMaximum)
+assert.ok(Math.abs(calculateLoopingLeverageCap(750000000000000000n, {
+  collateralPriceDrop: 0,
+  lltvBuffer: 0,
+  step: 0.05,
+  absoluteCap: 10,
+}) - 3.95) < 1e-12)
+
+console.log('Estimated APY follows the PT-minus-borrow spread as leverage changes')
+const estimateAt = (leverage, ptApy, borrowApy) => calculateLoopingScenario({
+  leverage,
+  ptApy,
+  borrowApy,
+  lltv: MORPHO_LTV,
+  holdingPeriodYears: 1,
+}).headlineLoopApy
+assert.ok(Math.abs((estimateAt(2, 0.1, 0.04) - estimateAt(1, 0.1, 0.04)) - 0.06) < 1e-12)
+assert.ok(Math.abs(estimateAt(2, 0.05, 0.05) - estimateAt(1, 0.05, 0.05)) < 1e-12)
+assert.ok(estimateAt(2, 0.03, 0.05) < estimateAt(1, 0.03, 0.05))
 
 console.log('Scenario input validation rejects unsafe or meaningless assumptions')
 expectValidation(
