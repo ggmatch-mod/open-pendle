@@ -781,7 +781,7 @@ export default function LoopingPage() {
             )}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_minmax(145px,0.8fr)_64px_minmax(145px,0.8fr)_minmax(175px,0.9fr)]">
+          <div className="mt-3 grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_minmax(145px,0.8fr)_64px_minmax(145px,0.8fr)_minmax(175px,0.9fr)]">
             <label className="sm:col-span-2 xl:col-span-1">
               <span className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">Search</span>
               <input
@@ -801,7 +801,9 @@ export default function LoopingPage() {
               </select>
             </label>
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">Spread</span>
+              <span className="block text-[10px] font-medium uppercase leading-[1.05] tracking-[.05em] text-faint">
+                Positive<br />Spread
+              </span>
               <label
                 title="Positive spread only"
                 className="op-spread-filter-toggle mt-1 cursor-pointer rounded-[10px] border border-hairline bg-surface transition hover:border-hairline-strong"
