@@ -17,18 +17,13 @@ import {
   type LoopingScenario,
   type LoopingScenarioInput,
 } from '../lib/looping'
-import {
-  buildLoopingTransactionPreview,
-  type LoopingSafetyGateStatus,
-  type LoopingTransactionPreview,
-} from '../lib/loopingPreview'
 import type { SupportedChainId } from '../lib/types'
 
 const ARBITRUM_CANARY_MARKET_ID =
   '0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985'
 const MARKET_STATE_STALE_AFTER_SECONDS = 60 * 60
 const DIRECTORY_SNAPSHOT_STALE_AFTER_SECONDS = 15 * 60
-const DIRECTORY_PAGE_SIZE = 8
+const DIRECTORY_PAGE_SIZE = 3
 const DEFAULT_MIN_BORROW_LIQUIDITY_USD = 50_000
 const SLIDER_MAX_POLICY = {
   collateralPriceDrop: 0,
@@ -45,7 +40,6 @@ const SECONDS_PER_YEAR = 365 * 24 * 60 * 60
 const EMPTY_CANDIDATES: LoopingMarketCandidate[] = []
 
 type ChainFilter = SupportedChainId | 'all'
-type ListedFilter = 'all' | 'listed' | 'unlisted'
 type SortKey = 'spread' | 'liquidity' | 'pt-apy' | 'borrow-apy' | 'expiry'
 
 interface CalculatorForm {
@@ -73,7 +67,6 @@ interface AdvancedCalculatorSuccess {
   ok: true
   input: LoopingScenarioInput
   scenario: LoopingScenario
-  preview: LoopingTransactionPreview
 }
 
 interface CalculatorFailure {
@@ -103,10 +96,6 @@ function chainFromParam(value: string | null): ChainFilter {
   if (value === null || !/^\d+$/.test(value)) return 'all'
   const chainId = Number(value)
   return isSupportedChainId(chainId) ? chainId : 'all'
-}
-
-function listedFromParam(value: string | null): ListedFilter {
-  return value === 'all' || value === 'unlisted' ? value : 'listed'
 }
 
 function sortFromParam(value: string | null): SortKey {
@@ -225,19 +214,6 @@ function chainLabel(chainId: number): string {
   return supportedChain(chainId)?.name ?? `Chain ${chainId}`
 }
 
-function StatusPill({ status }: { status: LoopingSafetyGateStatus }) {
-  const styles = status === 'pass'
-    ? 'border-[rgba(52,211,153,0.28)] bg-[var(--op-good-soft)] text-good'
-    : status === 'blocked'
-      ? 'border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] text-danger'
-      : 'border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] text-warn'
-  return (
-    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[.07em] ${styles}`}>
-      {status}
-    </span>
-  )
-}
-
 function EstimateCard({
   label,
   value,
@@ -334,7 +310,7 @@ function NumberField({
 function DirectorySkeleton() {
   return (
     <div className="space-y-3" aria-busy="true" aria-label="Loading looping markets">
-      {Array.from({ length: 4 }, (_, index) => (
+      {Array.from({ length: DIRECTORY_PAGE_SIZE }, (_, index) => (
         <div key={index} className="h-40 animate-pulse rounded-xl border border-hairline bg-surface" />
       ))}
     </div>
@@ -437,7 +413,7 @@ export default function LoopingPage() {
 
   const queryText = (searchParams.get('q') ?? '').slice(0, 180)
   const chain = chainFromParam(searchParams.get('chain'))
-  const listed = listedFromParam(searchParams.get('listed'))
+  const positiveSpreadOnly = searchParams.get('positiveSpread') === 'true'
   const minimumLiquidityParam = searchParams.get('minLiquidity')
   const minimumLiquidityUsd = minimumLiquidityFromParam(minimumLiquidityParam)
   const minimumLiquidityInput = minimumLiquidityParam === null
@@ -476,11 +452,7 @@ export default function LoopingPage() {
     const needle = queryText.trim().toLowerCase()
     return candidates
       .filter((candidate) => chain === 'all' || candidate.morpho.chainId === chain)
-      .filter((candidate) => {
-        if (listed === 'listed') return candidate.morpho.listed
-        if (listed === 'unlisted') return !candidate.morpho.listed
-        return true
-      })
+      .filter((candidate) => !positiveSpreadOnly || (marketSpread(candidate) ?? 0) > 0)
       .filter((candidate) => {
         if (minimumLiquidityUsd <= 0) return true
         const liquidityUsd = candidate.morpho.state.liquidityAssetsUsd
@@ -505,7 +477,7 @@ export default function LoopingPage() {
         if (sort === 'expiry') order = left.pendle.expiry - right.pendle.expiry
         return order || left.pendle.name.localeCompare(right.pendle.name)
       })
-  }, [candidates, chain, listed, minimumLiquidityUsd, queryText, sort])
+  }, [candidates, chain, minimumLiquidityUsd, positiveSpreadOnly, queryText, sort])
 
   const selectedCandidate = useMemo(
     () => candidates.find((candidate) => candidate.key === selectedKey),
@@ -543,7 +515,7 @@ export default function LoopingPage() {
 
   useEffect(() => {
     setVisibleLimit(DIRECTORY_PAGE_SIZE)
-  }, [chain, listed, minimumLiquidityUsd, queryText, sort])
+  }, [chain, minimumLiquidityUsd, positiveSpreadOnly, queryText, sort])
 
   useEffect(() => {
     if (selectedCandidate === undefined) return
@@ -616,14 +588,7 @@ export default function LoopingPage() {
         fixedCostOnEquity: parseNumberField(form.fixedCost, 'Fixed cost', 0, 25) / 100,
       }
       const scenario = calculateLoopingScenario(input)
-      const preview = buildLoopingTransactionPreview({
-        candidate: selectedCandidate,
-        scenario: input,
-        equityAssets: calculator.equityAssets,
-        nowUnixSeconds: now,
-        maxMarketStateAgeSeconds: MARKET_STATE_STALE_AFTER_SECONDS,
-      })
-      return { ok: true, input, scenario, preview }
+      return { ok: true, input, scenario }
     } catch (error) {
       return { ok: false, error: readableError(error) }
     }
@@ -673,7 +638,7 @@ export default function LoopingPage() {
     }))
   }
 
-  const filtersActive = queryText !== '' || chain !== 'all' || listed !== 'listed' ||
+  const filtersActive = queryText !== '' || chain !== 'all' || positiveSpreadOnly ||
     minimumLiquidityUsd !== DEFAULT_MIN_BORROW_LIQUIDITY_USD || sort !== 'liquidity'
   const advancedScenarioSafe = advancedCalculator?.ok === true &&
     advancedCalculator.scenario.withinProtocolLltv &&
@@ -686,6 +651,7 @@ export default function LoopingPage() {
       next.delete('chain')
       next.delete('listed')
       next.delete('borrowable')
+      next.delete('positiveSpread')
       next.delete('minLiquidity')
       next.delete('sort')
       return next
@@ -835,12 +801,16 @@ export default function LoopingPage() {
               </select>
             </label>
             <label className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">
-              Morpho listing
-              <select value={listed} onChange={(event) => updateParam('listed', event.target.value, 'listed')} className={`mt-1 ${selectClass}`}>
-                <option value="all">All listings</option>
-                <option value="listed">Listed only</option>
-                <option value="unlisted">Unlisted only</option>
-              </select>
+              Spread
+              <span className="mt-1 flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-hairline bg-surface px-3 normal-case tracking-normal text-fg transition hover:border-hairline-strong">
+                <input
+                  type="checkbox"
+                  checked={positiveSpreadOnly}
+                  onChange={(event) => updateParam('positiveSpread', event.target.checked ? 'true' : '', '')}
+                  className="h-4 w-4 rounded border-hairline accent-[var(--op-accent)]"
+                />
+                <span className="text-xs font-medium">Positive spread only</span>
+              </span>
             </label>
             <label className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">
               Min borrow liquidity ($)
@@ -857,7 +827,7 @@ export default function LoopingPage() {
             </label>
             <label className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">
               Sort
-              <select value={sort} onChange={(event) => updateParam('sort', event.target.value, 'liquidity')} className={`mt-1 ${selectClass}`}>
+              <select value={sort} onChange={(event) => updateParam('sort', event.target.value, 'liquidity')} className={`mt-1 ${selectClass} !pl-2.5 !pr-8 !text-[11px]`}>
                 <option value="spread">Highest raw spread</option>
                 <option value="liquidity">Most borrow liquidity</option>
                 <option value="pt-apy">Highest PT APY</option>
@@ -926,7 +896,7 @@ export default function LoopingPage() {
                   onClick={() => setVisibleLimit((current) => current + DIRECTORY_PAGE_SIZE)}
                   className="w-full rounded-[10px] border border-hairline bg-surface-2 px-3 py-2.5 text-sm font-medium text-fg hover:border-hairline-strong"
                 >
-                  Show {Math.min(DIRECTORY_PAGE_SIZE, orderedVisible.length - visibleLimit)} more
+                  Load {Math.min(DIRECTORY_PAGE_SIZE, orderedVisible.length - visibleLimit)} more {Math.min(DIRECTORY_PAGE_SIZE, orderedVisible.length - visibleLimit) === 1 ? 'market' : 'markets'}
                 </button>
               )}
             </div>
@@ -1048,7 +1018,20 @@ export default function LoopingPage() {
                 </div>
 
                 <div className="mt-5 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <NumberField id="loop-equity" label={`Amount (${selectedCandidate.morpho.loanAsset.symbol})`} value={form.equity} onChange={(value) => setFormField('equity', value)} min={0} max={1e15} step="any" help="Used only to estimate exposure and debt; no wallet balance is read." />
+                  <div>
+                    <NumberField id="loop-equity" label={`Amount (${selectedCandidate.morpho.loanAsset.symbol})`} value={form.equity} onChange={(value) => setFormField('equity', value)} min={0} max={1e15} step="any" help="Used only to estimate exposure and debt; no wallet balance is read." />
+                    <button
+                      type="button"
+                      disabled
+                      aria-describedby="loop-execute-help"
+                      className="mt-3 h-10 w-full cursor-not-allowed rounded-[10px] bg-accent px-4 text-sm font-semibold text-accent-fg opacity-45"
+                    >
+                      Execute
+                    </button>
+                    <p id="loop-execute-help" className="mt-1.5 text-center text-[10.5px] leading-4 text-faint">
+                      Loop execution is not available yet.
+                    </p>
+                  </div>
                   <div className="rounded-xl border border-hairline bg-surface-2 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <label htmlFor="loop-leverage" className="text-sm font-semibold text-fg">Leverage</label>
@@ -1152,115 +1135,6 @@ export default function LoopingPage() {
                 )}
               </section>
 
-              {advancedCalculator !== null && advancedCalculator.ok && (
-                <section className="rounded-xl border border-hairline bg-surface p-5 sm:p-6" aria-labelledby="transaction-preview-title">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] font-medium uppercase tracking-[.08em] text-accent-ink">Preview only</p>
-                      <h2 id="transaction-preview-title" className="mt-1 text-lg font-semibold text-fg">How opening and closing the loop would work</h2>
-                      <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">A read-only outline based on model assumptions rather than a fresh executable route. It cannot submit anything.</p>
-                    </div>
-                    <span className="rounded-full border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] text-danger">not executable</span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg border border-hairline bg-surface-2 p-3">
-                      <p className="text-xs font-semibold text-fg">1. Open</p>
-                      <p className="mt-1 text-[10.5px] leading-4 text-muted">Convert the deposit to PT, supply it as Morpho collateral, then borrow and add more PT in one atomic entry transaction.</p>
-                    </div>
-                    <div className="rounded-lg border border-hairline bg-surface-2 p-3">
-                      <p className="text-xs font-semibold text-fg">2. Monitor</p>
-                      <p className="mt-1 text-[10.5px] leading-4 text-muted">Track borrow APY, collateral value, and liquidation headroom while the leveraged position remains open.</p>
-                    </div>
-                    <div className="rounded-lg border border-hairline bg-surface-2 p-3">
-                      <p className="text-xs font-semibold text-fg">3. Close</p>
-                      <p className="mt-1 text-[10.5px] leading-4 text-muted">Sell all PT collateral, repay the complete debt, return residue, and revoke permissions in a separate atomic exit transaction.</p>
-                    </div>
-                  </div>
-
-                  <details className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-fg">View technical execution plan</summary>
-                    <div className="mt-4 border-t border-hairline pt-4">
-                      <ul className="space-y-1.5 text-xs leading-5 text-muted">
-                        {advancedCalculator.preview.summary.map((item) => <li key={item} className="flex gap-2"><span aria-hidden className="text-accent-ink">•</span><span>{item}</span></li>)}
-                      </ul>
-
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-fg">Checks required before execution</h3>
-                      <span className="text-[10.5px] tabular-nums text-faint">{advancedCalculator.preview.blockers.length} blocking or unresolved</span>
-                    </div>
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
-                      {advancedCalculator.preview.safetyGates.map((gate) => (
-                        <div key={gate.code} className="rounded-lg border border-hairline bg-surface-2 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="text-xs font-medium leading-4 text-fg">{gate.label}</p>
-                            <StatusPill status={gate.status} />
-                          </div>
-                          <p className="mt-1.5 text-[10.5px] leading-4 text-muted">{gate.detail}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                    {advancedCalculator.preview.transactions.map((transaction) => (
-                      <article key={transaction.id} className="rounded-xl border border-hairline bg-surface-2 p-4">
-                        <div className="flex items-start gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgba(var(--op-accent-rgb),0.13)] text-xs font-bold text-accent-ink">{transaction.order}</span>
-                          <div>
-                            <h3 className="text-sm font-semibold text-fg">{transaction.label}</h3>
-                            <p className="mt-0.5 text-[10.5px] text-faint">{transaction.atomicity}</p>
-                          </div>
-                        </div>
-
-                        <ol className="mt-4 space-y-3">
-                          {transaction.steps.map((step) => (
-                            <li key={step.order} className="flex gap-2.5">
-                              <span className="font-mono text-[10px] text-accent-ink">{String(step.order).padStart(2, '0')}</span>
-                              <div>
-                                <p className="text-xs font-medium text-fg">{step.label}</p>
-                                <p className="mt-0.5 text-[10.5px] leading-4 text-muted">{step.detail}</p>
-                              </div>
-                            </li>
-                          ))}
-                        </ol>
-
-                        {transaction.approvalIntent && (
-                          <div className="mt-4 rounded-lg border border-hairline bg-surface px-3 py-2.5 text-[10.5px] leading-4 text-muted">
-                            <span className="font-semibold text-fg">Exact approval:</span>{' '}{transaction.approvalIntent.formattedAmount} to the verified adapter; zero afterward.
-                          </div>
-                        )}
-
-                        <details className="mt-4 rounded-lg border border-hairline bg-surface px-3 py-2.5">
-                          <summary className="cursor-pointer text-xs font-medium text-fg">Live values required at execution ({transaction.finiteBounds.length})</summary>
-                          <ul className="mt-3 space-y-3">
-                            {transaction.finiteBounds.map((bound) => (
-                              <li key={bound.key}>
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-[10.5px] font-medium text-fg">{bound.label}</p>
-                                  <span className="rounded-full border border-[var(--op-warn-bd)] px-1.5 py-0.5 text-[8px] uppercase tracking-[.06em] text-warn">unresolved</span>
-                                </div>
-                                <p className="mt-1 break-words font-mono text-[9.5px] leading-4 text-muted">{bound.placeholder}</p>
-                                <p className="mt-1 text-[9.5px] leading-4 text-faint">{bound.invariant}</p>
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-
-                        <details className="mt-2 rounded-lg border border-hairline bg-surface px-3 py-2.5">
-                          <summary className="cursor-pointer text-xs font-medium text-fg">Required postconditions</summary>
-                          <ul className="mt-2 space-y-1.5 text-[10.5px] leading-4 text-muted">
-                            {transaction.postconditions.map((item) => <li key={item} className="flex gap-2"><span aria-hidden className="text-good">✓</span><span>{item}</span></li>)}
-                          </ul>
-                        </details>
-                      </article>
-                    ))}
-                  </div>
-                    </div>
-                  </details>
-                </section>
-              )}
             </div>
           )}
         </div>
