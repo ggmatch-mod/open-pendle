@@ -781,7 +781,7 @@ export default function LoopingPage() {
             )}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_repeat(4,minmax(145px,0.8fr))]">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_minmax(145px,0.8fr)_64px_minmax(145px,0.8fr)_minmax(175px,0.9fr)]">
             <label className="sm:col-span-2 xl:col-span-1">
               <span className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">Search</span>
               <input
@@ -800,18 +800,21 @@ export default function LoopingPage() {
                 {SUPPORTED_CHAINS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
-            <label className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">
-              Spread
-              <span className="mt-1 flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-hairline bg-surface px-3 normal-case tracking-normal text-fg transition hover:border-hairline-strong">
+            <div>
+              <span className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">Spread</span>
+              <label
+                title="Positive spread only"
+                className="mt-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-[10px] border border-hairline bg-surface transition hover:border-hairline-strong"
+              >
                 <input
                   type="checkbox"
+                  aria-label="Positive spread only"
                   checked={positiveSpreadOnly}
                   onChange={(event) => updateParam('positiveSpread', event.target.checked ? 'true' : '', '')}
                   className="h-4 w-4 rounded border-hairline accent-[var(--op-accent)]"
                 />
-                <span className="text-xs font-medium">Positive spread only</span>
-              </span>
-            </label>
+              </label>
+            </div>
             <label className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">
               Min borrow liquidity ($)
               <input
