@@ -804,7 +804,7 @@ export default function LoopingPage() {
               <span className="text-[10px] font-medium uppercase tracking-[.05em] text-faint">Spread</span>
               <label
                 title="Positive spread only"
-                className="mt-1 flex h-10 w-10 cursor-pointer items-center justify-center rounded-[10px] border border-hairline bg-surface transition hover:border-hairline-strong"
+                className="op-spread-filter-toggle mt-1 cursor-pointer rounded-[10px] border border-hairline bg-surface transition hover:border-hairline-strong"
               >
                 <input
                   type="checkbox"

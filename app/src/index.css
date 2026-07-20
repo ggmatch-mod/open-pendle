@@ -160,6 +160,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+.op-spread-filter-toggle {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
 @keyframes op-spin    { to { transform: rotate(360deg); } }
 @keyframes op-fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes op-pop     { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
