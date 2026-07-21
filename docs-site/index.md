@@ -6,7 +6,7 @@ titleTemplate: The permissionless Pendle frontend
 hero:
   name: OpenPendle
   text: The permissionless Pendle frontend
-  tagline: An open-source, static interface to every indexed factory-created Pendle V2 market — listed and community-created.
+  tagline: Browse indexed Pendle V2 markets, use supported trading tools, and create community pools from a static, open-source interface.
   image:
     src: /favicon.svg
     alt: OpenPendle
@@ -23,44 +23,33 @@ hero:
 
 features:
   - icon: 🔓
-    title: Permissionless by design
-    details: Browse every indexed factory-created market or load any Pendle V2 market by address across six networks. Listed status stays visible; it never becomes a whitelist.
+    title: Permissionless discovery
+    details: Explore the factory-indexed market universe or load a recognized Pendle V2 market by address across six networks. Listed status is a label, not a whitelist.
   - icon: 🛰️
     title: Static and verifiable
-    details: Explore uses a generated factory-event snapshot. Core pool data comes straight from your RPC, every on-chain transaction is simulated, and no OpenPendle request-time server or relay sits in the signing path.
+    details: Core reads and simulations use public RPCs from your browser. OpenPendle operates no request-time application server or transaction relay.
   - icon: 🔒
-    title: Yours and private
-    details: No OpenPendle accounts or user-data backend. Saved pools and settings stay in your browser; feature APIs and Cloudflare receive only the requests disclosed in the docs.
+    title: Local by default
+    details: There are no OpenPendle accounts. Saved pools and settings stay in your browser; feature-specific public API calls are disclosed in Architecture.
   - icon: 🎁
     title: A public good
-    details: Free everywhere, GPL-3.0, and it takes no fee of its own. Not affiliated with Pendle Finance.
+    details: Free, GPL-3.0-or-later, and no OpenPendle fee. Not affiliated with Pendle Finance.
 ---
 
 ::: warning Experimental — use at your own risk
-Community pools are **permissionless and unreviewed** — anyone can create one, and interacting with them can lose you funds. OpenPendle checks that a market came from a Pendle factory it recognizes, but it **cannot vouch for the assets or SY contracts underneath**. Please read [Risks &amp; disclosures](/reference/risks) before you transact.
+Community markets are permissionless, and OpenPendle has not reviewed or endorsed them. It validates that a market came from a recognized Pendle factory; it cannot vouch for the asset or SY underneath. Read [Risks & disclosures](/reference/risks) before transacting.
 :::
 
-## New here?
+## Start here
 
-- [**Quickstart**](/introduction/quickstart) — choose a goal, then follow the safe core flow.
-- [**What is OpenPendle**](/introduction/what-is-openpendle) — what it does, and what makes it different.
-- [**Why OpenPendle**](/introduction/why-openpendle) — the case for a permissionless, backend-free Pendle frontend.
+- [**Quickstart**](/introduction/quickstart) — choose a goal and follow the shortest safe path.
+- [**Explore markets**](/guides/exploring-markets) — search listed and community markets.
+- [**Model or execute a PT loop**](/guides/looping) — compare Pendle PT yield with Morpho borrowing; exact reviewed markets can execute when the release gates permit it.
+- [**Yield alerts**](/guides/yield-alerts) — inspect qualified 24-hour PT fixed-yield moves.
+- [**PT limit orders**](/guides/limit-orders) — place orders where Pendle's live service reports support.
+- [**Positions & rewards**](/guides/positions) — inspect balances and claim supported rewards.
+- [**Create a pool**](/create/overview) — deploy through Pendle's permissionless factories.
 
-## Learn Pendle
+New to the protocol? Start with [How Pendle works](/concepts/how-pendle-works). For the trust model and complete network-request disclosure, see [How OpenPendle works](/reference/architecture).
 
-- [**How Pendle works**](/concepts/how-pendle-works) — yield tokenization, start to finish.
-- [**Principal Tokens (PT)**](/concepts/principal-tokens) & [**Yield Tokens (YT)**](/concepts/yield-tokens) — fixed yield vs. trading yield.
-- [**Anatomy of a Pendle pool**](/concepts/pool-anatomy) — what a "market" actually is on-chain.
-
-## Do things
-
-- [**Model a PT loop**](/guides/looping) — compare Pendle PT yield with Morpho borrowing and inspect the read-only entry and exit outline; execution is currently disabled.
-- [**Explore markets**](/guides/exploring-markets) — search the factory-created universe across six networks and filter listed vs community markets.
-- [**Yield alerts**](/guides/yield-alerts) — inspect qualified 24-hour PT fixed-yield moves; no wallet or notifications.
-- [**PT limit orders**](/guides/limit-orders) — target an APY on the subset Pendle's live service supports.
-- [**Positions & rewards**](/guides/positions) — inspect balances across saved pools and claim supported rewards by network.
-- [**Browsing & doing actions**](/guides/connecting-a-wallet) — connect a wallet and use a pool.
-- [**Creating a pool**](/create/overview) — deploy your own market.
-- [**Risks & disclosures**](/reference/risks) — please read this one.
-
-OpenPendle is a gift to Pendle's community and takes no fee of its own. Built by [ggmxbt](https://x.com/ggmxbt). Not affiliated with Pendle Finance.
+OpenPendle is built by [ggmxbt](https://x.com/ggmxbt) and is not affiliated with Pendle Finance.

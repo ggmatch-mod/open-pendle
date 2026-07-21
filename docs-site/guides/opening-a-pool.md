@@ -1,191 +1,109 @@
 # Opening a pool & the trust panel
 
-Every session in OpenPendle starts the same way: you open a market. You can browse the factory-indexed universe in [Explore](/guides/exploring-markets), or open any listed or unlisted market directly by address. This guide covers the direct-address path: where to get an address, what happens when you paste one, how OpenPendle screens a market at the **provenance gate**, what the pool view loads, and — the part that actually protects your funds — how to read the **trust panel** before you decide a pool is worth transacting on.
-
-This is a guide, not a concept primer. It assumes you already know what [PT](/concepts/principal-tokens), [YT](/concepts/yield-tokens), and [SY](/concepts/standardized-yield) are; if any of those are new, read [How Pendle works](/concepts/how-pendle-works) first and come back. Everything here is about *doing* — no wallet required until you authorize an on-chain action or limit order.
+OpenPendle can load a Pendle market directly from its address, including permissionless markets that are not listed in Pendle's frontend. No wallet is needed to inspect one.
 
 ::: warning Loadable is not the same as safe
-OpenPendle will only ever load and let you act on a market whose **provenance** it can verify — that a Pendle factory it recognizes created it. That check says nothing about whether the **asset or the SY underneath** is sound. A pool that opens cleanly, passes the gate, and renders a full trust panel can still wrap a broken, exotic, or outright malicious asset. Community pools are permissionless and unreviewed — anyone can create one, and interacting with them can lose you funds. Read the trust panel below before you commit anything, and read [Risks & disclosures](/reference/risks) before you sign. Not affiliated with Pendle Finance.
+OpenPendle verifies that a recognized Pendle factory created the market. It does not validate the underlying asset or SY contract.
 :::
 
-## The entry flow at a glance
+## 1. Find the market address
 
-```mermaid
-flowchart LR
-  A[Find a listed result in Explore<br/>or get a market address] --> B[Open or paste the market]
-  B --> C{Is it a market,<br/>or a PT / YT / SY?}
-  C -->|PT / YT| R[Open Token actions<br/>and resolve its pool]
-  C -->|SY| S[One SY can back many maturities<br/>— find a PT, YT, or market]
-  C -->|Market| D{Created by a recognized<br/>Pendle factory?}
-  D -->|No| X[Blocked from save / transact<br/>— provenance fails]
-  D -->|Yes| E[Pool loads live<br/>— read the trust panel]
-  E --> F[Remember the pool<br/>optional]
-```
+A Pendle pool is identified by its `PendleMarket` address on one chain. You can get it from:
 
-Two gates sit between an address and a live pool. The first checks *what kind of address* you pasted — a market, or one of its component tokens. The second checks *where the market came from*. Only after both pass does the pool view render, and even then the work is not done: the trust panel is yours to read.
+- an Explore result;
+- a creator or project page;
+- a block explorer;
+- a chain-explicit market link; or
+- your Saved Pools registry.
 
-## 1. Find a market address
+Ask for the **market address**, not only the PT, YT, LP, or SY address. Then choose the chain where it was deployed.
 
-A Pendle **pool** — the app also calls it a **market** — is a single on-chain `PendleMarket` contract. Its address is what opens the pool page. A PT or YT address instead opens Token actions and may resolve a matching pool; an SY alone cannot identify one maturity. For why that distinction exists, see [Anatomy of a pool](/concepts/pool-anatomy).
+## 2. Paste the address
 
-For any market already in the snapshot, start in [Explore](/guides/exploring-markets) and use its **Pendle-listed** or **Community** source label as context, not an endorsement. A very recent market or one on a temporarily incomplete chain can still enter through an address from one of these sources:
+Paste the address into the home-page market field. OpenPendle checks what kind of contract it is:
 
-- **The pool's creator.** Whoever deployed the market typically shares its address — in a Discord announcement, an X post, a project's docs, or a Telegram channel. Creators sometimes share the **PLP address** (the pool's LP token) or link to the market on a block explorer; treat any of these as a lead to the underlying `PendleMarket`.
-- **A block explorer.** If you know the asset and maturity, you can locate the `PendleMarket` on the chain's explorer and copy its address directly.
-- **A `?import=` share link.** Another user can send you a link that encodes one or more pools. Opening it offers to import them into your [saved pools](/guides/saved-pools) — no manual pasting needed.
-- **Your own saved pools.** Anything you previously remembered appears on the home page preview and in full on the [Saved Pools](/guides/saved-pools) page. This is the fastest path back to a pool you have already vetted.
+- A `PendleMarket` opens the market flow.
+- A PT or YT opens Token actions, which can resolve matching markets and maturities.
+- An SY is identified, but an SY alone may back several maturities and cannot select one market.
 
-::: tip Ask for the *market* address specifically
-When you ask a creator for a pool, ask for the **market address** (the `PendleMarket`), not "the pool token" or "the PT". Only the market address opens that pool directly. A PT or YT can enter Token actions, while an SY remains ambiguous across maturities (next section).
-:::
+Address-type detection is a convenience, not a trust signal.
 
-### Make sure the address matches the active network
+## 3. Pass the provenance gate
 
-A given market address exists on exactly **one** chain. OpenPendle reads from a single **active network** at a time — a UI and `localStorage` choice (key `openpendle.chain`, default **Arbitrum**) set from the network selector in the header. If you paste an Arbitrum market while the app is pointed at Base, it will not resolve. Set the active network to the chain the market lives on **before** you paste. Browsing is wallet-less, so you can do this with nothing connected. See [Browsing & networks](/guides/browsing) for the network selector and per-chain RPC settings.
+For a market address, OpenPendle verifies that a recognized Pendle market factory created it. Until that passes, the market cannot be saved or used for transactions.
 
-→ [Anatomy of a pool](/concepts/pool-anatomy) · [Browsing & networks](/guides/browsing)
+The release bundles a chain-specific lineage of recognized factories and uses it to validate existing markets. [Protocol Status](https://openpendle.com/#/status) separately reads the deployment helper's active wiring; Pendle's helper routes new creation through that wiring. See [Networks & contracts](/reference/networks-and-contracts).
 
-## 2. Paste the address — and what happens if it is the wrong one
+Passing proves that the contract is a genuine Pendle market. It does **not** prove that its underlying asset, SY implementation, owner, or upgrade authority is safe.
 
-Paste the address into the open-a-market field on the home page. OpenPendle immediately inspects the address on-chain and asks the first question: **is this a `PendleMarket`, or is it a PT, YT, or SY?**
+## 4. Read the market view
 
-You do not have to memorize which of the four addresses is correct, because OpenPendle checks for you. If you paste a **PT or YT**, it offers **Token actions**, which resolves the token set and looks for its pool. If it finds one or more markets, you can open the intended maturity directly. If you paste an **SY**, OpenPendle reports the type but cannot select one pool because the same SY can back many maturities; find a PT, YT, or `PendleMarket` for the maturity you want.
+After validation, OpenPendle reads the market's core state from the active chain. The page shows:
 
-This detection is a convenience, not a trust signal. Recognizing that an address is a PT does not say anything about whether the pool behind it is safe — it only means you pasted the wrong one of the four addresses.
+| Field | What to check |
+| --- | --- |
+| **PT, YT, and SY** | The contracts wired to this market. |
+| **Underlying/accounting asset** | What the SY wraps and how value is denominated. |
+| **Maturity** | When trading stops and PT settlement becomes available. |
+| **Reserves and live metrics** | Current pool depth, price, and implied APY. |
+| **Factory provenance** | Which recognized generation created the market. |
+| **Available actions** | Actions supported by the market's state and OpenPendle. |
 
-::: info Example — pasting a component by mistake (illustrative)
-The addresses below are invented to show the *shape* of the flow. They are not a real pool and pasting them loads nothing.
+Implied APY is derived from PT pricing and time to maturity; it is not a promised protocol rate. Discovery metadata can be stale, so the market page's live reads and pre-sign simulation are the transaction-time view.
 
-Suppose a creator's Discord message contains two addresses, and you paste the PT one, `0xPT…`, first. OpenPendle recognizes a Principal Token and offers **View & act on this token**. Token actions resolves its PT, YT, and SY set and, when a matching market is found, links you to the pool. If you had pasted only an SY, you would still need a PT, YT, or market address to identify the intended maturity.
-:::
+## 5. Use the trust panel
 
-→ [Anatomy of a pool](/concepts/pool-anatomy) — the four addresses of one pool, in depth.
+The trust panel surfaces the facts the provenance check does not cover.
 
-## 3. The provenance gate
+### Underlying asset
 
-Once OpenPendle confirms the address is a `PendleMarket`, it runs the **provenance gate**. Anyone can deploy a contract and *call* it a Pendle market; the gate answers a narrower question: **was this market actually created by a Pendle factory that OpenPendle recognizes?** Until that check passes, you cannot save or transact against the market.
+Identify the asset, issuer, yield source, and failure modes. If the asset de-pegs, freezes, or fails, PT settlement and SY redemption can be impaired. A high APY may be compensation for that risk.
 
-How the check is built, and why:
+### SY owner and paused state
 
-- **The factory set is hardcoded, for validation only.** OpenPendle ships with a known set of Pendle factory addresses and uses it to answer exactly one thing — *did a recognized factory deploy this market?* It is a provenance test, not a curated list of "good" pools.
-- **The active factory is resolved live.** Pendle's factories are **governance-mutable**: governance can change which factory is current. So OpenPendle resolves the active factory at runtime against the chain rather than trusting a frozen value. The hardcoded set is used only to validate the provenance of an existing market, never to decide where anything new is routed.
-- **Factory lineage differs by chain.** Not every network carries the full history of factory versions. Ethereum, BSC, and Arbitrum carry `v1 + V3 + V4 + V5 + V6`; Base and Plasma carry `V5 + V6`; Monad is `V6` only. The authoritative live per-chain list is on the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page, which you can verify against [`pendle-finance/pendle-core-v2-public`](https://github.com/pendle-finance/pendle-core-v2-public).
+The SY can have an owner with privileged controls such as pausing. The panel distinguishes Pendle governance, renounced ownership, and an unknown owner when readable.
 
-::: warning Provenance is validation, not endorsement
-Passing the gate proves only that the market descends from a genuine Pendle factory. It says **nothing** about whether the asset or SY underneath is sound. OpenPendle validates market provenance but cannot vouch for the assets or SY contracts underneath. Treat a passing gate as "this is a real Pendle market," never as "this pool is safe to fund."
-:::
+### Upgradeability
 
-→ [Networks & contracts](/reference/networks-and-contracts) · [Architecture](/reference/architecture) · [Community pools & incentives](/concepts/community-pools)
+Some SYs are immutable; others are upgradeable proxies. For a proxy, check whether its admin is Pendle's known ProxyAdmin or an unknown address. Upgrade authority can change the code serving deposits and redemptions.
 
-## 4. What loads
+### Maturity
 
-Because OpenPendle has [no request-time application backend or transaction relay](/reference/architecture), the core pool view is read **live from the chain** over public RPC, batched through `Multicall3` (`0xcA11bde05977b3631167028862bE2a173976CA11`). A pool is self-describing: the `PendleMarket` points at its PT, YT, and SY, and those in turn describe the asset. Explore's static snapshot and Pendle enrichment help discovery and PT/YT lookup, but the opened pool's core view does not depend on that metadata. Once the gate passes, the pool view assembles and shows:
+Before maturity, PT and YT trade against SY. At maturity, swaps and new liquidity stop; PT can settle through SY at the stored PY index, while YT has no future token value. Accrued interest or rewards can remain claimable.
 
-| What loads | Read from | What it is |
-| --- | --- | --- |
-| **Component addresses** | The market | The PT, YT, and SY this market is wired to — all reachable from here. |
-| **Maturity** | The market / PT | The fixed date the pool resolves. After it, PT redeems 1:1, YT is worth 0, trading stops. |
-| **Reserves** | The market | The PT and SY balances in the AMM — the depth backing a swap and what an LP share claims. |
-| **Implied APY** | Derived from the PT price | The fixed yield implied by the current PT price — a live reading, never a promise. |
-| **Underlying / SY details** | The SY | The wrapped asset, its decimals, and the tokens the SY accepts in and out. |
-| **Factory provenance** | The market | The factory that deployed the market — the field the gate validated. |
-| **Available actions** | Derived from state and feature support | Mint / redeem, immediate swaps to PT or YT, add / remove liquidity, and—only when Pendle's live service approves the market and direction—PT ↔ SY limit orders. After maturity, redeem PT and exit LP. |
+| You are trusting | Covered by market provenance? |
+| --- | --- |
+| Pendle market factory and market code lineage | Yes |
+| Underlying asset | No |
+| SY implementation and accounting | No |
+| SY owner, pause authority, and proxy admin | No |
 
-Two things to keep in mind about this data:
-
-- **Implied APY is derived, not stored.** No contract holds an "APY" field. It is computed from the current PT price against par and the time left to maturity, and it moves with every trade. See [How Pendle works](/concepts/how-pendle-works).
-- **Prices come from a TWAP oracle.** Pendle's `PendlePYLpOracle` (`0x5542be50420E88dd7D5B4a3D488FA6ED82F6DAc2`) provides time-weighted prices for PT, YT, and LP. A freshly deployed market starts with oracle cardinality 1; quoting and trading through OpenPendle do **not** require the oracle to be expanded, though other protocols that price the pool via TWAP do. See [Initializing the oracle](/create/price-oracle).
-
-## 5. Reading the trust panel
-
-This is the section that matters. A loaded pool that passed the gate has cleared exactly one bar — it is a genuine Pendle market. **Everything about whether it is safe to fund lives below the market, in the asset and the SY.** The trust panel is where OpenPendle surfaces those facts so you can judge them yourself before committing a cent. Read it every time, even on a pool a friend recommended.
-
-Work through four questions, roughly closest-to-the-money last.
-
-### 5.1 The underlying asset — do you understand it?
-
-The pool is only ever as sound as the yield-bearing asset at its base. If the underlying de-pegs, freezes, or fails, **PT may not redeem at par** and the whole structure breaks. Before anything else, identify the wrapped asset and ask whether you actually understand its risk: what is it, who issues it, where does its yield come from, and what could make it fail. A high implied APY is often the market pricing in exactly that risk — a cheap PT can mean the market doubts the asset, not that you are getting a bargain. If you cannot explain the underlying, you cannot price the pool.
-
-### 5.2 The SY — and its owner and upgradeability
-
-The [SY](/concepts/standardized-yield) is the contract closest to the money and the single thing most worth scrutinizing. Two properties of an SY change what you are trusting, and both are part of the trust surface:
-
-- **Owner.** An SY has an owner that holds privileged control over its configuration. SYs deployed through Pendle's wizard default their owner to **Pendle's governance proxy** (`0x2aD631F72fB16d91c4953A7f4260A97C2fE2f31e`). But an SY you find in the wild may be owned by **anyone**. Check who the owner is and what they can do.
-- **Upgradeability.** Some SY templates deploy a plain, immutable wrapper; others — the adapter and no-redeem/no-deposit variants — deploy as **`TransparentUpgradeableProxy`** contracts, meaning the code behind the SY address **can be replaced later**. For wizard-deployed adapter SYs the proxy admin is **Pendle's `ProxyAdmin`** (`0xA28c08f165116587D4F3E708743B4dEe155c5E64`), i.e. Pendle governance. An SY encountered on-chain may sit behind a different, unknown admin entirely. "Upgradeable" means the behavior of the pool is only as fixed as its upgrade authority chooses to keep it.
-
-The point is not that Pendle governance is hostile — it is that *owned* and *upgradeable* are real, checkable properties, and a community pool's SY may have been deployed with a **non-default** owner or a custom adapter. Never fund a pool whose SY you have not looked at.
-
-### 5.3 The factory — provenance, seen from the pool side
-
-The trust panel also reflects the **factory** the market descends from, the field the [provenance gate](#_3-the-provenance-gate) validated. Seeing a recognized factory here is the positive signal that the market itself — the AMM and the PT/YT split logic — is Pendle's audited V2 code rather than an impostor. Remember its scope: the factory vouches for the *market machinery*, not for the *asset* the market wraps. It is the one line in the trust panel that provenance fully covers.
-
-### 5.4 Maturity — how much runway is left?
-
-Every pool resolves at a fixed **maturity** date. Read it and know what it implies for the position you are considering:
-
-- **Before maturity:** PT trades at a discount to par (a fixed-yield position), YT holds the yield until then, and the market trades normally.
-- **At and after maturity:** PT becomes redeemable **1:1 for the underlying**, YT is worth **0**, and the market **stops trading**. You can still redeem PT and exit an LP position afterward — those actions remain available in OpenPendle — but there is no more price discovery.
-
-A pool days from maturity behaves very differently from one months out. See [Maturity & redemption](/concepts/maturity).
-
-### The trust surface, summarized
-
-| You are trusting | Why it matters | Covered by provenance? |
-| --- | --- | --- |
-| **The Pendle factory & contracts** | The market, AMM, and PT/YT split are Pendle's audited V2 code. | ✅ Validated — the market descends from a recognized factory. |
-| **The underlying asset** | If it fails, PT may not redeem at par and the structure breaks. | ❌ Not covered — unreviewed. |
-| **The SY contract** | A faulty or hostile SY can break deposits, redemption, or accounting. | ❌ Not covered — unreviewed. |
-| **The SY owner / upgradeability** | Whoever controls an upgradeable SY can change its behavior. | ❌ Not covered — check it yourself. |
-
-::: info Example — reading a trust panel (illustrative)
-The values below are invented to show *what you look at*, not a real pool.
-
-You open `0xMARKET…` on Arbitrum. The gate passes: a recognized V6 factory deployed it. The trust panel shows an underlying you recognize and understand, an SY whose owner resolves to Pendle's governance proxy (`0x2aD631F72fB16d91c4953A7f4260A97C2fE2f31e`) and which is **not** an upgradeable variant, a maturity roughly **five months** out, reserves near **55% PT / 45% SY**, and an implied APY of about **6%**. You understand the asset, you are comfortable with the owner and the fact that the SY is immutable, and five months of runway suits your plan — so you decide to proceed. Had the SY instead been an upgradeable proxy under an unfamiliar admin, or the underlying an asset you could not explain, the responsible move is to stop. The 6% and the 55/45 split are live readings that move with every trade, never guarantees.
-:::
-
-::: danger A pool that loads can still lose you money
-Community pools are permissionless and unreviewed — anyone can create one, and interacting with them can lose you funds. **OpenPendle validates market provenance but cannot vouch for the assets or SY contracts underneath.** If the underlying asset fails, PT may not redeem at par; if the SY is faulty, hostile, or upgraded to something malicious, deposits and redemption can break. Provenance protects you from a *fake market*, not from a *bad asset*. Inspect the SY and the underlying yourself — a block explorer and the [Protocol Status & Contracts](https://openpendle.com/#/status) page are your tools — and never interact with a pool unless you trust whoever created it and everything beneath it. Experimental — use at your own risk. Not affiliated with Pendle Finance.
-:::
-
-→ [Standardized Yield (SY)](/concepts/standardized-yield) · [Community pools & incentives](/concepts/community-pools) · [Risks & disclosures](/reference/risks)
+If you cannot explain the underlying or the SY's control surface, do not fund the market. See [Risks & disclosures](/reference/risks) for the complete risk model.
 
 ## 6. Remember the pool
 
-Once you have opened a market worth tracking — and, if you intend to fund it, once you have read its trust panel — you can save it so you do not have to hunt down the address again. Toggle **Remember this pool**.
+**Remember this pool** saves the chain and market address in the current browser. Reopen it later from [Saved Pools](/guides/saved-pools) or **Profile → Saved pools** when connected.
 
-This writes the pool to your browser's `localStorage` under the key `openpendle.pools.v1` — entirely **client-side**, with no OpenPendle backend storage or account. The saved registry is not uploaded to a server. RPC and ancillary providers can still observe the individual requests you make when opening a pool. Saved pools store the **market address**, so the "which of the four addresses" lookup from step 1 is resolved once and reused: opening a saved pool goes straight to the live pool view (and re-runs the provenance gate against the current chain state).
+Forgetting has a brief Undo window. Export, import, and share links are available on the Saved Pools page; shared entries still require explicit acceptance and fresh provenance checks.
 
-Saved pools appear grouped by network on the [Saved Pools](/guides/saved-pools) page, with a short preview on the home page. From there you can:
+## Available actions
 
-- **Forget** a pool — a roughly **four-second Undo** toast restores it exactly if you change your mind.
-- **Export to JSON**, **Import**, or generate a shareable **`?import=` link** that encodes your registry to move it between browsers or devices.
+For a live market, OpenPendle may offer:
 
-The saved-pool registry leaves your browser only when *you* choose to export or share it. See [Saved pools & privacy](/guides/saved-pools) for the full registry and network-request model.
+- immediate PT or YT swaps;
+- PT ↔ SY limit orders when Pendle's live support check approves the exact direction;
+- minting and recombining PT + YT;
+- wrapping and unwrapping SY; and
+- balanced or single-token liquidity actions.
 
-## After it loads: what you can do
+After maturity, the page changes to PT redemption, LP exit, residual claims, and supported SY wrapping/unwrapping.
 
-With a pool open and its trust panel read, connect a wallet to act on it. OpenPendle is **injected-only** — it talks to a browser wallet directly, with no WalletConnect (see [Connecting a wallet](/guides/connecting-a-wallet)). Immediate on-chain actions quote live as you type, are **simulated against the live chain before you sign**, and default token approvals to the **exact amount**. Unlimited approval requires an explicit settings opt-in and leaves greater standing exposure. AMM trades, liquidity, and exits route through Pendle's **Router V4** (`0x888888888889758F76e7103c6CbF23ABbF58F946`). OpenPendle adds no fee of its own; Pendle's own protocol fees still apply.
-
-A PT limit order is different: it is a PT ↔ SY EIP-712 message published to Pendle's hosted API for later filling through the Limit Router. OpenPendle exposes it only when Pendle's live support response matches the exact market and direction—official listing alone is not enough—and validates its fields, signer, fee root, and local/on-chain hash before submission. Placement does **not** reserve or escrow funds. See [PT limit orders](/guides/limit-orders).
-
-From a loaded, in-flight pool you can:
-
-- **Swap to PT immediately** through the AMM for a fixed yield locked in at execution — see [Buying PT](/guides/buying-pt).
-- **Place a supported PT limit order** for a target APY without taking the current quote immediately — see [PT limit orders](/guides/limit-orders).
-- **Swap to YT** for yield exposure — see [Buying YT](/guides/buying-yt).
-- **Mint / redeem** — split SY (or the underlying) into `PT + YT`, or recombine them, any time before maturity — see [Minting & redeeming](/guides/minting-redeeming).
-- **Add / remove liquidity** to earn swap fees and any Merkl incentives — see [Providing liquidity](/guides/providing-liquidity).
-
-::: warning Opening is free; signing is not
-Steps 1 through 6 need no wallet and move no funds — you can browse and read every trust panel with nothing connected. The moment you connect and sign, you are authorizing an on-chain action or an executable order against a permissionless, unreviewed market. Simulation or order validation shows the *expected mechanics*; neither can make an unsafe asset safe. Only sign after you have read the trust panel and understand the asset.
-:::
+Connect an injected wallet only when you are ready to act. On-chain actions use live estimates and then simulate before confirmation. Token approvals are exact by default; Unlimited is an explicit higher-exposure option. OpenPendle calls Pendle's deployed contracts and adds no fee of its own.
 
 ## Next
 
-- [Anatomy of a pool](/concepts/pool-anatomy) — the four addresses of one pool and the trust surface, in depth.
-- [Standardized Yield (SY)](/concepts/standardized-yield) — the contract closest to the money, and why the SY is where the risk lives.
-- [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" really means.
-- [Buying PT](/guides/buying-pt) — the most common first action, step by step.
-- [PT limit orders](/guides/limit-orders) — target-APY orders on the dynamically supported subset.
-- [Saved pools & privacy](/guides/saved-pools) — how the client-side registry works.
-- [Risks & disclosures](/reference/risks) — please read this before you transact.
+- [Buying PT](/guides/buying-pt)
+- [Buying YT](/guides/buying-yt)
+- [PT limit orders](/guides/limit-orders)
+- [Providing liquidity](/guides/providing-liquidity)
+- [Saved pools & privacy](/guides/saved-pools)

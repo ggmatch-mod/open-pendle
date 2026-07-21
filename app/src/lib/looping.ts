@@ -1067,6 +1067,30 @@ export function calculateLoopingLeverageCap(
 }
 
 /**
+ * Convert an exact decimal leverage input into exact loan-token debt units.
+ * The final division rounds down so decimal conversion can never borrow more
+ * than the leverage the user selected.
+ */
+export function deriveLoopingBorrowAssets(
+  equityAssets: bigint,
+  leverage: string,
+): bigint {
+  const cleaned = leverage.trim()
+  if (!/^\d+(?:\.\d*)?$/.test(cleaned)) {
+    return fail('leverage', 'must be a plain decimal number')
+  }
+  const [whole, fraction = ''] = cleaned.split('.')
+  if (fraction.length > 18) {
+    return fail('leverage', 'supports at most 18 decimal places')
+  }
+  const leverageWad = BigInt(whole) * WAD +
+    BigInt(fraction.padEnd(18, '0') || '0')
+  if (leverageWad < WAD) return fail('leverage', 'must be at least 1x')
+  if (equityAssets <= 0n) return fail('equityAssets', 'must be greater than zero')
+  return equityAssets * (leverageWad - WAD) / WAD
+}
+
+/**
  * Conservative, normalized estimate only. It assumes debt stays constant under
  * the price stress, costs scale with gross PT exposure, and no rewards offset
  * borrow costs. It is not a quote, oracle valuation, or liquidation guarantee.

@@ -1,221 +1,176 @@
 # Self-hosting
 
-OpenPendle is a static single-page app with **hash-based routing** and no OpenPendle request-time application server, user database, or account system. Every build is a plain folder of files — including a versioned factory-market snapshot — that any web server, static host, or content-addressed network can serve as-is. There is no OpenPendle runtime or server process to keep alive behind the interface. The stock build includes Cloudflare Web Analytics, which self-hosters can remove. A separate scheduled job can regenerate the public catalog artifact; the browser still makes the public RPC and ancillary API requests documented below.
+OpenPendle builds to a static folder. There is no OpenPendle application server, account database, or transaction relay to operate. A self-hosted copy still makes the RPC and feature-API requests documented in [Architecture](/reference/architecture#outbound-requests).
 
-Running your own copy is also the strongest guarantee OpenPendle can offer. The hosted site at [openpendle.com](https://openpendle.com) is a convenience, not a dependency. Because the code is open-source under the [GPL-3.0-or-later](#license-and-what-openpendle-ships) license and the build is fully self-contained, you can clone it, read every line, build it yourself, and serve it from infrastructure you control — so the interface cannot be changed out from under you or taken down. Core market use still depends only on Pendle's contracts and the RPC you point at; feature-specific public APIs remain the disclosed dependencies described below.
+Self-hosting lets you inspect and choose the exact source and deployment you serve. It does not review community pools, remove wallet/RPC risk, or make external APIs available offline.
 
-::: info OpenPendle validates provenance, not the assets underneath
-Self-hosting gives you a trustworthy copy of the *interface*. It does not make the pools you interact with safe. Community pools are permissionless and unreviewed — anyone can create one, and interacting with them can lose you funds. OpenPendle validates that a market was created by a Pendle factory it recognizes, but it cannot vouch for the assets or SY contracts underneath. Not affiliated with Pendle Finance. Experimental — use at your own risk. See [Risks & disclosures](/reference/risks).
-:::
+## Requirements
 
-## Why self-host
+- Node.js 22, pinned by the repository's `.node-version` files
+- npm
+- Git, or a source archive
 
-There is no functional feature you unlock by self-hosting — the hosted app and a local build run identical code. What you gain is **independence and verifiability**:
-
-- **Censorship resistance.** A copy you serve cannot be taken offline by anyone but you. If you host it on [IPFS](#ipfs-with-dnslink), it cannot be taken offline at all as long as the pin survives.
-- **Provenance you can verify.** You build from source you have read, so you know the bytes your browser runs match the repository — not a modified bundle served to you.
-- **No new request-time backend.** OpenPendle adds no application server or transaction relay to trust (see [How OpenPendle works](/reference/architecture)). Self-hosting removes even the hosted deployment from your trust surface. Core use still relies on the chain, your RPC, and your wallet; Explore also relies on the static snapshot included in your build, while ancillary features use the public data services listed below.
-- **It runs anywhere.** Because routing is hash-based and the build is a static folder, "anywhere" genuinely means anywhere — a managed static host, a spare box, or a content-addressed pin.
-
-The reason "anywhere" holds is the router. OpenPendle uses a **HashRouter**, so every route lives after the `#` in the URL (`openpendle.com/#/status`, `openpendle.com/#/about`, and so on). The server only ever serves one file — `index.html` — and the app resolves the route client-side from the fragment. A server never sees the part of the URL after `#`, so it never needs to know your routes, and you never need to configure SPA rewrite (history-fallback) rules. That single property is what lets the same unmodified `dist` folder work on a static host and on IPFS with no per-host configuration.
-
-## Prerequisites
-
-| Requirement | Detail |
-| --- | --- |
-| **Node.js 22** | Pinned via a committed `.node-version` file (contents: `22`) at both the repo root and in `app/`. Use Node 22 to match CI and the hosted build. |
-| **A package manager** | `npm` ships with Node and is what the commands below assume. `pnpm` or `yarn` work too if you prefer. |
-| **Git** | To clone the repository. You can also download a source tarball from GitHub if you would rather not use Git. |
-
-That is the entire app build toolchain. There is no database to provision, no environment file to populate with secrets, and no API keys to obtain. Core market-by-address reads and transactions use public RPC; the bundled ancillary integrations are also keyless. A normal build includes the repository's current catalog snapshot. Running your own refresh job is optional and only needed if you want Explore to stay current independently of upstream releases.
-
-## Clone, install, develop, build
-
-The app lives in the **`app/`** folder of the repository. All build commands run from there.
+## Build and preview
 
 ```sh
-# 1. Clone the repository
 git clone https://github.com/ggmatch-mod/open-pendle.git
 cd open-pendle/app
-
-# 2. Install dependencies
-npm install
-
-# 3. Run a local dev server with hot reload
-npm run dev
-
-# 4. Produce a production build → app/dist
+npm ci
 npm run build
+npm run preview
 ```
 
-What each step does:
+`npm run build` runs TypeScript checks and Vite, then writes the deployable app to `app/dist`. The folder includes the bundled factory-market snapshot, hashed assets, fonts, startup recovery script, security-header file, and static metadata.
 
-- **`npm install`** — installs the dependencies listed in `app/package.json`. OpenPendle's runtime dependencies are a small, auditable set (React, `wagmi`/`viem` for chain access, RainbowKit for the injected-wallet connector, React Query, and React Router).
-- **`npm run dev`** — starts the Vite dev server for local development with hot module reload. Use this while editing; it is not a production artifact.
-- **`npm run build`** — runs `tsc -b && vite build`: type-checks the project, then emits the optimized production bundle to **`app/dist`**. This folder is the entire deployable — self-contained, static, and ready to serve.
-- **`npm run preview`** *(optional)* — serves the built `app/dist` locally so you can sanity-check the production bundle before you deploy it.
+The committed snapshot makes an ordinary build usable without API keys. It gradually becomes stale unless you update it.
 
-::: tip The production build is just a folder
-`app/dist` is a plain static bundle: `index.html`, hashed JS/CSS, self-hosted font files, icons, and `/catalog/factory-markets.v1.json`. There is nothing else to run alongside it — no Node process and no server code. If you can serve a folder of files over HTTP, you can host OpenPendle. Without a scheduled refresh, Explore remains usable but its bundled snapshot gradually becomes stale.
-:::
+## Refresh the market catalog
 
-### Refreshing the factory-market snapshot
-
-The repository includes the snapshot used by ordinary builds, so this is optional. If you want your fork's directory to stay current independently, run the same deterministic catalog job before building:
+To maintain Explore independently of upstream releases:
 
 ```sh
 cd open-pendle/app
 npm run index:factory-markets
-npm run check:factory-markets
+npm run check:factory-markets:complete
 npm run build
 ```
 
-`index:factory-markets` scans the recognized factory lineage and writes `app/public/catalog/factory-markets.v1.json`; `check:factory-markets` validates the artifact without making network requests. For reliable full-history coverage, configure one archive/log-capable RPC URL per supported chain: `ETHEREUM_RPC_URL`, `BSC_RPC_URL`, `MONAD_RPC_URL`, `BASE_RPC_URL`, `PLASMA_RPC_URL`, and `ARBITRUM_RPC_URL`. An Etherscan-compatible indexed endpoint can be supplied as `<NETWORK>_LOG_API_URL`; this is particularly useful as `BSC_LOG_API_URL` and `MONAD_LOG_API_URL`, where public RPC history is tightly range-limited. The URL may already contain its `chainid` and `apikey` query parameters. Treat provider URLs containing credentials as secrets and configure them in your scheduler rather than committing them.
+The generator scans the recognized factory lineage and writes `public/catalog/factory-markets.v1.json`. Reliable historical scans require archive/log-capable sources. It accepts:
 
-For the stock six-network job, the current free-first setup for the two public-endpoint gaps is:
+- `ETHEREUM_RPC_URL`
+- `BSC_RPC_URL`
+- `MONAD_RPC_URL`
+- `BASE_RPC_URL`
+- `PLASMA_RPC_URL`
+- `ARBITRUM_RPC_URL`
+- an Etherscan-compatible `<NETWORK>_LOG_API_URL` where appropriate
 
-- `BSC_RPC_URL=https://bsc-mainnet.nodereal.io/v1/<NODEREAL_API_KEY>` using a [NodeReal MegaNode](https://docs.nodereal.io/docs/pricing-plan) key. Its BSC `eth_getLogs` endpoint supports bounded historical ranges, which the generator scans adaptively.
-- `MONAD_LOG_API_URL=https://api.etherscan.io/v2/api?chainid=143&apikey=<ETHERSCAN_API_KEY>` using an [Etherscan V2](https://docs.etherscan.io/getting-started) key. The generator supplies and validates `page`/`offset` itself, so do not rely on an endpoint's default page size.
+Provider URLs can contain credentials; store them in the scheduler's secret configuration, not the repository. Inspect completeness, errors, quarantined logs, and indexed-through metadata before publishing. The upstream workflow keeps the last-known-complete artifact when a refresh is partial.
 
-These complete the initial backfill while the bundled public RPCs continue to handle ordinary current-state reads. A paid all-chain Etherscan plan can replace the BSC RPC with a `BSC_LOG_API_URL` using `chainid=56`, but it is not required when the NodeReal endpoint is available.
+Without a refresh, users can still load a recognized market directly by address, but new markets may be absent from Explore and PT/YT mapping until the next snapshot.
 
-The upstream workflow runs daily. A self-host can use the same cadence, run less often, or publish a pinned snapshot and accept that newly created markets will require direct address loading until the next refresh. The publishing workflow refuses to replace a complete artifact with a partial scan. It keeps the last-known-complete snapshot instead, and the UI uses each chain's indexed block timestamp to warn once that retained artifact is stale. When running the generator manually, inspect its coverage and errors rather than publishing a partial result as complete.
+## Asset paths and routing
 
-### A note on asset paths and subpaths
+OpenPendle uses HashRouter, so routes live after `#`. Static hosts therefore do not need “rewrite every path to `index.html`” rules.
 
-By default the build references its assets from the site root (for example `/assets/…`), which is exactly right when you serve OpenPendle at the root of a domain or an IPFS gateway path that preserves it. If you intend to host it under a **sub-path** of a domain (for example `example.com/openpendle/`), set Vite's [`base`](https://vite.dev/config/shared-options.html#base) option to that sub-path before building so the asset URLs resolve. Serving at a domain root — the common case, and what [Cloudflare Pages](#cloudflare-pages) and [IPFS + DNSLink](#ipfs-with-dnslink) give you — needs no change.
+Routing and asset paths are separate concerns. The default Vite build uses root-relative URLs such as `/assets-v2/...`, `/fonts/...`, and `/catalog/...`.
 
-## Deploy options
+- **Domain root:** deploy `dist` unchanged.
+- **Subpath:** set Vite's [`base`](https://vite.dev/config/shared-options.html#base) to that subpath and rebuild.
+- **IPFS:** use DNSLink or another gateway arrangement that serves the CID as the site's root, or rebuild with a base that matches the gateway path. A raw `/ipfs/<CID>/` URL is not guaranteed to work with the unmodified root-relative build.
 
-Everything below serves the **same** `app/dist` folder. The routing is hash-based, so **no host needs SPA rewrite rules**. Pick whichever fits your infrastructure.
-
-```mermaid
-flowchart LR
-  src["app/ source"] -->|npm run build| dist["app/dist (static bundle)"]
-  dist --> cf["Cloudflare Pages"]
-  dist --> static["Any static host<br/>(Netlify · GitHub Pages · S3/CloudFront · nginx)"]
-  dist --> ipfs["IPFS pin + DNSLink"]
-```
+## Deployment options
 
 ### Cloudflare Pages
 
-Cloudflare Pages is what the hosted [openpendle.com](https://openpendle.com) runs on. Point a Pages project at the repository and use these settings:
+The hosted app uses Cloudflare Pages with:
 
 | Setting | Value |
 | --- | --- |
-| **Framework preset** | **None** |
-| **Root directory** | **`app`** |
-| **Build command** | **`npm run build`** |
-| **Build output directory** | **`dist`** |
-| **Node version** | Picked up from the committed `.node-version` (22) |
+| Framework preset | None |
+| Root directory | `app` |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Node | 22 |
 
-The root directory is `app` because the app is in the `app/` subfolder; the output directory is `dist` **relative to that root** (i.e. `app/dist`). Preset **None** is correct — OpenPendle is a plain static build and needs no framework-specific handling. Because routing is hash-based, you do **not** add any `_redirects` or history-fallback rule.
+The committed `public/_headers` file is copied into `dist` and is interpreted by Cloudflare Pages. It sets no-cache behavior for HTML/startup recovery, long-lived caching for hashed assets, and the production security headers.
 
-### Any static host
+### Other static hosts
 
-For Netlify, GitHub Pages, Amazon S3 + CloudFront, nginx, Caddy, or any other static host: **build locally and serve `app/dist`**. That is the whole deployment.
+Build and serve `app/dist` over HTTPS. Wallet injection generally requires a secure browser context. Hash routing needs no SPA fallback.
+
+Not every host understands Cloudflare's `_headers` syntax. Reproduce its headers in your host configuration, especially:
+
+- Content-Security-Policy
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- frame restrictions
+- `Permissions-Policy`
+- HSTS, when appropriate for your domain
+- cache rules that keep HTML fresh and hashed assets immutable
+
+If you remove Cloudflare Web Analytics from `index.html`, also remove its script source from the CSP. If you keep it, the self-hosted copy will send the same page-view/performance beacon as the stock build.
+
+### IPFS with DNSLink
 
 ```sh
 cd open-pendle/app
 npm run build
-# then upload / point the host at ./dist
+ipfs add -r dist
 ```
 
-Because the app resolves routes from the URL fragment, **no rewrite rules are required** — you do not need the usual "rewrite all paths to `/index.html`" SPA fallback, and a deep link like `…/#/status` resolves purely in the browser. A minimal nginx server block is just a static root:
+Pin the resulting CID, then point DNSLink at it:
 
-```nginx
-server {
-    listen 80;
-    server_name openpendle.example;
-    root /var/www/openpendle/dist;   # your copy of app/dist
-    index index.html;
-    # No try_files rewrite needed — routing is hash-based.
-}
+```
+_dnslink.openpendle.example. TXT "dnslink=/ipfs/<CID>"
 ```
 
-::: tip Serve over HTTPS
-A browser wallet injects its provider into pages served over a secure context. Host your copy over **HTTPS** (any static host and Cloudflare Pages give you this automatically) so wallet connection works; see [Connecting a wallet](/guides/connecting-a-wallet).
+DNSLink gives the build a domain-root path and a stable name that can later point to a new CID. Content addressing proves the bytes associated with a CID; availability still depends on at least one surviving pin and reachable gateway.
+
+## Security checklist
+
+A self-hosted build retains code-level behavior such as injected-wallet connection, transaction simulation, exact approvals by default, local saved pools, and self-hosted fonts. Hosting configuration still matters.
+
+Before publishing:
+
+1. Build from the intended commit with the committed lockfile (`npm ci`).
+2. Run the frontend checks used by CI, or at minimum `npm run lint` and `npm run build`.
+3. Confirm the catalog is complete or intentionally retain a known snapshot.
+4. Serve over HTTPS.
+5. Apply the headers from `public/_headers` in the host's native format.
+6. Verify the CSP and cache headers from the deployed URL.
+7. Open a market, run a read-only quote, and confirm the expected chain/RPC.
+8. If testing writes, use a burner and a minimal amount first.
+
+::: warning Interface integrity is not pool safety
+A reproducible deployment can establish which frontend code you served. It cannot vouch for a market's asset, SY, adapter, owner, liquidity, or future behavior. Read [Risks & disclosures](/reference/risks).
 :::
 
-### IPFS with DNSLink
+## External dependencies remain
 
-Because the build uses no server routes and can be served from a domain root, `app/dist` pins to **IPFS** cleanly and loads from any gateway. This is the most censorship-resistant option: a content-addressed pin cannot be altered without changing its hash, and it stays reachable as long as the pin survives.
+The stock build can contact:
 
-1. **Build**, then add the folder to IPFS to get a CID:
+- configured app RPCs for ordinary reads, simulations, and receipt polling;
+- the injected wallet's provider for Looping safety reads, unsigned simulation, and signed transaction submission;
+- the same-origin market snapshot and Looping entry policy;
+- Pendle APIs for enrichment, alerts, Looping routes, limit orders, and connected-wallet Official-position discovery;
+- Morpho for Looping discovery and public market state;
+- supported Blockscout APIs for bounded lookup fallback;
+- DefiLlama and CoinGecko for aggregate ticker data;
+- Merkl when a connected user opens Positions; and
+- Cloudflare Web Analytics unless removed.
 
-   ```sh
-   cd open-pendle/app
-   npm run build
-   ipfs add -r dist
-   ```
+Official-position discovery sends the connected wallet address to Pendle to find relevant Official-pool market IDs; balances and claims are then re-read through the relevant chain RPCs. Merkl receives the wallet address and supported chain IDs to return claimable rewards and proofs. Pendle Looping-route requests include market and token identifiers, amounts, the reviewed adapter receiver, and slippage, but no wallet signature.
 
-2. **Pin** the resulting CID (on your own node, or with a pinning service) so it stays available.
-3. **Point a [DNSLink](https://docs.ipfs.tech/concepts/dnslink/) record** at the CID for a stable, human-readable name that you can update to new builds over time:
+Disabling a UI feature can remove its ancillary call, but review the code and CSP rather than assuming self-hosting removes it. See the canonical [outbound-request table](/reference/architecture#outbound-requests).
 
-   ```
-   _dnslink.openpendle.example.  TXT  "dnslink=/ipfs/<your-CID>"
-   ```
+## Looping execution controls
 
-A DNSLink name lets people reach your copy through any DNSLink-aware gateway while you retain the ability to publish new CIDs behind the same name. Nothing about IPFS hosting changes what the app does — core state still comes through the RPCs you point at, while Yield alerts, limit orders, and other ancillary features make the same disclosed public-API requests as any other deployment.
+Self-hosting does not automatically enable executable Looping. New entry and leverage increases require all of the following:
 
-## Why it is safe to self-host
+- the build-time `VITE_LOOPING_EXECUTION_BETA_ENABLED` flag;
+- an exact market in the reviewed execution registry;
+- a fresh, enabled, same-origin `app/public/looping-execution-policy.v1.json` entry for that chain and Morpho market ID; and
+- live contract, route, position, risk, and unsigned-simulation checks.
 
-Self-hosting does not weaken any of OpenPendle's safety properties, because those properties are enforced by the code you are building, not by the hosted deployment. A copy you build from source keeps all of them:
+The runtime policy is fetched without cache and fails closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market. Keep the committed disabled policy until you intentionally activate a reviewed release, and serve the JSON with the headers in `public/_headers`.
 
-| Property | What it means for a self-hosted copy |
-| --- | --- |
-| **Strict Content-Security-Policy** | The app blocks JavaScript `eval()` and `Function()`, permits WebAssembly used for cryptography, and allowlists Cloudflare Web Analytics as its only remote script. Self-hosters can remove the beacon and its CSP source if they do not want analytics. |
-| **Self-hosted fonts** | Fonts ship inside the bundle. There are **zero** external font requests — nothing is fetched from a font CDN, so a font provider cannot see or gate your users. |
-| **Injected-only wallets** | OpenPendle talks directly to a browser wallet's injected EIP-6963 provider. There is **no WalletConnect and no third-party relay** in the connection path. See [Connecting a wallet](/guides/connecting-a-wallet). |
-| **No OpenPendle request-time backend to trust** | There is no OpenPendle application server, user database, account system, or transaction relay. The stock static build includes Cloudflare Web Analytics. Core state is read from the chain via public RPC that **you** configure; the directory is a replaceable static artifact. |
+Leverage decreases and full exit use the separate `VITE_LOOPING_EXIT_BETA_ENABLED` build flag. Recovery is independent of the entry policy, so pausing new risk does not by itself remove permission cleanup or direct rescue.
 
-The outbound requests a stock self-hosted copy makes are:
+Browser Looping reads and unsigned simulations use the connected wallet's selected-chain RPC through a read-only method allowlist; the wallet broadcasts the final signed transaction through that same provider. A self-hoster's general app RPC override does not reconfigure the wallet provider. Never put private keys or RPC secrets in a `VITE_*` variable because those values are public in the browser bundle.
 
-- **The blockchain RPCs you point it at** — keyless public defaults per chain (wrapped in a `viem` `fallback()` transport that rolls over to a backup automatically), or your own overrides. RPC overrides are stored locally under `openpendle.rpc.<chainId>` and never leave the browser. See [Networks & contracts](/reference/networks-and-contracts).
-- **The header stats ticker** — aggregate Pendle metrics from **DefiLlama** and **CoinGecko** public APIs.
-- **Explore and PT/YT pool resolution** — Explore downloads the same-origin factory-market snapshot and asks Pendle's public market API for listed enrichment. The snapshot provides the canonical PT/YT-to-pool mapping through its indexed head; Pendle and keyless **Blockscout** APIs provide live enrichment and bounded lookup fallbacks.
-- **Yield alerts** — the browser requests Pendle's active market catalog and exact hourly APY / AMM-liquidity histories. There is no notification service; each visitor's browser currently performs this bounded fanout itself.
-- **PT limit orders** — the browser calls Pendle's hosted API for live market support, books, generated order fields, placement, and maker-order reads. Support is stricter than official listing. Maker reads send the wallet address and placement sends the full signed order; the tokens remain in the wallet and are not reserved or escrowed.
-- **Official-position discovery** — when a connected user opens **My positions**, the browser sends the wallet address to Pendle to discover relevant Official-pool market IDs, then reads balances and claims through the relevant chain RPCs.
-- **Merkl rewards** — when a connected user opens **My positions**, the app sends the wallet address and each supported chain ID to Merkl's public rewards API to retrieve claimable amounts and proofs.
-- **Cloudflare Web Analytics** — the stock build sends page-view and performance metrics through Cloudflare's beacon. Self-hosters can remove the beacon and its CSP source.
+## What OpenPendle ships
 
-None of those services sits between the wallet and an on-chain AMM transaction. Pendle's limit-order API is, however, part of the off-chain order path: it receives the signed order before takers can fill it through the Limit Router. If you want a copy that makes no ancillary third-party API calls, you can keep the same-origin factory snapshot while disabling Pendle enrichment, the ticker, PT/YT pool resolution, Yield alerts, Official-position discovery, limit orders, and Merkl rewards in your fork; core market-by-address reads and Pendle transactions can remain RPC-only.
+OpenPendle is licensed `GPL-3.0-or-later`. It ships no OpenPendle-authored smart contract. Its Create flows can invoke Pendle factories to deploy Pendle SY and market contracts, and its reward claim can invoke Merkl's distributor, but there is no OpenPendle contract to deploy or administer.
 
-Two additional behaviors are inherent to the code and survive self-hosting unchanged: every on-chain transaction is **simulated against the live chain before you sign**, and token approvals **default to the exact amount**. Users may explicitly select Unlimited in transaction settings; that preference is stored locally and leaves a standing allowance until revoked, increasing exposure. A PT limit order follows a separate EIP-712 field, signer, fee-root, and hash-validation path before Pendle's API receives it. None of this depends on where the interface is served from. The [provenance gate](/concepts/community-pools) — which verifies a market was created by a recognized Pendle factory before you can save or transact against it — likewise runs entirely client-side, resolving the active factory live at runtime and using the hardcoded factory set only for that validation.
+## Documentation site
 
-::: warning Safe interface, unreviewed pools
-Everything above is about the safety of the **interface**. It does not review the pools themselves. Community pools are permissionless and unreviewed; provenance validation confirms *who created* a market, not that its asset or SY is sound. A trustworthy self-hosted build interacting with a malicious pool can still lose you funds. Read [Risks & disclosures](/reference/risks) before transacting.
-:::
-
-## License and what OpenPendle ships
-
-OpenPendle is licensed **GPL-3.0-or-later** (see the `LICENSE` file and `app/package.json` in the repository). You are free to run, study, modify, and redistribute it under that license's terms; derivative works you distribute must carry the same license.
-
-Just as importantly, OpenPendle **ships no smart contracts of its own**. It is a frontend only — it calls **Pendle's** already-deployed contracts with hand-written ABIs and adds nothing on-chain. There are no OpenPendle contracts to audit, deploy, or trust; the on-chain trust surface is Pendle's, not OpenPendle's. Nothing about self-hosting changes this. OpenPendle also **takes no fee of its own** (Pendle's own protocol fees still apply) — it is a gift to Pendle's community.
-
-Security reports go to [x.com/ggmxbt](https://x.com/ggmxbt); see `/.well-known/security.txt` in the app.
-
-## The documentation site is a separate project
-
-The site you are reading is **not** part of the app build. It is an independent **VitePress** project in the repository's **`docs-site/`** folder, with its own dependencies and its own scripts. Building the app does not build the docs, and vice versa. To work on the documentation:
+The documentation site is a separate VitePress project:
 
 ```sh
 cd open-pendle/docs-site
-npm install
-npm run docs:dev      # local docs dev server
-npm run docs:build    # static docs build → docs-site/.vitepress/dist
+npm ci
+npm run docs:build
 ```
 
-Like the app, the docs site is deliberately kept **fully static and self-contained** — local search, no external services — to match OpenPendle's self-hostable posture. It is deployed as its own separate static project (the hosted docs build with root `docs-site`, build command `npm run docs:build`, and output `.vitepress/dist`), independent of the app deployment described above.
-
-## See also
-
-- [How OpenPendle works](/reference/architecture) — the backend-free architecture, HashRouter, CSP, and provenance gate you are self-hosting.
-- [Networks & contracts](/reference/networks-and-contracts) — the six networks, the active-network setting, RPC defaults, and per-chain overrides your copy reads from.
-- [Risks & disclosures](/reference/risks) — why a safe interface does not make an unreviewed pool safe.
-- [Connecting a wallet](/guides/connecting-a-wallet) — injected-only wallet connection, and why HTTPS matters for a self-hosted copy.
-- [Yield alerts](/guides/yield-alerts) — the browser-side data fanout and notification boundary.
-- [PT limit orders](/guides/limit-orders) — the hosted order API and Limit Router boundary.
-- [Community pools & incentives](/concepts/community-pools) — the provenance validation your copy performs, and what "permissionless and unreviewed" means.
-- [Protocol Status & Contracts](https://openpendle.com/#/status) — the live per-chain contract list, to verify against `pendle-finance/pendle-core-v2-public`.
+Security reports: [x.com/ggmxbt](https://x.com/ggmxbt) and `/.well-known/security.txt` on the app.

@@ -1,0 +1,9 @@
+{
+  "schema": "openpendle.looping-execution-policy.v1",
+  "revision": 1,
+  "entry": {
+    "enabled": false,
+    "validUntil": null,
+    "markets": []
+  }
+}

@@ -1,59 +1,61 @@
 # PT looping
 
-OpenPendle's **Looping** page finds Morpho markets whose collateral exactly matches a live Pendle Principal Token, then models what borrowing against that PT could do to yield and liquidation risk.
+The **Looping** page matches live Pendle PTs with Morpho markets that use the exact same token as collateral. It compares current rates and, for reviewed markets, can prepare loop transactions directly from the connected wallet.
 
-::: warning Preview boundary
-The directory, leverage calculator, and human-readable entry and exit outline are live. **Token approvals, authorization signatures, and transaction execution are disabled.** The page cannot open or close a loop yet.
+::: warning Reviewed markets only
+Seeing a market in the directory does not make it executable. Entry is available only when the exact Pendle market, PT, Morpho tuple, SY route tokens, and deployed contracts match OpenPendle's reviewed registry, the release build enables entry, and the fresh same-origin runtime policy covers that market. Any failed check pauses the action before a wallet request.
 :::
 
-## What the directory shows
+## Find and compare markets
 
-Each candidate is an exact same-chain identity match between:
+Each directory result is an exact same-chain match between a factory-indexed Pendle PT and a Morpho collateral token. Search by name or address, choose a network, require a positive PT-minus-borrow spread, set a minimum borrow-liquidity amount, and sort the results.
 
-- a factory-indexed Pendle PT; and
-- the collateral token in a Morpho market tuple.
+**Borrow liquidity** is the USD value currently available to borrow from Morpho. It is not total supplied assets or Pendle pool TVL. Thin or unpriced markets can remain visible for research but cannot pass live risk-increasing execution checks.
 
-The directory keeps Pendle and Morpho identifiers visible and distinguishes Morpho-listed markets from permissionless tuples. Filters let you choose a network, listing status, whether borrow liquidity is currently available, and sort order.
+Select a market and enter the amount to model:
 
-Borrow liquidity is the value currently available to borrow on Morpho. It is not the market's total supplied assets or Pendle pool TVL. The current filter separates markets with reported borrowable liquidity from dry markets; the displayed USD amount can still be unavailable.
+- PT exposure and Morpho debt;
+- estimated loop APY from current PT and borrow rates;
+- current and stressed LTV; and
+- distance to liquidation.
 
-## Model leverage and APY
+These are estimates, not quotes or promised returns. Rates, oracle value, liquidity, fees, slippage, and routes can change before a transaction is mined.
 
-Select a market, enter an equity amount, and set the leverage and stress assumptions. The calculator estimates:
+## Open a loop
 
-- gross PT exposure;
-- borrowed amount;
-- loop APY using the current PT and borrow APYs;
-- current LTV; and
-- a simplified collateral-price drop to liquidation.
+For an enabled reviewed market, **Execute** prepares a fresh Pendle route, reads the exact Morpho state and contract wiring through the connected wallet's RPC, and runs an unsigned simulation before requesting approvals, Morpho authorization, and the final transaction.
 
-The model checks the entered leverage against the market's LLTV, your chosen safety buffer, and your collateral-price stress. These controls do not define a safe maximum: oracle basis, rate changes, route execution, depeg, liquidity cliffs, and contract risk can move the real boundary.
+OpenPendle builds one atomic Bundler3 transaction for the position-bearing step. If its callback, swap, borrow, or collateral supply fails, the transaction reverts rather than leaving a partial loop. The wallet owns the Morpho position; OpenPendle does not custody funds or deploy an intermediary contract.
 
-The APY figure holds the displayed PT and borrow rates constant. It excludes fees, slippage, borrow-rate impact, and compounding path changes unless the page states otherwise. Treat it as a comparison tool, not a promised return.
+The leverage slider reaches the market-specific boundary that leaves a simplified **1% liquidation buffer**. The red marker shows the safer **10% buffer**. Moving beyond the red marker requires an explicit high-liquidation-risk acknowledgement, and the fresh preflight still rejects any result below the 1% floor.
 
-## What the transaction outline means
+## Manage an existing loop
 
-After you model a scenario, the page can show a human-readable outline of the separate entry and exit transactions a live implementation would need. It lists approvals, safety gates, finite values that would have to be refreshed, and post-transaction checks.
+Open **Profile → Positions**, choose **Loop positions**, and select the relevant network. A clean OpenPendle-supported loop can:
 
-This outline is not calldata, a route quote, or a simulation. It does not inspect your wallet, reserve liquidity, request a signature, or authorize OpenPendle to move funds.
+- increase or decrease leverage; or
+- fully exit by repaying all Morpho debt and returning the remainder to the wallet.
 
-## Why execution is disabled
+Increasing leverage uses the entry safety gates and runtime policy. Decreasing leverage and full exit use the separately gated exit path. The emergency entry policy can therefore pause new or risk-increasing actions without removing an existing position or its recovery controls.
 
-A production entry must safely coordinate an approval, two sequential Morpho authorization signatures, an atomic conversion/supply/borrow callback, state revalidation, gas bounds, recovery, and post-transaction checks. Reusable authorization signatures must not be sent to an ordinary browser RPC for simulation because the RPC operator could submit them independently.
+## Maturity and recovery
 
-OpenPendle will enable execution only after the complete entry and unwind paths have passed funded tests with cleanup and recovery verified. Until then, use Looping to compare markets and understand the risk envelope.
+An expired PT is removed from new-loop discovery, but its reviewed identity remains in the permanent position-management registry. The matured position stays visible in **Positions**; leverage adjustment is disabled and **Full exit** uses Pendle's post-expiry PT redemption path before repaying Morpho debt.
 
-## Before using a future live loop
+Maturity does not repay the debt automatically. A one-transaction full exit also requires the redemption proceeds to cover all accrued debt. If they do not, OpenPendle blocks that route; the current interface does not provide a normal shortfall-top-up action, so the debt must be repaid and the collateral recovered through a separately verified manual workflow. Do not wait until expiry without enough gas and a reviewed plan to manage the position.
 
-- Understand the collateral asset, SY, oracle, LLTV, and maturity.
-- Check both borrow liquidity and Pendle exit liquidity.
-- Use a meaningful liquidation buffer rather than treating the protocol LLTV as a target.
-- Expect borrow APY and PT APY to change independently.
-- Plan the unwind before opening; maturity does not automatically repay Morpho debt.
+If a receipt or RPC response is ambiguous after signatures or a transaction, OpenPendle keeps the operation blocked and exposes bounded reconciliation, permission cleanup, or direct rescue as appropriate. Recovery is independent of the runtime entry policy.
+
+## Risk checklist
+
+- Verify the PT, underlying asset, SY, oracle, LLTV, maturity, and wallet network.
+- Check both Morpho borrow liquidity and the available Pendle entry or exit route.
+- Treat the 10% marker as a warning boundary, not a guarantee against liquidation.
+- Expect PT APY, borrow APY, collateral value, and gas to change independently.
+- Stop if the runtime policy, contract-state validation, route validation, or simulation fails.
 
 ## See also
 
-- [Principal Tokens](/concepts/principal-tokens) — what PT represents.
-- [Maturity & redemption](/concepts/maturity) — what changes at expiry.
-- [Risks & disclosures](/reference/risks) — interface, market, oracle, and third-party risks.
-- [Quickstart](/introduction/quickstart) — the rest of OpenPendle.
+- [Positions & rewards](/guides/positions)
+- [Settlement at maturity](/concepts/how-pendle-works#stage-4-settle-at-maturity)
+- [Risks & disclosures](/reference/risks)

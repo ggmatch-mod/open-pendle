@@ -8,6 +8,9 @@ cache/
 .env
 .env.*
 !.env.example
+.live-looping-compiler-canary-recovery.json
+.live-looping-compiler-canary-recovery.json.tmp
+.live-looping-compiler-canary.lock
 .DS_Store
 .claude/launch.json
 

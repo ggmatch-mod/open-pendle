@@ -1,156 +1,73 @@
 # Maturity & redemption
 
-Every Pendle market is built around a single fixed date: its **maturity** (also called expiry). Maturity is the moment the whole structure resolves — the discount on the principal token closes, the yield token finishes paying out, and the market stops trading. This page explains what maturity is, exactly what each token becomes when it arrives, how you get your value out afterward, and what "rolling" into a later maturity means.
+Every Pendle PT/YT pair has a fixed **maturity** (or expiry). It determines when principal settles, YT's future-yield entitlement ends, and market trading stops.
 
-It is a first-principles page and defines each term the first time it appears. If the vocabulary here is new, start with [How Pendle works](/concepts/how-pendle-works); this page goes deeper on the final stage of that lifecycle.
+## Before maturity
 
-::: info Not affiliated with Pendle
-OpenPendle is an independent, open-source interface to Pendle V2. It does not change how maturity works — the behaviour described here is Pendle's public, on-chain mechanics, the same for every frontend. OpenPendle simply lets you carry out the post-maturity actions on [community pools](/concepts/community-pools).
-:::
+Before the timestamp:
 
-## What maturity is
+- SY can mint equal PT and YT quantities at the current exchange-rate index;
+- equal PT and YT quantities can recombine into SY;
+- PT and YT can trade through the market;
+- liquidity can be added or removed;
+- YT accrues the associated yield and rewards, net of protocol fees.
 
-When a Pendle market is created, a maturity timestamp is fixed into it and never changes. It is a property of the market, not of your position — everyone in the same market shares the same maturity.
+Maturity belongs to the market, not to an individual wallet. You can enter or exit earlier at the available market price.
 
-Recall the split at the heart of Pendle. A yield-bearing asset is wrapped as **SY (Standardized Yield)**, and before maturity SY divides into two tokens:
+## At maturity
 
-- **PT (Principal Token)** — the principal. It is written to redeem **1:1 for the underlying at maturity**.
-- **YT (Yield Token)** — the yield. It holds the right to all the yield the underlying accrues **up to maturity**, and no further.
-
-Maturity is the date those two promises come due. Everything about a Pendle position — the discount PT trades at, the yield YT collects, the shape of the AMM curve — is defined relative to this one timestamp. Before it, principal and yield are still resolving. At it, they are settled.
-
-::: info The term is fixed; your holding period is not
-Maturity fixes when the *market* resolves. It does not lock you in for the whole term. Before maturity you can enter or exit any leg at will — buy or sell [PT](/concepts/principal-tokens), buy or sell [YT](/concepts/yield-tokens), mint, redeem, or move [liquidity](/concepts/liquidity-and-amm) in and out. What maturity fixes is the *outcome* of whichever leg you are still holding when the date arrives.
-:::
-
-## What happens at maturity
-
-At the maturity timestamp, three things become true at once.
-
-| Token / position | State at maturity |
+| Position | What changes |
 | --- | --- |
-| **PT** | Redeemable **1:1 for the underlying**. The discount has fully closed — that closing *is* the fixed yield you locked in. |
-| **YT** | Worth **0** going forward. Every unit of yield it was entitled to has been paid out over the term; there is nothing left to accrue. |
-| **The market (AMM)** | **Stops trading.** With the outcome fixed, there is no more price discovery, so swaps against the pool end. |
+| **PT** | Becomes redeemable for one unit of the SY's accounting asset per PT through the supported output path. |
+| **YT** | Has no remaining future-yield entitlement. Previously accrued, unclaimed amounts may remain claimable. |
+| **Market** | Swaps and new liquidity stop. |
+| **LP** | Can still be removed and settled from its PT and SY components. |
 
-Each of these deserves a closer look.
+The accounting asset may differ from the yield-bearing token delivered on redemption. For example, an interest-bearing share can be converted at its exchange rate so that one PT settles one accounting-asset unit rather than one whole share. See Pendle's [PT documentation](https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT).
 
-### PT converges to par
+## Redeeming PT
 
-Before maturity, PT trades **below par** — below the value of the underlying it will redeem for. That discount is not a defect; it is the mechanism. Buying PT below par and holding to maturity earns you the gap between what you paid and the 1:1 redemption value, and that gap is a **fixed yield** — a known return, fixed at the moment you bought, regardless of what the underlying's rate did afterward.
+PT-to-SY settlement is not an AMM trade, so it does not depend on post-maturity Pendle pool liquidity. A later conversion from SY into another token can still depend on a live route and carry liquidity and slippage risk.
 
-As maturity approaches, the market price of PT climbs toward par, and at maturity it reaches it: **PT now equals one unit of the underlying**. The "implied APY" — the fixed yield implied by the PT price — has, by construction, been fully earned. Nothing further happens to PT after this point except that you may redeem it whenever you choose.
+Under the hood, PT settles through the SY and can then be redeemed into one of the SY's supported outputs. OpenPendle presents the available output path and prepares the router transaction.
 
-### YT decays to zero
+Pendle's current documentation states that maturity redemption has no protocol redemption fee. Network gas and any additional conversion chosen by the user can still affect the final amount.
 
-YT is the mirror image. It is a **long-yield** position: it pays you the actual yield the underlying accrues, streamed over the life of the market. Because all of that yield has been distributed by the end of the term, YT has nothing left to deliver at maturity — its forward value is **0**.
+## Claiming YT accruals
 
-This is expected behaviour, not a loss event in itself. A YT holder's return is the yield collected along the way (plus or minus what they paid for the YT), not any residual value at the end. See [Yield Tokens](/concepts/yield-tokens) for how that accrual works and how a YT position comes out ahead or behind.
+YT has no forward value after maturity, but that does not erase yield or rewards already accrued to it. Claim supported accrued amounts instead of trying to sell the matured YT through a market that no longer trades.
 
-::: warning Claim YT's accrued yield before it is worthless to trade
-YT stops being tradable once the market matures, and its forward value is 0. Any yield a YT accrued but that you have not yet claimed is still yours to redeem — but you should claim it. Do not assume a matured YT can still be sold; by design it cannot.
+Pendle charges protocol fees on YT yield and points. Consult the live contracts and current [Fees documentation](https://docs.pendle.finance/pendle-v2/ProtocolMechanics/Mechanisms/Fees) for the applicable rules.
+
+## Exiting an LP position
+
+Removing LP after maturity returns the position's share of the market settlement components. The PT portion can be redeemed at maturity; the SY portion can use an accepted output route.
+
+The reserve mix is whatever trades and liquidity changes left in the pool. It is not assumed to be all PT.
+
+## Why prompt settlement matters
+
+There may be no contractual deadline to redeem, but waiting is not economically neutral. Pendle's current fee rules redirect yield and points generated by matured, unredeemed PT and LP positions to protocol fee recipients. The position also remains exposed to the accounting asset, SY, and underlying protocol until settlement.
+
+Review matured positions and redeem when practical.
+
+## Rolling into a later maturity
+
+A maturity cannot be extended. Continuing exposure means moving into a different market with a later expiry:
+
+1. Redeem matured PT and/or remove the old LP position.
+2. Choose a later-maturity market and assess it independently.
+3. Enter a new PT, YT, or LP position at that market's current price.
+
+OpenPendle does not currently provide an automatic roll transaction. A later maturity has a different market address, price, liquidity profile, and trust surface.
+
+::: warning Settlement is only as sound as the asset stack
+“Redeemable at par” is denominated in the accounting asset and assumes the SY and underlying protocol work correctly. Provenance does not guarantee either. See [Community pools](/concepts/community-pools) and [Risks & disclosures](/reference/risks).
 :::
 
-### The market stops trading
+## See also
 
-An AMM exists to discover a price between two assets. Once PT's value is pinned to the underlying and YT's is pinned to zero, there is nothing left to discover, so the pool no longer accepts swaps. You cannot buy or sell PT or YT *through the market* after maturity.
-
-What you **can** still do is settle: redeem PT for the underlying, and exit a liquidity position. Those are redemption actions, not trades, and they remain available indefinitely — read on.
-
-## Redemption after maturity
-
-Nothing forces you to act the instant maturity passes. The redemption paths below stay open afterward, and OpenPendle exposes them on any [community pool](/concepts/community-pools) whose provenance it has validated.
-
-```mermaid
-flowchart LR
-  subgraph Before[Before maturity]
-    SY[SY] -->|split| PT[PT]
-    SY -->|split| YT[YT]
-    PT --> LP[LP position]
-    SY --> LP
-  end
-  subgraph At[At / after maturity]
-    PTm[PT] -->|redeem 1:1| U[Underlying]
-    YTm[YT] -->|worth 0, claim any\naccrued yield| ZERO[( )]
-    LPm[LP position] -->|remove liquidity| SPLIT[PT + SY]
-  end
-  PT -.-> PTm
-  YT -.-> YTm
-  LP -.-> LPm
-```
-
-### Redeeming PT for the underlying
-
-This is the headline post-maturity action. At or after maturity, **PT redeems 1:1 for the underlying** — no swap, no slippage, no dependence on pool liquidity. You are exchanging a matured claim for the thing it was always a claim on.
-
-Because it is a redemption rather than a trade, it does not go through the AMM and is unaffected by the market having stopped. It is available on OpenPendle wherever you can act on the market. There is no deadline: an unredeemed PT simply sits at par until you get to it.
-
-::: info Underlying vs. SY on redemption
-Under the hood, redeeming PT settles into the market's **SY**, and SY can then unwrap to the underlying yield-bearing token it represents. In practice a frontend can present this as a single "PT → underlying" step. The value you end up with is one unit of underlying per PT, minus Pendle's own protocol fees where they apply. What the "underlying" concretely is depends on the market — see [Anatomy of a pool](/concepts/pool-anatomy).
-:::
-
-### Exiting a liquidity position
-
-If you were a **liquidity provider (LP)** in the market, your LP tokens represent a share of the pool's PT and SY. Removing liquidity after maturity returns that share to you as its components: **PT + SY**.
-
-From there:
-
-- the **SY** portion can unwrap to the underlying, and
-- the **PT** portion is now a matured PT, which you redeem 1:1 for the underlying exactly as above.
-
-So an LP exit after maturity is a two-part settlement — take out `PT + SY`, then convert each part to the underlying. You continue to hold whatever swap fees the position earned while the market was live; maturity does not claw those back. Note that an LP's final composition depends on the pool's state at maturity and still carries the AMM and PT-vs-SY exposures described in [Liquidity & the AMM](/concepts/liquidity-and-amm).
-
-### Redeeming PT + YT together (before maturity only)
-
-For completeness: the reversible `PT + YT → SY` **redeem** — recombining both halves of the split back into SY 1:1 — is a *before-maturity* action. After maturity you would not use it, because the two halves are no longer symmetric: YT is worth 0, and PT is better redeemed directly for the underlying at par. Mint and this paired redeem are covered in [Minting & redeeming](/guides/minting-redeeming).
-
-## What each token is worth, summarized
-
-| You hold at maturity | What it is now | How you realize it |
-| --- | --- | --- |
-| **PT** | One unit of the underlying (par) | Redeem PT → underlying, 1:1, any time after maturity |
-| **YT** | 0 going forward | Claim any yield that accrued but was not yet collected; nothing further |
-| **LP position** | A share of `PT + SY` | Remove liquidity → `PT + SY`, then convert each to the underlying |
-
-::: info Example — illustrative numbers only
-The figures below are invented to build intuition. They are not live quotes and not a prediction of any real market.
-
-Suppose you bought **1 PT** for **0.95** units of the underlying, one year before maturity, in a market where 1 SY corresponds to 1 unit of underlying.
-
-**At maturity, holding PT.** PT now redeems 1:1, so you redeem your 1 PT for **1.00** unit of underlying (before any protocol fee). Your return is `1.00 / 0.95 − 1 ≈ 5.3%`, exactly the fixed rate you locked in at purchase — independent of what the underlying's yield actually did during the year.
-
-**At maturity, holding the other half (YT).** The YT you would have received from the same split cost about **0.05** and paid out the real yield over the year. At maturity it is worth **0**; the YT holder's result is whatever yield they collected along the way relative to that 0.05 cost — not any end value.
-
-**At maturity, holding an LP position.** You remove liquidity and receive, say, some **PT** and some **SY**. You redeem the PT 1:1 for underlying and unwrap the SY to underlying, and you keep the swap fees the position earned while it was live. The exact split of PT vs. SY depends on where the pool sat at maturity.
-:::
-
-## Rolling into a new maturity
-
-A Pendle market has a finite life: once it matures, that specific market is done. To keep a fixed-yield or long-yield position going, you do not extend the old market — you **roll** into a newer one with a later maturity.
-
-The idea is straightforward:
-
-1. **Settle the matured position.** Redeem PT for the underlying, and/or exit an LP position to `PT + SY` and convert to the underlying, as above.
-2. **Choose a market with a later maturity.** This is a *different* market contract — a different pool address, its own PT/YT/SY, its own maturity, and its own live price and implied APY.
-3. **Re-enter** on the new market: buy PT for fixed yield, buy YT for long yield, or provide liquidity — the same actions, at whatever rate the new market offers.
-
-Rolling is not a single button or an automatic feature; it is simply doing the redemption on the old market and a fresh entry on the new one. Each roll is priced independently — the fixed rate you get on the next term is set by that market when you enter it, not carried over from the last one.
-
-::: tip A later maturity is a new pool, not a renewal
-There is no "extend" on a Pendle market. If you want continued exposure, find or [create](/create/deploying-a-market) a market with a later maturity and enter it as a new position. On OpenPendle you paste that market's own address to open it — the address of the `PendleMarket` contract, not the PT, YT, or SY address.
-:::
-
-::: warning Community pools are permissionless and unreviewed
-OpenPendle validates that a market was created by a Pendle factory it recognizes — this is validation of *provenance*, not endorsement. It **cannot vouch for the asset or the SY contract underneath**, and it applies to a later-maturity market you roll into exactly as much as the one you are leaving. A factory-valid market can still wrap a broken, exotic, or malicious asset, and its post-maturity redemption is only as sound as that asset.
-
-Community pools are permissionless and unreviewed — anyone can create one, and interacting with them can lose you funds. Experimental — use at your own risk. OpenPendle is not affiliated with Pendle Finance and takes no fee of its own; Pendle's own protocol fees still apply.
-:::
-
-## Next
-
-- [Principal Tokens (PT)](/concepts/principal-tokens) — how the discount is priced and why it closes to par at maturity.
-- [Yield Tokens (YT)](/concepts/yield-tokens) — the long-yield leg and why it decays to zero.
-- [Liquidity & the AMM](/concepts/liquidity-and-amm) — what an LP holds and what removing liquidity returns.
-- [Minting & redeeming](/guides/minting-redeeming) — the before-maturity `SY ↔ PT + YT` actions, step by step.
-- [Anatomy of a pool](/concepts/pool-anatomy) — the market, PT, YT, and SY addresses behind one pool.
-- [Deploying a market](/create/deploying-a-market) — create a fresh market with the maturity you want to roll into.
+- [Principal Tokens](/concepts/principal-tokens)
+- [Yield Tokens](/concepts/yield-tokens)
+- [Minting & redeeming](/guides/minting-redeeming)
+- [Liquidity & the AMM](/concepts/liquidity-and-amm)

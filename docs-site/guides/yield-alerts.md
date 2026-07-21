@@ -1,68 +1,54 @@
 # Yield alerts
 
-The **Yield alerts** page is a read-only view of the largest 24-hour changes in Pendle PT fixed yield. It is designed to answer a narrow question: *which liquid, active PT markets have had a meaningful change in implied APY since the same UTC hour yesterday?*
+**Yield alerts** is a wallet-free page showing the largest exact 24-hour changes in implied APY across liquid, active Pendle-listed PT markets on OpenPendle's supported networks.
 
-No wallet is needed. The page does not create a position, send a transaction, subscribe you to notifications, or store an alert preference.
+It is a dashboard, not a notification subscription. It does not create positions, save alert preferences, or send browser, email, Telegram, or X messages.
 
-## Which markets are included
+## Market coverage
 
-The page starts from **active markets returned by Pendle's public API** and keeps only markets on OpenPendle's [six supported networks](/reference/networks-and-contracts). This means its coverage is intentionally narrower than Explore:
+Candidates come from active markets in Pendle's public API. A market is excluded when it is inactive, outside OpenPendle's supported networks, absent from Pendle's active catalog, or missing the required history.
 
-- a factory-valid community market that is not in Pendle's active API catalog does **not** appear;
-- an expired or inactive market does not appear; and
-- a market on an unsupported network does not appear.
+Coverage is therefore narrower than [Explore](/guides/exploring-markets), which starts from factory events and also includes community markets.
 
-Being included is not an endorsement. It only means the market is active, API-listed, on a supported network, and passes the data and liquidity checks below.
+## Exact 24-hour comparison
 
-## The exact 24-hour window
+OpenPendle compares 25 UTC-aligned hourly observations: both endpoints of one complete 24-hour interval. The window advances 15 minutes after each UTC hour to give the latest bucket time to arrive.
 
-OpenPendle compares two exact, UTC-aligned hourly observations: the beginning and end of a 24-hour interval. A valid history contains **25 points**—one for each hourly boundary, including both endpoints.
+A history is rejected if an endpoint or intermediate hour is missing, duplicated, or malformed.
 
-The window advances 15 minutes after each UTC hour. That buffer gives Pendle's newest hourly data time to arrive; it prevents a just-opened or missing bucket from being treated as a complete hour. OpenPendle rejects a history if it has the wrong endpoints, a missing or duplicate hour, or anything other than the complete 25-point series.
+The page reports:
 
-The move is calculated as:
+- the APY change in basis points; and
+- the same change relative to the starting implied APY, when that value is positive.
 
-- **basis-point change:** ending implied APY minus starting implied APY, multiplied by 10,000; and
-- **relative change:** the same APY difference divided by the starting implied APY.
+## $1 million liquidity gate
 
-The page shows both increases and decreases and lets you filter and sort the qualified results.
+A market qualifies only when Pendle AMM pool liquidity is at least **$1 million** both now and at every hourly observation in the window.
 
-## The $1 million liquidity gate
+This uses the per-market historical `tvl` field as pool liquidity, not Pendle's broader `totalTvl`. A single hourly dip below the threshold excludes the market for that window.
 
-A market qualifies only when its **Pendle AMM pool liquidity** is at least **$1 million now and at every one of the 25 hourly observations**. OpenPendle first uses current liquidity as a prefilter, then checks the minimum across the full history.
+## Significant moves
 
-This gate uses Pendle's per-market `tvl` history field as **AMM pool liquidity**. It does not substitute the protocol's broader `totalTvl` figure. A market that dips below $1 million at even one hourly point is excluded from the page for that window.
+A move is labelled significant only when both conditions hold:
 
-## What “significant” means
+- absolute change is at least **50 basis points**; and
+- absolute relative change is at least **10%** of starting implied APY.
 
-A move is marked significant only when **both** of these are true:
+Markets within 72 hours of maturity can appear under **All qualified**, but they are not labelled significant because near-expiry APY can move sharply.
 
-- its absolute change is at least **50 basis points**; and
-- its absolute relative change is at least **10%** of the starting implied APY.
+Use the page controls to filter by network, direction, and significance, and to sort by move or liquidity.
 
-Markets with **72 hours or less until maturity** are excluded from the significant set because fixed-yield figures can move sharply near expiry. A near-maturity market may still appear when viewing all qualified movers; it simply is not labelled significant.
+## Refresh and partial coverage
 
-The two thresholds are joined by **and**, not “or.” For example, a 60-basis-point move from a very high starting APY may still fall below the 10% relative threshold. A non-positive starting APY cannot satisfy the relative-change test.
+The browser loads Pendle's active catalog and eligible market histories directly, then refreshes when the next buffered hourly window becomes available. You can also refresh manually.
 
-## Refreshes and incomplete coverage
+If some histories fail, valid markets remain visible with a partial-coverage warning. If candidates exist but none can be validated, the page reports that alerts are temporarily unavailable instead of presenting an empty result as complete.
 
-The browser refreshes the dataset after the next buffered UTC-hour boundary, when the next complete window should be available. You can also refresh it manually.
-
-Each qualified candidate needs its own history request. If one or more histories fail validation or cannot be fetched, OpenPendle keeps the valid markets visible and shows a **partial coverage** warning. If candidates exist but none of their histories can be validated, the page reports that yield alerts are temporarily unavailable rather than presenting an empty result as complete.
-
-## Current delivery model
-
-Yield alerts currently run entirely in your browser. The browser downloads Pendle's active-market catalog and fans out bounded requests for the candidate histories; OpenPendle operates no alert database or notification service. Pendle's API and the normal network path can observe those requests and ordinary request metadata such as your IP address.
-
-This direct approach is simple and verifiable, but it repeats the same history work in every visitor's browser. If traffic grows, production should place a small, auditable cache or scheduled aggregation job in front of these public data calls. That would improve rate-limit resilience and load time, but it would also introduce a new OpenPendle-operated data component whose freshness, failure behavior, and privacy boundary would need to be documented explicitly.
-
-## No notifications yet
-
-The first version is a page, not a delivery service. It does **not** send browser push notifications, email, Telegram messages, or X posts. Those channels can be added later without changing how a significant move is calculated, but each would introduce its own account, delivery, rate-limit, and privacy considerations.
+Pendle can observe these API requests and ordinary request metadata. See [How OpenPendle works](/reference/architecture) for the current data-flow disclosure.
 
 ## See also
 
-- [Exploring markets](/guides/exploring-markets) — the broader factory-indexed market directory.
-- [Buying PT](/guides/buying-pt) — how fixed yield and PT purchases work.
-- [How OpenPendle works](/reference/architecture) — data flow and outbound-request disclosure.
-- [Risks & disclosures](/reference/risks) — what API-listed and liquid do not guarantee.
+- [Exploring markets](/guides/exploring-markets)
+- [Buying PT](/guides/buying-pt)
+- [How OpenPendle works](/reference/architecture)
+- [Risks & disclosures](/reference/risks)
