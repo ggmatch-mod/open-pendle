@@ -28,6 +28,12 @@ import { fetchMerklRewards } from './merkl'
 import type { MerklReward } from './merkl'
 import { resolveTokenSet } from './tokenSnapshot'
 import { resolveMarketsForToken } from './marketResolve'
+import { fetchOfficialPositionDiscovery } from './officialPositions'
+import {
+  mapPositionMarketsBounded,
+  mergePositionMarketTargets,
+} from './positionMarkets'
+import type { PositionMarketTarget } from './positionMarkets'
 import { quoteBuy, quoteSell } from './swaps'
 import { previewDualAdd, quoteZapIn, quoteZapOut } from './liquidity'
 import { previewExitPostExp, readDepegInfo } from './maturity'
@@ -485,27 +491,49 @@ export function usePositions(snapshot?: MarketSnapshot): {
   return { status: toQueryStatus(query.status), positions: query.data, refetch }
 }
 
-/** One aggregated saved-pool position: the pool, its loaded snapshot + the
- * connected user's positions on it, or an error string if either read failed. */
+/** One Saved/Official market plus its live on-chain wallet position. */
 export interface AggregatedPosition {
-  pool: SavedPool
+  target: PositionMarketTarget
   snapshot?: MarketSnapshot
   positions?: import('./types').Positions
   error?: string
 }
 
+async function loadAggregatedPositionTargets(
+  targets: readonly PositionMarketTarget[],
+  clients: Record<SupportedChainId, PublicClient | undefined>,
+  user: Address,
+): Promise<AggregatedPosition[]> {
+  return mapPositionMarketsBounded(
+    targets,
+    async (target): Promise<AggregatedPosition> => {
+      const client = clients[target.chainId]
+      if (!client) return { target, error: 'RPC unavailable for this network.' }
+      try {
+        const snapshot = await loadMarketSnapshot(client, target.market)
+        const positions = await loadPositions(client, snapshot, user)
+        return { target, snapshot, positions }
+      } catch (err) {
+        return { target, error: errorMessage(err) }
+      }
+    },
+    4,
+  )
+}
+
 /**
- * Cross-chain "My positions" (M12): for EVERY saved pool on EVERY chain, load
- * its market snapshot + the connected user's positions on it, through that
- * chain's own client. One react-query entry keyed by (user, saved-pool set), so
- * it refetches when the wallet or the registry changes and is invalidated by
- * useActionFlow after a confirmed claim. Reads only — the claim tx still runs
- * through useActionFlow on the ACTIVE chain (see PositionsPage). A single pool's
- * failed read degrades to an `error` entry; the rest still render.
+ * Cross-chain "My positions" (M12): merge the local Saved Pools registry with
+ * the connected wallet's Pendle Official pool references, then hydrate only
+ * those wallet-relevant markets from their own chains. Pendle's dashboard API
+ * is discovery-only; displayed balances and claims remain direct RPC reads.
+ * One failed market degrades to an error entry without hiding the rest, and a
+ * failed Official discovery still leaves Saved Pool positions available.
  */
 export function useAllPositions(): {
   status: QueryStatus
   items: AggregatedPosition[]
+  officialStatus: QueryStatus
+  officialDiscoveryError?: string
   refetch: () => void
 } {
   const { pools } = useRegistry()
@@ -516,38 +544,123 @@ export function useAllPositions(): {
     .map((p) => `${p.chainId}:${p.market.toLowerCase()}`)
     .sort()
     .join(',')
-  const enabled = pools.length > 0 && user !== undefined
+  const enabled = user !== undefined
 
-  const query = useQuery({
-    queryKey: ['all-positions', user?.toLowerCase() ?? null, key],
-    queryFn: async (): Promise<AggregatedPosition[]> => {
-      const u = user as Address
-      return Promise.all(
-        pools.map(async (pool): Promise<AggregatedPosition> => {
-          const client = clients[pool.chainId]
-          if (!client) return { pool, error: 'RPC unavailable for this network.' }
-          try {
-            const snapshot = await loadMarketSnapshot(client, pool.market)
-            const positions = await loadPositions(client, snapshot, u)
-            return { pool, snapshot, positions }
-          } catch (err) {
-            return { pool, error: errorMessage(err) }
-          }
-        }),
-      )
-    },
+  const savedTargets = useMemo(
+    () => mergePositionMarketTargets(pools, []),
+    [pools],
+  )
+  const savedQuery = useQuery({
+    queryKey: ['all-positions', 'saved-v2', user?.toLowerCase() ?? null, key],
+    queryFn: () => loadAggregatedPositionTargets(savedTargets, clients, user as Address),
+    enabled: enabled && savedTargets.length > 0,
+    staleTime: POSITIONS_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  const officialDiscoveryQuery = useQuery({
+    queryKey: ['all-positions', 'official-discovery-v2', user?.toLowerCase() ?? null],
+    queryFn: () => fetchOfficialPositionDiscovery(user as Address),
     enabled,
     staleTime: POSITIONS_STALE_TIME_MS,
     retry: 1,
   })
 
-  const refetch = (): void => {
-    void query.refetch()
+  const officialMarkets = officialDiscoveryQuery.data?.markets
+  const officialTargets = useMemo(
+    () => mergePositionMarketTargets([], officialMarkets ?? []),
+    [officialMarkets],
+  )
+  const savedKeys = useMemo(
+    () => new Set(savedTargets.map((target) => `${target.chainId}:${target.market.toLowerCase()}`)),
+    [savedTargets],
+  )
+  const officialOnlyTargets = useMemo(
+    () => officialTargets.filter(
+      (target) => !savedKeys.has(`${target.chainId}:${target.market.toLowerCase()}`),
+    ),
+    [officialTargets, savedKeys],
+  )
+  const officialKey = officialOnlyTargets
+    .map((target) => `${target.chainId}:${target.market.toLowerCase()}`)
+    .sort()
+    .join(',')
+  const officialPositionsQuery = useQuery({
+    queryKey: ['all-positions', 'official-balances-v2', user?.toLowerCase() ?? null, officialKey],
+    queryFn: () => loadAggregatedPositionTargets(
+      officialOnlyTargets,
+      clients,
+      user as Address,
+    ),
+    enabled:
+      enabled &&
+      officialDiscoveryQuery.status === 'success' &&
+      officialOnlyTargets.length > 0,
+    staleTime: POSITIONS_STALE_TIME_MS,
+    retry: 1,
+  })
+
+  const officialKeys = useMemo(
+    () => new Set(officialTargets.map((target) => `${target.chainId}:${target.market.toLowerCase()}`)),
+    [officialTargets],
+  )
+  const items = useMemo(() => {
+    const savedItems = (savedQuery.data ?? []).map((item) => {
+      const itemKey = `${item.target.chainId}:${item.target.market.toLowerCase()}`
+      if (!officialKeys.has(itemKey) || item.target.sources.includes('official')) return item
+      return {
+        ...item,
+        target: { ...item.target, sources: [...item.target.sources, 'official'] },
+      } satisfies AggregatedPosition
+    })
+    return [...savedItems, ...(officialPositionsQuery.data ?? [])]
+  }, [savedQuery.data, officialPositionsQuery.data, officialKeys])
+
+  const officialPending =
+    officialDiscoveryQuery.status === 'pending' ||
+    (officialDiscoveryQuery.status === 'success' &&
+      officialOnlyTargets.length > 0 &&
+      officialPositionsQuery.status === 'pending')
+  const officialStatus: QueryStatus = officialPending
+    ? 'loading'
+    : officialDiscoveryQuery.status === 'error' || officialPositionsQuery.status === 'error'
+      ? 'error'
+      : 'success'
+
+  let officialDiscoveryError: string | undefined
+  if (officialDiscoveryQuery.status === 'error') {
+    officialDiscoveryError = errorMessage(officialDiscoveryQuery.error)
+  } else if (officialPositionsQuery.status === 'error') {
+    officialDiscoveryError = errorMessage(officialPositionsQuery.error)
+  } else if ((officialDiscoveryQuery.data?.failedChainIds.length ?? 0) > 0) {
+    const chainNames = officialDiscoveryQuery.data?.failedChainIds
+      .map((chainId) => supportedChain(chainId)?.name ?? `chain ${chainId}`)
+      .join(', ')
+    officialDiscoveryError = `Pendle reported incomplete Official position data for ${chainNames}.`
   }
 
-  if (pools.length === 0 || user === undefined) return { status: 'idle', items: [], refetch }
-  if (query.status === 'error') return { status: 'error', items: [], refetch }
-  return { status: toQueryStatus(query.status), items: query.data ?? [], refetch }
+  const refetch = (): void => {
+    if (savedTargets.length > 0) void savedQuery.refetch()
+    void officialDiscoveryQuery.refetch()
+    if (officialOnlyTargets.length > 0) void officialPositionsQuery.refetch()
+  }
+
+  if (user === undefined) return { status: 'idle', officialStatus: 'idle', items: [], refetch }
+
+  const savedPending = savedTargets.length > 0 && savedQuery.status === 'pending'
+  const status: QueryStatus = items.length === 0 && (savedPending || officialPending)
+    ? 'loading'
+    : savedQuery.status === 'error' && officialStatus === 'error'
+      ? 'error'
+      : 'success'
+
+  return {
+    status,
+    officialStatus,
+    items,
+    ...(officialDiscoveryError ? { officialDiscoveryError } : {}),
+    refetch,
+  }
 }
 
 /** A wallet's claimable Merkl rewards on one chain (all protocols, not just Pendle). */

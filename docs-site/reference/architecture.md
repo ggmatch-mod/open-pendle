@@ -62,6 +62,7 @@ flowchart LR
   UI -->|aggregate header metrics| STATS[(DefiLlama / CoinGecko<br/>public metrics APIs)]
   UI -->|listed enrichment +<br/>post-snapshot lookup fallback| INDEX[(Pendle market API /<br/>Blockscout log APIs)]
   UI -->|active catalog + hourly histories| ALERTS[(Pendle yield-data API)]
+  UI -->|wallet address for Official-pool<br/>market discovery| POSITIONS[(Pendle position API)]
   UI -->|PT collateral markets| MORPHO[(Morpho market API)]
   UI -->|support, book, generated data,<br/>signed order + maker-order reads| LIMITAPI[(Pendle limit-order API)]
   UI -->|wallet address + chain ID<br/>on My positions| MERKL[(Merkl rewards API)]
@@ -69,7 +70,7 @@ flowchart LR
   JOB -->|publish versioned artifact| SNAP
 ```
 
-Core reads flow browser → RPC → Pendle and back. For AMM actions, the injected wallet signs locally and the signed transaction is sent to the same RPC, which submits it to Pendle's `Router V4`. A limit-order approval grants Pendle's `Limit Router` an allowance, and fills and cancellations use that router; placement signs typed data and publishes it directly to Pendle's hosted order API instead of submitting an OpenPendle transaction. Explore first reads a static snapshot whose inventory comes from `CreateNewMarket` events across the configured factory lineage. The same snapshot maps a pasted PT/YT to every indexed pool that shares it. Pendle's API enriches that inventory with listed status and optional display metrics; it does not define membership. DefiLlama/CoinGecko provide aggregate header metrics, keyless Blockscout log APIs can assist with the bounded post-snapshot lookup where available, and Merkl's rewards API receives the wallet address and chain ID when a connected user opens **My positions**.
+Core reads flow browser → RPC → Pendle and back. For AMM actions, the injected wallet signs locally and the signed transaction is sent to the same RPC, which submits it to Pendle's `Router V4`. A limit-order approval grants Pendle's `Limit Router` an allowance, and fills and cancellations use that router; placement signs typed data and publishes it directly to Pendle's hosted order API instead of submitting an OpenPendle transaction. Explore first reads a static snapshot whose inventory comes from `CreateNewMarket` events across the configured factory lineage. The same snapshot maps a pasted PT/YT to every indexed pool that shares it. Pendle's API enriches that inventory with listed status and optional display metrics; it does not define membership. My positions sends Pendle the connected wallet address to discover relevant Official-pool market IDs, then re-reads those balances through RPC. DefiLlama/CoinGecko provide aggregate header metrics, keyless Blockscout log APIs can assist with the bounded post-snapshot lookup where available, and Merkl's rewards API receives the wallet address and chain ID when a connected user opens **My positions**.
 
 ### Catalog generation and coverage
 
@@ -184,6 +185,7 @@ Given all of the above, the complete list of things that leave your browser is s
 | **DefiLlama / CoinGecko public APIs** | Loading the header stats ticker | Aggregate Pendle metrics shown in the header |
 | **Factory-market snapshot** | Loading Explore | Same-origin static inventory derived from recognized factories' `CreateNewMarket` events; includes schema and coverage metadata |
 | **Pendle market API** | Enriching Explore; resolving a pasted PT/YT | Optional listed status, names, icons, TVL/APY metadata, and token-to-pool lookup |
+| **Pendle position API** | A connected user opens **My positions** | Wallet address used to discover relevant Official-pool market IDs; balances are then read by RPC |
 | **Pendle yield-data API** | Loading **Yield alerts** | Active listed-market catalog and exact hourly APY / AMM-liquidity histories; no wallet is required |
 | **Morpho market API** | Loading **Looping** | Public Morpho market metadata and borrow-liquidity data used for exact PT-collateral matching |
 | **Pendle limit-order API** | Checking support; loading the book or maker orders; generating and publishing an order | Market and token context; for maker reads and placement, the wallet address and exact signed-order fields |
@@ -191,7 +193,7 @@ Given all of the above, the complete list of things that leave your browser is s
 | **Merkl rewards API** | A connected user opens **My positions** | The wallet address and chain ID required to retrieve claimable rewards and proofs |
 | **Cloudflare Web Analytics** | Loading and navigating the interface | Page-view and performance metrics |
 
-OpenPendle uses Cloudflare Web Analytics but no error-reporting endpoint, font CDN, or wallet relay. The analytics beacon is not in the transaction-signing path and is not intentionally sent wallet addresses. These ancillary services can observe ordinary request metadata such as your IP address. Merkl additionally receives the connected wallet address and chain ID described above; Pendle receives the maker address and signed order payload when the limit-order feature is used.
+OpenPendle uses Cloudflare Web Analytics but no error-reporting endpoint, font CDN, or wallet relay. The analytics beacon is not in the transaction-signing path and is not intentionally sent wallet addresses. These ancillary services can observe ordinary request metadata such as your IP address. Pendle receives the connected wallet address for Official-position discovery and receives the maker address and signed order payload when the limit-order feature is used. Merkl additionally receives the connected wallet address and chain ID described above.
 
 ::: info Everything else is local
 Your active network (`openpendle.chain`), RPC overrides (`openpendle.rpc.<chainId>`), and saved pools (`openpendle.pools.v1`) all live in your browser's `localStorage`. Those stored settings and the saved-pool registry are not uploaded to any ancillary service; the registry leaves your browser only when you explicitly export or share it. See [Saved pools & privacy](/guides/saved-pools).

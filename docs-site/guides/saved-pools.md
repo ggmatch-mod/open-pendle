@@ -107,8 +107,9 @@ For all of the above to hold, the app has to be disciplined about what it talks 
 3. **Explore and PT/YT pool lookup.** Explore downloads a same-origin snapshot derived from factory events and uses Pendle's public market API for listed enrichment. Pendle's API also helps the token-actions page map a pasted PT/YT to a pool; where supported, keyless **Blockscout** log APIs provide a lookup fallback.
 4. **Yield alerts.** Opening the read-only alerts page requests Pendle's active-market catalog and hourly APY / AMM-liquidity histories. It needs no wallet and creates no notification subscription.
 5. **PT limit orders.** Market pages ask Pendle's hosted API for support, books, generated order fields, placement, and maker-order reads. Maker reads send the wallet address; placement sends the market/token context, maker address, amount, APY, expiry, nonce, and signed order. Placement does not upload the saved-pool registry or reserve funds.
-6. **Merkl rewards.** When a connected user opens **My positions**, OpenPendle sends the wallet address and chain ID to Merkl's public API to retrieve claimable rewards and proofs.
-7. **Cloudflare Web Analytics.** Loading and navigating the interface sends page-view and performance metrics through Cloudflare's analytics beacon; saved-pool contents and wallet addresses are not intentionally included.
+6. **Official-position discovery.** When a connected user opens **My positions**, OpenPendle sends the wallet address to Pendle to discover relevant Official-pool market IDs, then re-reads their balances through RPC.
+7. **Merkl rewards.** When a connected user opens **My positions**, OpenPendle sends the wallet address and chain ID to Merkl's public API to retrieve claimable rewards and proofs.
+8. **Cloudflare Web Analytics.** Loading and navigating the interface sends page-view and performance metrics through Cloudflare's analytics beacon; saved-pool contents and wallet addresses are not intentionally included.
 
 Saving, forgetting, exporting, and importing are **local operations** — they read and write `localStorage`. Your saved-pools registry is never transmitted to any of the services above as a side effect of saving; it is exposed only by the explicit **Export** and **`?import=` share** actions you choose to take.
 
