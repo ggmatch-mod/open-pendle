@@ -114,8 +114,10 @@ const MINIMUM_REPLACEMENT_PRIORITY_FEE = 1_000_000n
 const MAX_CANCELLATION_ATTEMPTS_PER_NONCE = 8
 
 const market = ARBITRUM_LOOPING_CANARY
-const EQUITY_ASSETS = market.launchPolicy.betaCaps.maxEquityAssets
-const BORROW_ASSETS = market.launchPolicy.betaCaps.maxBorrowAssets
+// Reviewed burner-canary fixture sizes. They keep the operational proof small
+// and are deliberately independent from browser execution policy.
+const EQUITY_ASSETS = 1_000_000n
+const BORROW_ASSETS = 500_000n
 const MINIMUM_EXIT_RETURN = EQUITY_ASSETS * 9_000n / 10_000n
 const MINIMUM_ENTRY_COLLATERAL_LOAN_VALUE =
   (EQUITY_ASSETS + BORROW_ASSETS) * 9_000n / 10_000n

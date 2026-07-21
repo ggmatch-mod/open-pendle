@@ -102,8 +102,8 @@ const CHAINS = {
   },
 }
 
-// Match the executable Arbitrum beta caps. Larger research fixtures must not
-// masquerade as coverage of the production compiler.
+// Deliberately small reviewed fixtures for repeatable fork coverage. These are
+// test sizes, not browser execution limits.
 const DEFAULT_INITIAL_USDC = 1_000_000n
 const DEFAULT_LOOP_USDC = 500_000n
 function fail(message) {

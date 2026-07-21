@@ -104,11 +104,9 @@ for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
   const executable = getLoopingExecutionCandidateMarket(directoryCandidate)
   assert(executable.marketId === market.marketId, `${key} is not resolvable`)
   assert(isLoopingExecutionCandidateSupported(directoryCandidate), `${key} is not entry reviewed`)
-  const tokenUnit = 10n ** BigInt(market.loanTokenDecimals)
   assert(
-    executable.launchPolicy.betaCaps.maxEquityAssets === tokenUnit &&
-      executable.launchPolicy.betaCaps.maxBorrowAssets === tokenUnit / 2n,
-    `${key} beta caps are not scaled to loan-token decimals`,
+    !Object.prototype.hasOwnProperty.call(executable.launchPolicy, 'betaCaps'),
+    `${key} retained the retired fixed-size execution cap`,
   )
 }
 

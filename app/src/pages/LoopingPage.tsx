@@ -703,7 +703,7 @@ export default function LoopingPage() {
               Compare Morpho markets whose collateral exactly matches a live, factory-indexed
               Pendle PT. Model leverage and inspect the reviewed entry and exit path.
               {LOOPING_EXECUTION_BETA_ENABLED
-                ? ` Allowlisted beta markets can open a small loop from your wallet${LOOPING_EXIT_BETA_ENABLED ? ' and fully unwind it' : ''}.`
+                ? ` Allowlisted beta markets can open a loop from your wallet${LOOPING_EXIT_BETA_ENABLED ? ' and fully unwind it' : ''}.`
                 : LOOPING_EXIT_BETA_ENABLED
                   ? ' New entries are gated, while existing allowlisted positions can still use the reviewed full-exit flow.'
                   : ' New entry and full exit remain launch-gated; bounded safety recovery remains available for prior attempts.'}

@@ -27,10 +27,6 @@ const betaSource = readFileSync(
   new URL('../src/lib/loopingBeta.ts', import.meta.url),
   'utf8',
 )
-const testingSource = readFileSync(
-  new URL('../src/lib/loopingTesting.ts', import.meta.url),
-  'utf8',
-)
 const rpcSource = readFileSync(
   new URL('../src/lib/loopingRpc.ts', import.meta.url),
   'utf8',
@@ -77,12 +73,11 @@ assert.deepEqual(
     'VITE_LOOPING_EXIT_BETA_ENABLED=false',
   ],
 )
-assert.match(
-  testingSource,
-  /LOOPING_UNCAPPED_TESTING_ENABLED\s*=\s*\n?\s*import\.meta\.env\.DEV\s*&&\s*\n?\s*import\.meta\.env\.VITE_LOOPING_UNCAPPED_TESTING_ENABLED === 'true'/,
-)
-assert.match(envExample, /^VITE_LOOPING_UNCAPPED_TESTING_ENABLED=false$/m)
-assert.doesNotMatch(testingSource, /import\.meta\.env\.PROD|!==\s*'false'/)
+assert.doesNotMatch(envExample, /VITE_LOOPING_UNCAPPED_TESTING_ENABLED/)
+assert.doesNotMatch(hookSource, /LOOPING_UNCAPPED_TESTING_ENABLED/)
+assert.doesNotMatch(hookSource, /betaCaps|enforceBetaCaps/)
+assert.doesNotMatch(panelSource, /Beta caps:|temporary amount cap/)
+assert.match(panelSource, /no beta-size amount cap/)
 
 console.log('The live entry switch is same-origin, no-store, scoped, and fail-closed')
 assert.equal(LOOPING_RUNTIME_ENTRY_POLICY_PATH, '/looping-execution-policy.v1.json')
