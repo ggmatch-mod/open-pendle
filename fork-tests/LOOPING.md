@@ -8,7 +8,7 @@
 
 One atomic PT loop and its complete unwind are feasible through Morpho's already-deployed Bundler3 and GeneralAdapter1. The tested path does not require an OpenPendle contract or a backend executor.
 
-The default proof matches the executable Arbitrum beta caps: a 1 USDC simulated user contribution and one 0.5 USDC Morpho borrow:
+The default proof uses a deliberately small fixture: a 1 USDC simulated user contribution and one 0.5 USDC Morpho borrow:
 
 1. pull the user's USDC into Bundler3;
 2. buy PT through Pendle Router V4, with output sent to GeneralAdapter1;
@@ -248,9 +248,10 @@ must be verified on the deployed JSON endpoint before entry is enabled.
 
 The guarded production-compiler round trip and cleanup are complete. A release
 can keep entry paused through either its build flag or same-origin policy while
-leaving separately enabled full exit and recovery available. Default beta caps
-remain one loan-token unit of equity and half a loan-token unit of debt per
-reviewed market unless the explicit testing-only uncapped build flag is used.
+leaving separately enabled full exit and recovery available. The browser does
+not impose a fixed equity or debt amount cap; wallet balance, Morpho liquidity,
+Pendle quote capacity, and all execution safety checks still apply. The small
+runner amounts remain canary fixtures only.
 The 10% liquidation-buffer marker is a warning that requires acknowledgement;
 the live preflight enforces the 1% floor.
 

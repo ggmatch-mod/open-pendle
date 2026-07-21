@@ -112,15 +112,6 @@ export interface LoopingLaunchPolicy {
   borrowShareBufferBps: 50
   repayDriftBps: 100
   quoteValidityMs: 45_000
-  /**
-   * Initial executable beta sizing. These are loan-token base units and must
-   * not be raised for production without a separate review and live canary.
-   */
-  betaCaps: Readonly<{
-    maxEquityAssets: bigint
-    maxBorrowAssets: bigint
-    unit: 'loan-token-base-units'
-  }>
 }
 
 export interface LoopingExecutionMarket {
@@ -296,11 +287,6 @@ const ARBITRUM_USDAI_LAUNCH_POLICY: Readonly<LoopingLaunchPolicy> =
     borrowShareBufferBps: 50,
     repayDriftBps: 100,
     quoteValidityMs: 45_000,
-    betaCaps: Object.freeze({
-      maxEquityAssets: 1_000_000n,
-      maxBorrowAssets: 500_000n,
-      unit: 'loan-token-base-units',
-    }),
   })
 
 const ARBITRUM_CANARY_MORPHO_MARKET_PARAMS: Readonly<LoopingMorphoMarketParams> =
@@ -419,11 +405,6 @@ const ETHEREUM_REUSD_LAUNCH_POLICY: Readonly<LoopingLaunchPolicy> =
     borrowShareBufferBps: 50,
     repayDriftBps: 100,
     quoteValidityMs: 45_000,
-    betaCaps: Object.freeze({
-      maxEquityAssets: 1_000_000n,
-      maxBorrowAssets: 500_000n,
-      unit: 'loan-token-base-units',
-    }),
   })
 
 const MONAD_LOOPING_CONTRACTS: Readonly<LoopingExecutionContracts> =
@@ -531,11 +512,6 @@ const MONAD_AUSD_LAUNCH_POLICY: Readonly<LoopingLaunchPolicy> = Object.freeze({
   borrowShareBufferBps: 50,
   repayDriftBps: 100,
   quoteValidityMs: 45_000,
-  betaCaps: Object.freeze({
-    maxEquityAssets: 1_000_000n,
-    maxBorrowAssets: 500_000n,
-    unit: 'loan-token-base-units',
-  }),
 })
 
 export const ETHEREUM_LOOPING_REUSD: Readonly<LoopingExecutionMarket> =
@@ -690,7 +666,6 @@ function reviewedCandidateToExecutionMarket(
   candidate: Readonly<ReviewedLoopingMarketCandidate>,
 ): Readonly<LoopingExecutionMarket> {
   const resources = chainExecutionResources(candidate.chainId)
-  const tokenUnit = 10n ** BigInt(candidate.loanTokenDecimals)
   return Object.freeze({
     chainId: candidate.chainId,
     marketId: candidate.marketId,
@@ -711,14 +686,7 @@ function reviewedCandidateToExecutionMarket(
       mintSyTokenAllowlist: Object.freeze([...candidate.syTokensIn]),
       redeemSyTokenAllowlist: Object.freeze([...candidate.syTokensOut]),
     }),
-    launchPolicy: Object.freeze({
-      ...resources.launchPolicyTemplate,
-      betaCaps: Object.freeze({
-        maxEquityAssets: tokenUnit,
-        maxBorrowAssets: tokenUnit / 2n,
-        unit: 'loan-token-base-units' as const,
-      }),
-    }),
+    launchPolicy: resources.launchPolicyTemplate,
     loanTokenDecimals: candidate.loanTokenDecimals,
     collateralTokenDecimals: candidate.collateralTokenDecimals,
   })

@@ -10,7 +10,6 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import type { LoopingMarketCandidate } from '../lib/looping'
-import { LOOPING_UNCAPPED_TESTING_ENABLED } from '../lib/loopingTesting'
 import { supportedChain } from '../lib/addresses'
 import { explorerTxUrl, shortAddress } from './format'
 import {
@@ -325,7 +324,6 @@ function LoopingExecutionDetails({
   const highRiskPreview = preview !== undefined && requiresLoopingHighRiskConfirmation(preview)
   const riskIncreasingBufferBps = entryPreview?.health.liquidationBufferBps ??
     increasePreview?.conservativePost.liquidationBufferBps
-  const cap = market.launchPolicy.betaCaps
   const quoteSecondsRemaining = preview === undefined
     ? undefined
     : Math.max(0, Math.ceil((preview.validUntilMs - nowMs) / 1_000))
@@ -391,9 +389,7 @@ function LoopingExecutionDetails({
         <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[10.5px] leading-4 text-warn">
           The red 10% marker is the standard warning threshold. Execution can continue toward
           the 1% preflight floor after explicit risk confirmation; the final buffer can change before inclusion.
-          {LOOPING_UNCAPPED_TESTING_ENABLED
-            ? ' Local testing has no temporary amount cap; wallet balance, Morpho liquidity, and every execution safety check still apply.'
-            : ` Beta caps: ${formatTokenAmount(cap.maxEquityAssets, loanDecimals, loanSymbol)} equity and ${formatTokenAmount(cap.maxBorrowAssets, loanDecimals, loanSymbol)} debt.`}
+          {' OpenPendle imposes no beta-size amount cap; wallet balance, Morpho liquidity, quote capacity, and every execution safety check still apply.'}
         </div>
       )}
 

@@ -88,7 +88,6 @@ import {
   getLoopingExecutionCandidateMarket,
   type LoopingExecutionMarket,
 } from '../lib/loopingRegistry'
-import { LOOPING_UNCAPPED_TESTING_ENABLED } from '../lib/loopingTesting'
 import { isUserRejection } from '../lib/txflow'
 
 export type LoopingExecutionOperation = 'entry' | 'exit'
@@ -871,15 +870,6 @@ export function useLoopingExecution({
       return 'Choose leverage above 1× to start a new loop.'
     }
     if (equityAssets <= 0n) return 'Enter a positive equity amount.'
-    if (!LOOPING_UNCAPPED_TESTING_ENABLED) {
-      const caps = market.launchPolicy.betaCaps
-      if (equityAssets > caps.maxEquityAssets) {
-        return 'The beta is capped at 1 loan token of equity.'
-      }
-      if (borrowAssets > caps.maxBorrowAssets) {
-        return 'The beta is capped at 0.5 loan tokens of debt.'
-      }
-    }
     return undefined
   }, [borrowAssets, borrowResult.error, equityAssets, market])
 
@@ -1047,7 +1037,6 @@ export function useLoopingExecution({
           market,
           equityAssets,
           borrowAssets,
-          enforceBetaCaps: !LOOPING_UNCAPPED_TESTING_ENABLED,
         }),
       )
       return {
@@ -1063,7 +1052,6 @@ export function useLoopingExecution({
           owner,
           market,
           targetLeverageWad,
-          enforceBetaCaps: !LOOPING_UNCAPPED_TESTING_ENABLED,
         }),
       )
       if (isRiskIncreasingPreview(prepared.value)) assertRiskIncreaseEligible()

@@ -1920,7 +1920,6 @@ function prepareEntry(overrides = {}) {
     market,
     equityAssets: overrides.equityAssets ?? 1_000_000n,
     borrowAssets: overrides.borrowAssets ?? 500_000n,
-    enforceBetaCaps: overrides.enforceBetaCaps,
     fetcher: overrides.fetcher ?? createEntryFetcher(),
     now: overrides.now ?? (() => PREFLIGHT_NOW_MS),
   })
@@ -2155,7 +2154,10 @@ await assert.rejects(
   /Morpho runtime code changed/i,
 )
 
-console.log('Fixed-point leverage and canary caps stay lossless')
+const FORMER_BETA_EQUITY_ASSETS = 1_000_000n
+const FORMER_BETA_BORROW_ASSETS = 500_000n
+
+console.log('Fixed-point leverage and amounts above the former beta thresholds stay lossless')
 assert.equal(deriveLoopingBorrowAssets(1_000_000n, '1.5'), 500_000n)
 assert.equal(
   deriveLoopingBorrowAssets(9_007_199_254_740_993n, '1.000000000000000001'),
@@ -2171,54 +2173,34 @@ const noRpcClient = new Proxy(
   {},
   {
     get() {
-      throw new Error('RPC must not be touched for an invalid capped input')
+      throw new Error('RPC must not be touched after canonical market validation fails')
     },
   },
 )
-await expectExecutionRejection(
-  prepareLoopingEntryExecution({
-    client: noRpcClient,
-    owner: getAddress('0x1111111111111111111111111111111111111111'),
-    market,
-    equityAssets: market.launchPolicy.betaCaps.maxEquityAssets + 1n,
-    borrowAssets: 1n,
+const aboveFormerAmountThresholdPreview = await prepareEntry({
+  client: createPreflightClient({
+    adapterAllowance: FORMER_BETA_EQUITY_ASSETS + 1n,
   }),
-  'INVALID_INPUT',
-)
-await expectExecutionRejection(
-  prepareLoopingEntryExecution({
-    client: noRpcClient,
-    owner: getAddress('0x1111111111111111111111111111111111111111'),
-    market,
-    equityAssets: 1n,
-    borrowAssets: market.launchPolicy.betaCaps.maxBorrowAssets + 1n,
-  }),
-  'INVALID_INPUT',
-)
-
-const uncappedTestingPreview = await prepareEntry({
-  equityAssets: market.launchPolicy.betaCaps.maxEquityAssets + 1n,
-  borrowAssets: market.launchPolicy.betaCaps.maxBorrowAssets + 1n,
-  enforceBetaCaps: false,
+  equityAssets: FORMER_BETA_EQUITY_ASSETS + 1n,
+  borrowAssets: FORMER_BETA_BORROW_ASSETS + 1n,
 })
 assert.equal(
-  uncappedTestingPreview.equityAssets,
-  market.launchPolicy.betaCaps.maxEquityAssets + 1n,
+  aboveFormerAmountThresholdPreview.equityAssets,
+  FORMER_BETA_EQUITY_ASSETS + 1n,
 )
 assert.equal(
-  uncappedTestingPreview.borrowAssets,
-  market.launchPolicy.betaCaps.maxBorrowAssets + 1n,
+  aboveFormerAmountThresholdPreview.borrowAssets,
+  FORMER_BETA_BORROW_ASSETS + 1n,
 )
 
 let insufficientBalanceQuoteCalled = false
 await expectExecutionRejection(
   prepareEntry({
     client: createPreflightClient({
-      ownerLoanBalance: market.launchPolicy.betaCaps.maxEquityAssets,
+      ownerLoanBalance: FORMER_BETA_EQUITY_ASSETS,
     }),
-    equityAssets: market.launchPolicy.betaCaps.maxEquityAssets + 1n,
+    equityAssets: FORMER_BETA_EQUITY_ASSETS + 1n,
     borrowAssets: 1n,
-    enforceBetaCaps: false,
     fetcher: async () => {
       insufficientBalanceQuoteCalled = true
       throw new Error('Quote must not run before the wallet-balance check.')
@@ -2262,7 +2244,6 @@ const highRiskEntryPreview = await prepareEntry({
   }),
   equityAssets: 1_000_000n,
   borrowAssets: 6_000_000n,
-  enforceBetaCaps: false,
   fetcher: createAdjustmentBuyFetcher(),
 })
 assert.ok(
@@ -2281,7 +2262,6 @@ await expectExecutionRejection(
     }),
     equityAssets: 1_000_000n,
     borrowAssets: 8_700_000n,
-    enforceBetaCaps: false,
     fetcher: createAdjustmentBuyFetcher(),
   }),
   'POSITION_UNSAFE',
@@ -2911,27 +2891,7 @@ assert.equal(exitReceiptCheck.adapterAllowance, 55n)
 
 console.log('Leverage increases conservatively approach the target in one atomic bundle')
 const adjustmentPosition = [0n, 500_000n, COLLATERAL]
-let cappedIncreaseQuoteCalled = false
-await expectExecutionRejection(
-  prepareLoopingIncreaseExecution({
-    client: createPreflightClient({
-      ownerPosition: adjustmentPosition,
-      accruedPosition: adjustmentPosition,
-    }),
-    owner: OWNER_ACCOUNT.address,
-    market,
-    targetLeverageWad: 1_600_000_000_000_000_000n,
-    fetcher: async (...args) => {
-      cappedIncreaseQuoteCalled = true
-      return createAdjustmentBuyFetcher()(...args)
-    },
-    now: () => PREFLIGHT_NOW_MS,
-  }),
-  'INVALID_INPUT',
-  /beta limits/i,
-)
-assert.equal(cappedIncreaseQuoteCalled, false)
-const uncappedIncreasePreview = await prepareLoopingIncreaseExecution({
+const aboveFormerDebtThresholdIncreasePreview = await prepareLoopingIncreaseExecution({
   client: createPreflightClient({
     ownerPosition: adjustmentPosition,
     accruedPosition: adjustmentPosition,
@@ -2939,14 +2899,12 @@ const uncappedIncreasePreview = await prepareLoopingIncreaseExecution({
   owner: OWNER_ACCOUNT.address,
   market,
   targetLeverageWad: 1_600_000_000_000_000_000n,
-  enforceBetaCaps: false,
   fetcher: createAdjustmentBuyFetcher(),
   now: () => PREFLIGHT_NOW_MS,
 })
-assert.equal(uncappedIncreasePreview.betaCapsEnforced, false)
 assert.ok(
-  uncappedIncreasePreview.conservativePost.debtAssets >
-    market.launchPolicy.betaCaps.maxBorrowAssets,
+  aboveFormerDebtThresholdIncreasePreview.conservativePost.debtAssets >
+    FORMER_BETA_BORROW_ASSETS,
 )
 const highRiskIncreasePreview = await prepareLoopingIncreaseExecution({
   client: createPreflightClient({
@@ -2957,7 +2915,6 @@ const highRiskIncreasePreview = await prepareLoopingIncreaseExecution({
   owner: OWNER_ACCOUNT.address,
   market,
   targetLeverageWad: 6_500_000_000_000_000_000n,
-  enforceBetaCaps: false,
   fetcher: createAdjustmentBuyFetcher(),
   now: () => PREFLIGHT_NOW_MS,
 })
@@ -2983,11 +2940,6 @@ const increasePreview = await prepareLoopingIncreaseExecution({
   now: () => PREFLIGHT_NOW_MS,
 })
 assert.equal(increasePreview.kind, 'increase-preview')
-assert.equal(increasePreview.betaCapsEnforced, true)
-assert.ok(
-  increasePreview.conservativePost.debtAssets <=
-    market.launchPolicy.betaCaps.maxBorrowAssets,
-)
 assert.ok(increaseQuoteCounter.calls > 0 && increaseQuoteCounter.calls <= 4)
 assert.ok(
   increasePreview.conservativePost.leverageWad > increasePreview.current.leverageWad,
@@ -3018,7 +2970,6 @@ const increaseBundle = await buildSignedLoopingIncreaseBundle(
   () => PREFLIGHT_NOW_MS,
 )
 assert.equal(increaseBundle.kind, 'signed-increase-bundle')
-assert.equal(increaseBundle.betaCapsEnforced, true)
 assert.equal(increaseBundle.calls.length, 6)
 const decodedIncreaseBundle = decodeFunctionData({
   abi: bundler3Abi,
@@ -3065,44 +3016,6 @@ const increaseSimulation = await simulateUnsignedLoopingIntent({
   }),
   intent: increaseIntent,
 })
-await expectExecutionRejection(
-  revalidateSignedLoopingIncrease({
-    client: createPreflightClient({
-      ownerPosition: adjustmentPosition,
-      accruedPosition: adjustmentPosition,
-    }),
-    preview: increasePreview,
-    bundle: { ...increaseBundle, betaCapsEnforced: false },
-    simulation: increaseSimulation,
-    now: () => PREFLIGHT_NOW_MS,
-  }),
-  'STATE_CONFLICT',
-  /metadata no longer matches/i,
-)
-const increaseDebtDriftClient = createPreflightClient({
-  ownerPosition: adjustmentPosition,
-  accruedPosition: adjustmentPosition,
-  totalBorrowAssets: 5_200_000n,
-})
-const increaseDebtDriftIntent = buildUnsignedLoopingIncreaseSimulation(
-  increasePreview,
-  () => PREFLIGHT_NOW_MS,
-)
-const increaseDebtDriftSimulation = await simulateUnsignedLoopingIntent({
-  client: increaseDebtDriftClient,
-  intent: increaseDebtDriftIntent,
-})
-await expectExecutionRejection(
-  revalidateSignedLoopingIncrease({
-    client: increaseDebtDriftClient,
-    preview: increasePreview,
-    bundle: increaseBundle,
-    simulation: increaseDebtDriftSimulation,
-    now: () => PREFLIGHT_NOW_MS,
-  }),
-  'POSITION_UNSAFE',
-  /beta cap/i,
-)
 const increaseReadiness = await revalidateSignedLoopingIncrease({
   client: createPreflightClient({
     ownerPosition: adjustmentPosition,
@@ -3120,25 +3033,6 @@ const increasedPosition = [
   adjustmentPosition[1] + actualAddedBorrowShares,
   adjustmentPosition[2] + increasePreview.quote.minPtOut,
 ]
-await expectExecutionRejection(
-  verifyLoopingIncreaseReceiptState({
-    client: createPreflightClient({
-      nonce: increaseBundle.startingNonce + 2n,
-      adapterAllowance: increasePreview.wiring.adapterAllowance,
-      ownerPosition: increasedPosition,
-      accruedPosition: increasedPosition,
-      totalBorrowAssets: 5_250_000n + increasePreview.borrowAssets,
-      totalBorrowShares: 5_000_000n + actualAddedBorrowShares,
-      transactionData: increaseBundle.data,
-    }),
-    preview: increasePreview,
-    bundle: increaseBundle,
-    readiness: increaseReadiness,
-    transactionHash: TEST_TRANSACTION_HASH,
-  }),
-  'STATE_CONFLICT',
-  /beta debt cap/i,
-)
 const increaseReceiptCheck = await verifyLoopingIncreaseReceiptState({
   client: createPreflightClient({
     nonce: increaseBundle.startingNonce + 2n,
@@ -3173,7 +3067,6 @@ const selectedIncrease = await prepareLoopingAdjustmentExecution({
   owner: OWNER_ACCOUNT.address,
   market,
   targetLeverageWad: increaseTargetLeverageWad,
-  enforceBetaCaps: false,
   fetcher: createAdjustmentBuyFetcher(),
   now: () => PREFLIGHT_NOW_MS,
 })

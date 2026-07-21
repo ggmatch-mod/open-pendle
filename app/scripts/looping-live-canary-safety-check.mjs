@@ -400,10 +400,11 @@ check('wallet sendTransaction is absent', !runnerSource.includes('.sendTransacti
 check('writeContract is absent', !runnerSource.includes('.writeContract('), 'Runner may invoke an unreviewed write primitive.')
 check('transport retries are disabled', runnerSource.includes('retryCount: 0'), 'RPC transport could retry a raw broadcast.')
 check('journal is mode 0600', count(/0o600/g) >= 4, 'Journal permission enforcement is missing.')
-check('fixed canary size comes from registry caps',
-  runnerSource.includes('market.launchPolicy.betaCaps.maxEquityAssets') &&
-    runnerSource.includes('market.launchPolicy.betaCaps.maxBorrowAssets'),
-  'Canary size is disconnected from production caps.')
+check('fixed canary size is an explicit reviewed fixture',
+  runnerSource.includes('const EQUITY_ASSETS = 1_000_000n') &&
+    runnerSource.includes('const BORROW_ASSETS = 500_000n') &&
+    !runnerSource.includes('betaCaps'),
+  'Canary size must remain explicit without imposing a browser execution cap.')
 check('entry and exit use fixed reviewed gas',
   runnerSource.includes('gas: ENTRY_GAS') && runnerSource.includes('gas: EXIT_GAS'),
   'A signed bundle lacks an explicit fixed gas bound.')

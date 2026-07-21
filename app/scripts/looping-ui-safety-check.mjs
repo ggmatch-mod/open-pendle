@@ -221,10 +221,12 @@ check(
 
 console.log('# beta write gates')
 check(
-  'uncapped testing bypass is explicitly passed only by the dev-gated UI flag',
-  hook.includes('enforceBetaCaps: !LOOPING_UNCAPPED_TESTING_ENABLED') &&
-    compiler.includes('if (args.enforceBetaCaps !== false)'),
-  'The local cap bypass is not narrowly connected to the development-only flag.',
+  'browser entry and leverage increases impose no beta-size amount cap',
+  !/betaCaps|enforceBetaCaps|LOOPING_UNCAPPED_TESTING_ENABLED/.test(hook) &&
+    !/betaCaps|enforceBetaCaps|betaCapsEnforced/.test(compiler) &&
+    !/betaCaps/.test(registry) &&
+    panel.includes('no beta-size amount cap'),
+  'The browser and compiler must not retain the removed beta-size amount gate.',
 )
 check(
   'the exact-approval write has an explicit new-entry gate',

@@ -566,11 +566,7 @@ async function executeCompiledIncrease({
     owner: account.address,
     market,
     targetLeverageWad,
-    enforceBetaCaps: false,
   })
-  if (preview.betaCapsEnforced !== false) {
-    fail('Funded local adjustment unexpectedly retained production beta caps')
-  }
   const preSignIntent = buildUnsignedLoopingIncreaseSimulation(preview)
   await simulateUnsignedOnAnvil({
     localRpcUrl,
@@ -810,18 +806,14 @@ export async function runLoopingCompilerForkProof({
   ) {
     fail('Ethereum compiler proof must exercise the reviewed 6-decimal PT')
   }
-  if (initialUsdc > market.launchPolicy.betaCaps.maxEquityAssets) {
-    fail('Fork equity exceeds the production compiler beta cap')
-  }
-  if (loopUsdc > market.launchPolicy.betaCaps.maxBorrowAssets) {
-    fail('Fork borrow exceeds the production compiler beta cap')
+  if (initialUsdc <= 0n || loopUsdc <= 0n) {
+    fail('Fork equity and borrow fixtures must be positive')
   }
   if (
     maturityLoopUsdc <= 1n ||
-    maturityLoopUsdc > loopUsdc ||
-    maturityLoopUsdc > market.launchPolicy.betaCaps.maxBorrowAssets
+    maturityLoopUsdc > loopUsdc
   ) {
-    fail('Fork maturity borrow must be positive and no larger than the tested borrow or production beta cap')
+    fail('Fork maturity borrow must be positive and no larger than the tested borrow')
   }
   if (!Number.isInteger(anvilPort) || anvilPort < 1024 || anvilPort > 65_535) {
     fail('OPENPENDLE_ANVIL_PORT must be an unprivileged TCP port')

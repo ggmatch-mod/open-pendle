@@ -1405,7 +1405,6 @@ export interface LoopingIncreaseExecutionPreview {
   kind: 'increase-preview'
   owner: Address
   market: Readonly<LoopingExecutionMarket>
-  betaCapsEnforced: boolean
   targetLeverageWad: bigint
   borrowAssets: bigint
   quotedAtMs: number
@@ -1427,7 +1426,6 @@ export interface SignedLoopingIncreaseBundle {
   kind: 'signed-increase-bundle'
   owner: Address
   marketId: Hex
-  betaCapsEnforced: boolean
   to: Address
   data: Hex
   value: 0n
@@ -2857,8 +2855,6 @@ export async function prepareLoopingEntryExecution(args: {
   market: Readonly<LoopingExecutionMarket>
   equityAssets: bigint
   borrowAssets: bigint
-  /** Local funded-testing escape hatch; production callers must omit this. */
-  enforceBetaCaps?: boolean
   fetcher?: LoopingFetcher
   now?: () => number
 }): Promise<LoopingEntryExecutionPreview> {
@@ -2867,15 +2863,6 @@ export async function prepareLoopingEntryExecution(args: {
   const owner = getAddress(args.owner)
   if (args.equityAssets <= 0n || args.borrowAssets <= 0n) {
     fail('INVALID_INPUT', 'Looping equity and debt must both be positive.')
-  }
-  if (args.enforceBetaCaps !== false) {
-    const caps = market.launchPolicy.betaCaps
-    if (
-      args.equityAssets > caps.maxEquityAssets ||
-      args.borrowAssets > caps.maxBorrowAssets
-    ) {
-      fail('INVALID_INPUT', 'Looping inputs exceed the executable beta caps.')
-    }
   }
 
   let staticSnapshot: Awaited<ReturnType<typeof readStaticLoopingWiring>>
@@ -3256,15 +3243,12 @@ async function prepareLoopingIncreaseExecutionCore(args: {
   owner: Address
   market: Readonly<LoopingExecutionMarket>
   targetLeverageWad: bigint
-  /** Local funded-testing escape hatch; production callers must omit this. */
-  enforceBetaCaps?: boolean
   fetcher?: LoopingFetcher
   now?: () => number
 }, preflight?: LoopingAdjustmentPreflight): Promise<LoopingIncreaseExecutionPreview> {
   const loaded = preflight ?? await readLoopingAdjustmentPreflight(args)
   const { market, owner, staticSnapshot, accruedSnapshot, current } = loaded
   const now = args.now ?? Date.now
-  const betaCapsEnforced = args.enforceBetaCaps !== false
   assertAdjustmentTarget(args.targetLeverageWad, current.leverageWad, 'increase')
   const idealTargetDebt =
     current.equityAssets * (args.targetLeverageWad - WAD) / WAD
@@ -3275,22 +3259,13 @@ async function prepareLoopingIncreaseExecutionCore(args: {
   const availableBorrowAssets =
     accruedSnapshot.accrued.totalSupplyAssets -
       accruedSnapshot.accrued.totalBorrowAssets
-  const remainingBetaDebtCapacity = betaCapsEnforced
-    ? market.launchPolicy.betaCaps.maxBorrowAssets - current.debtAssets
-    : availableBorrowAssets
-  const maximumBorrowAssets = betaCapsEnforced &&
-      remainingBetaDebtCapacity < availableBorrowAssets
-    ? remainingBetaDebtCapacity
-    : availableBorrowAssets
-  if (
-    borrowAssets > maximumBorrowAssets
-  ) {
-    fail('INVALID_INPUT', 'The leverage increase exceeds executable debt liquidity or beta limits.')
+  if (borrowAssets > availableBorrowAssets) {
+    fail('INVALID_INPUT', 'The leverage increase exceeds available debt liquidity.')
   }
   let lowerBorrowAssets = 1n
   let upperBorrowAssets = borrowAssets * 2n
-  if (upperBorrowAssets > maximumBorrowAssets) {
-    upperBorrowAssets = maximumBorrowAssets
+  if (upperBorrowAssets > availableBorrowAssets) {
+    upperBorrowAssets = availableBorrowAssets
   }
   let finalQuote:
     | Awaited<ReturnType<typeof fetchPendleLoopingBuyRoute>>
@@ -3340,14 +3315,11 @@ async function prepareLoopingIncreaseExecutionCore(args: {
       maxBorrowShares: bounds.maxBorrowShares,
       minimumAddedCollateral: quoteResult.route.minPtOut,
     })
-    const exceedsBetaDebtCap = betaCapsEnforced &&
-      post.debtAssets > market.launchPolicy.betaCaps.maxBorrowAssets
     const targetGap = post.leverageWad <= args.targetLeverageWad
       ? args.targetLeverageWad - post.leverageWad
       : 0n
     if (
       post.leverageWad <= args.targetLeverageWad &&
-      !exceedsBetaDebtCap &&
       targetGap <= ADJUSTMENT_TARGET_TOLERANCE_WAD &&
       post.liquidationBufferBps >=
         BigInt(market.launchPolicy.modelMinLiquidationBufferBps)
@@ -3364,7 +3336,7 @@ async function prepareLoopingIncreaseExecutionCore(args: {
       finalPost = post
       break
     }
-    if (post.leverageWad > args.targetLeverageWad || exceedsBetaDebtCap) {
+    if (post.leverageWad > args.targetLeverageWad) {
       if (borrowAssets === 0n) break
       upperBorrowAssets = borrowAssets - 1n
     } else {
@@ -3426,7 +3398,6 @@ async function prepareLoopingIncreaseExecutionCore(args: {
     kind: 'increase-preview',
     owner,
     market,
-    betaCapsEnforced,
     targetLeverageWad: args.targetLeverageWad,
     borrowAssets,
     quotedAtMs: finalQuote.quotedAtMs,
@@ -3695,7 +3666,6 @@ export async function prepareLoopingIncreaseExecution(args: {
   owner: Address
   market: Readonly<LoopingExecutionMarket>
   targetLeverageWad: bigint
-  enforceBetaCaps?: boolean
   fetcher?: LoopingFetcher
   now?: () => number
 }): Promise<LoopingIncreaseExecutionPreview> {
@@ -3718,7 +3688,6 @@ export async function prepareLoopingAdjustmentExecution(args: {
   owner: Address
   market: Readonly<LoopingExecutionMarket>
   targetLeverageWad: bigint
-  enforceBetaCaps?: boolean
   fetcher?: LoopingFetcher
   now?: () => number
 }): Promise<LoopingIncreaseExecutionPreview | LoopingDecreaseExecutionPreview> {
@@ -4784,7 +4753,6 @@ export async function buildSignedLoopingIncreaseBundle(
     kind: 'signed-increase-bundle',
     owner: preview.owner,
     marketId: market.marketId,
-    betaCapsEnforced: preview.betaCapsEnforced,
     to: market.contracts.bundler3,
     data,
     value: 0n,
@@ -4979,7 +4947,6 @@ async function assertSignedIncreaseBundleBindsPreview(
     bundle.kind !== 'signed-increase-bundle' ||
     !sameAddress(bundle.owner, preview.owner) ||
     !sameHex(bundle.marketId, market.marketId) ||
-    bundle.betaCapsEnforced !== preview.betaCapsEnforced ||
     !sameAddress(bundle.to, market.contracts.bundler3) ||
     bundle.value !== 0n ||
     bundle.startingNonce !== preview.authorizationRequests[0].message.nonce ||
@@ -6131,12 +6098,6 @@ export async function revalidateSignedLoopingIncrease(args: {
     maxBorrowShares: args.preview.bounds.maxBorrowShares,
     minimumAddedCollateral: args.preview.quote.minPtOut,
   })
-  if (
-    args.preview.betaCapsEnforced &&
-    post.debtAssets > market.launchPolicy.betaCaps.maxBorrowAssets
-  ) {
-    fail('POSITION_UNSAFE', 'Fresh conservative debt exceeds the live beta cap.')
-  }
   assertAdjustmentTarget(args.preview.targetLeverageWad, current.leverageWad, 'increase')
   assertAdjustmentOutcome({
     market,
@@ -6646,12 +6607,6 @@ export async function verifyLoopingIncreaseReceiptState(args: {
     position: snapshot.position,
     accrued: snapshot.accrued,
   })
-  if (
-    args.bundle.betaCapsEnforced &&
-    achieved.debtAssets > market.launchPolicy.betaCaps.maxBorrowAssets
-  ) {
-    fail('STATE_CONFLICT', 'Increase receipt exceeds the live beta debt cap.')
-  }
   if (
     achieved.leverageWad > args.bundle.targetLeverageWad ||
     achieved.leverageWad <= args.preview.current.leverageWad
