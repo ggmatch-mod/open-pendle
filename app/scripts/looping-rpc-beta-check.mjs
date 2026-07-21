@@ -5,7 +5,15 @@ import { readFileSync } from 'node:fs'
 
 import { createPublicClient, custom } from 'viem'
 import { arbitrum, base, bsc } from 'viem/chains'
+import {
+  OPENPENDLE_CLOUDFLARE_HOST,
+  resolveLoopingReleaseFlags,
+} from '../vite.config.ts'
 import { morphoBlueAbi } from '../src/lib/loopingAbi.ts'
+import {
+  ARBITRUM_LOOPING_USDT0_USDAI,
+  LOOPING_ENTRY_EXECUTION_REGISTRY,
+} from '../src/lib/loopingRegistry.ts'
 import {
   LOOPING_RPC_POLICY,
   LOOPING_WALLET_RPC_CHAINS,
@@ -27,6 +35,10 @@ const betaSource = readFileSync(
   new URL('../src/lib/loopingBeta.ts', import.meta.url),
   'utf8',
 )
+const viteConfigSource = readFileSync(
+  new URL('../vite.config.ts', import.meta.url),
+  'utf8',
+)
 const rpcSource = readFileSync(
   new URL('../src/lib/loopingRpc.ts', import.meta.url),
   'utf8',
@@ -45,10 +57,11 @@ const pageSource = readFileSync(
   'utf8',
 )
 const headersSource = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8')
-const committedPolicy = JSON.parse(readFileSync(
+const committedPolicySource = readFileSync(
   new URL('../public/looping-execution-policy.v1.json', import.meta.url),
   'utf8',
-))
+)
+const committedPolicy = JSON.parse(committedPolicySource)
 
 console.log('Looping entry and exit require independent explicit public release flags')
 assert.match(
@@ -73,6 +86,55 @@ assert.deepEqual(
     'VITE_LOOPING_EXIT_BETA_ENABLED=false',
   ],
 )
+assert.deepEqual(resolveLoopingReleaseFlags({}), {
+  entry: false,
+  exit: false,
+})
+assert.deepEqual(resolveLoopingReleaseFlags({
+  VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
+}), {
+  entry: true,
+  exit: true,
+})
+assert.match(
+  viteConfigSource,
+  /'import\.meta\.env\.VITE_LOOPING_EXECUTION_BETA_ENABLED': JSON\.stringify\([\s\S]*?loopingReleaseFlags\.entry/,
+)
+assert.match(
+  viteConfigSource,
+  /'import\.meta\.env\.VITE_LOOPING_EXIT_BETA_ENABLED': JSON\.stringify\([\s\S]*?loopingReleaseFlags\.exit/,
+)
+assert.deepEqual(resolveLoopingReleaseFlags({
+  CF_PAGES: '1',
+  CF_PAGES_BRANCH: 'preview-branch',
+  CF_PAGES_URL: `https://preview.${OPENPENDLE_CLOUDFLARE_HOST}`,
+  VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
+}), {
+  entry: false,
+  exit: false,
+})
+assert.deepEqual(resolveLoopingReleaseFlags({
+  CF_PAGES: '1',
+  CF_PAGES_BRANCH: 'main',
+  CF_PAGES_URL: 'https://preview.self-hosted-fork.pages.dev',
+  VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
+}), {
+  entry: false,
+  exit: false,
+})
+assert.deepEqual(resolveLoopingReleaseFlags({
+  CF_PAGES: '1',
+  CF_PAGES_BRANCH: 'main',
+  CF_PAGES_URL: `https://production.${OPENPENDLE_CLOUDFLARE_HOST}`,
+  VITE_LOOPING_EXECUTION_BETA_ENABLED: 'false',
+  VITE_LOOPING_EXIT_BETA_ENABLED: 'false',
+}), {
+  entry: true,
+  exit: true,
+})
 assert.doesNotMatch(envExample, /VITE_LOOPING_UNCAPPED_TESTING_ENABLED/)
 assert.doesNotMatch(hookSource, /LOOPING_UNCAPPED_TESTING_ENABLED/)
 assert.doesNotMatch(hookSource, /betaCaps|enforceBetaCaps/)
@@ -81,15 +143,33 @@ assert.match(panelSource, /no beta-size amount cap/)
 
 console.log('The live entry switch is same-origin, no-store, scoped, and fail-closed')
 assert.equal(LOOPING_RUNTIME_ENTRY_POLICY_PATH, '/looping-execution-policy.v1.json')
-assert.deepEqual(committedPolicy, {
-  schema: LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA,
-  revision: 1,
-  entry: {
-    enabled: false,
-    validUntil: null,
-    markets: [],
-  },
-})
+const expectedCommittedPolicyMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY
+  .map((market) => ({
+    chainId: market.chainId,
+    morphoMarketId: market.marketId.toLowerCase(),
+  }))
+  .sort((left, right) =>
+    left.chainId - right.chainId ||
+    left.morphoMarketId.localeCompare(right.morphoMarketId))
+assert.equal(committedPolicy.schema, LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA)
+assert.equal(committedPolicy.revision, 2)
+assert.equal(committedPolicy.entry.enabled, true)
+assert.equal(typeof committedPolicy.entry.validUntil, 'string')
+assert.deepEqual(committedPolicy.entry.markets, expectedCommittedPolicyMarkets)
+assert.ok(
+  Buffer.byteLength(committedPolicySource, 'utf8') <= 4_096,
+  'The committed runtime entry policy must fit its response-size limit.',
+)
+const committedPolicyRemainingMs =
+  Date.parse(committedPolicy.entry.validUntil) - Date.now()
+assert.ok(
+  committedPolicyRemainingMs >= LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS,
+  'The committed runtime entry policy must still be live.',
+)
+assert.ok(
+  committedPolicyRemainingMs <= LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS,
+  'The committed runtime entry policy must not exceed seven days.',
+)
 assert.match(
   headersSource,
   /\/looping-execution-policy\.v1\.json\n\s+Cache-Control: no-store, no-cache, must-revalidate, max-age=0\n\s+Cloudflare-CDN-Cache-Control: no-store\n\s+CDN-Cache-Control: no-store/,
@@ -97,6 +177,15 @@ assert.match(
 assert.equal(hookSource.includes('assertLoopingRuntimeEntryEnabled'), true)
 
 const policyNow = Date.parse('2026-07-20T14:00:00.000Z')
+const disabledPolicy = {
+  schema: LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA,
+  revision: 1,
+  entry: {
+    enabled: false,
+    validUntil: null,
+    markets: [],
+  },
+}
 const enabledPolicy = {
   schema: LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA,
   revision: 7,
@@ -143,6 +232,14 @@ const assertedPolicy = await assertLoopingRuntimeEntryEnabled({
 })
 assert.equal(assertedPolicy.revision, 7)
 assert.equal(LOOPING_RUNTIME_ENTRY_POLICY_MAX_MARKETS, 32)
+for (const market of committedPolicy.entry.markets) {
+  await assertLoopingRuntimeEntryEnabled({
+    chainId: market.chainId,
+    marketId: market.morphoMarketId,
+    origin: 'https://openpendle.com',
+    fetchPolicy: async (input) => policyResponseFor(input, committedPolicy),
+  })
+}
 await assertLoopingRuntimeEntryEnabled({
   chainId: 42161,
   marketId: enabledPolicy.entry.markets[0].morphoMarketId,
@@ -213,8 +310,14 @@ await expectPolicyFailure({
   }),
 }, 'invalid')
 await expectPolicyFailure({
-  fetchPolicy: async (input) => policyResponseFor(input, committedPolicy),
+  fetchPolicy: async (input) => policyResponseFor(input, disabledPolicy),
 }, 'paused')
+await expectPolicyFailure({
+  chainId: ARBITRUM_LOOPING_USDT0_USDAI.chainId,
+  marketId: ARBITRUM_LOOPING_USDT0_USDAI.marketId,
+  clock: Date.now,
+  fetchPolicy: async (input) => policyResponseFor(input, committedPolicy),
+}, 'does not cover')
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(
     input,

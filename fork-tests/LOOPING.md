@@ -243,8 +243,10 @@ The runtime entry policy is fetched same-origin with `cache: no-store` before a
 nonzero adapter approval, immediately before the first authorization signature,
 and again immediately before signed submission. Enabled policies expire within
 seven days; missing, stale, malformed, redirected, cross-origin, or mismatched
-policies pause entry. The committed policy is disabled. Cloudflare cache rules
-must be verified on the deployed JSON endpoint before entry is enabled.
+policies pause entry. The OpenPendle main deployment's committed policy covers
+the exact reviewed entry registry and expires within seven days; preview builds
+force both execution flags off. Cloudflare cache rules must be verified on the
+deployed JSON endpoint whenever entry is enabled.
 
 The guarded production-compiler round trip and cleanup are complete. A release
 can keep entry paused through either its build flag or same-origin policy while

@@ -153,7 +153,7 @@ Self-hosting does not automatically enable executable Looping. New entry and lev
 - a fresh, enabled, same-origin `app/public/looping-execution-policy.v1.json` entry for that chain and Morpho market ID; and
 - live contract, route, position, risk, and unsigned-simulation checks.
 
-The runtime policy is fetched without cache and fails closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market. Keep the committed disabled policy until you intentionally activate a reviewed release, and serve the JSON with the headers in `public/_headers`.
+The runtime policy is fetched without cache and fails closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market. OpenPendle's main Cloudflare deployment ships both build flags enabled and an exact, time-bounded policy for the reviewed entry registry; Cloudflare previews force both flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve the JSON with the headers in `public/_headers`.
 
 Leverage decreases and full exit use the separate `VITE_LOOPING_EXIT_BETA_ENABLED` build flag. Recovery is independent of the entry policy, so pausing new risk does not by itself remove permission cleanup or direct rescue.
 
