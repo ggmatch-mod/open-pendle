@@ -71,14 +71,10 @@ const LP_SYMBOL = 'LP'
 const SLIPPAGE_FLOOR = 0.0005
 
 const MODE_COPY: Record<`${LiquidityMode}-${SubMode}`, string> = {
-  'add-balanced':
-    "Deposits both sides at the pool's current ratio — no swap involved, so balanced adds have no price impact.",
-  'add-zap':
-    'Deposits a single token — the router mints and swaps internally to build the LP position, so price impact applies.',
-  'remove-balanced':
-    'Burns LP for its pro-rata share of both sides (SY + PT) — no swap involved, so no price impact.',
-  'remove-zap':
-    'Burns LP into a single token — the PT side is sold through the pool, so price impact applies.',
+  'add-balanced': 'Both sides deposit at the current pool ratio — no price impact.',
+  'add-zap': 'One token in; the router swaps internally, so price impact applies.',
+  'remove-balanced': 'Burns LP for a pro-rata share of SY + PT — no price impact.',
+  'remove-zap': 'Burns LP into one token; the PT side is sold, so price impact applies.',
 }
 
 /**
@@ -320,7 +316,7 @@ function ZapQuoteCard({
       )}
 
       <p className="mt-1.5 text-[11px] leading-snug text-faint">
-        Estimated from RouterStatic — the final number is simulated before you confirm.
+        Estimate — the exact amount is simulated before you sign.
         {slippageFloored &&
           ' Your slippage setting is below the 0.05% floor applied to static-derived minimums.'}
       </p>
@@ -576,9 +572,6 @@ function BalancedAddForm({ snapshot, positions, refetchPositions, onBusyChange }
               : '—'}
           </span>
         </div>
-        <p className="mt-1.5 text-[11px] leading-snug text-faint">
-          Balanced adds have no price impact — both sides go in at the pool's current ratio.
-        </p>
       </div>
 
       <QuoteFailedBanner label="Preview failed" error={previewUnavailable ? previewError : undefined} />
@@ -755,10 +748,7 @@ function ZapInForm({
         />
         <span className="leading-snug">
           <span className="font-medium text-muted">Keep YT</span>{' '}
-          <span className="text-faint">
-            — part of your deposit is minted into PT + YT; untick to sell the YT into more LP,
-            tick to keep the YT position alongside your LP.
-          </span>
+          <span className="text-faint">— keep the minted YT instead of selling it into more LP.</span>
         </span>
       </label>
 
@@ -938,8 +928,7 @@ function BalancedRemoveForm({ snapshot, positions, refetchPositions, onBusyChang
           </span>
         </div>
         <p className="mt-1.5 text-[11px] leading-snug text-faint">
-          Pro-rata burn — no swap, no price impact. You receive SY + PT; unwrap the SY on the
-          Wrap / Unwrap tab.
+          You receive SY + PT — unwrap the SY on the Wrap tab.
         </p>
       </div>
 

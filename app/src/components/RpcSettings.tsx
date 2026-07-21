@@ -47,8 +47,7 @@ export function RpcSettingsForm({ compact = false }: { compact?: boolean }) {
         Custom RPC endpoint — {chain.name}
       </h3>
       <p className={`mt-1 text-faint ${compact ? 'text-[11px] leading-relaxed' : 'text-xs'}`}>
-        All {chain.name} reads use this endpoint. Each network keeps its own local override;
-        saving reloads the app.
+        Overrides the default {chain.name} RPC. Saving reloads the app.
       </p>
       <input
         type="url"
@@ -65,7 +64,7 @@ export function RpcSettingsForm({ compact = false }: { compact?: boolean }) {
       {!isValidUrl && trimmed.length > 0 && (
         <p className="mt-1 text-xs text-danger">
           {window.location.protocol === 'https:'
-            ? 'Must be an HTTPS URL on the hosted app.'
+            ? 'Must be an HTTPS URL.'
             : 'Must be an HTTP(S) URL.'}
         </p>
       )}

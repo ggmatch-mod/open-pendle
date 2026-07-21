@@ -5,6 +5,7 @@ import type { YieldAlert } from '../lib/yieldAlerts'
 import { isSupportedChainId, SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
 import { marketPath } from '../lib/routes'
 import { clampLabel, formatCompact, formatPercent } from '../components/format'
+import { PageHeader } from '../components/PageHeader'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 import { useYieldAlerts } from '../components/useYieldAlerts'
 
@@ -71,12 +72,12 @@ function alertDirection(alert: YieldAlert): 'up' | 'down' | 'flat' {
   return 'flat'
 }
 
-function SummaryCard({ label, value, note }: { label: string; value: string; note: string }) {
+function SummaryStat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-xl border border-hairline bg-surface p-4">
-      <p className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">{label}</p>
-      <p className="mt-1.5 text-2xl font-bold tabular-nums text-fg">{value}</p>
-      <p className="mt-1 text-xs text-muted">{note}</p>
+    <div className="flex items-baseline gap-2">
+      <span className="text-[10px] uppercase tracking-[.05em] text-faint">{label}</span>
+      <span className="text-sm font-semibold tabular-nums text-fg">{value}</span>
+      {note ? <span className="text-xs text-muted">{note}</span> : null}
     </div>
   )
 }
@@ -135,29 +136,31 @@ export default function AlertsPage() {
   )
 
   return (
-    <div className="space-y-6 py-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="max-w-2xl">
-          <p className="font-mono text-[11px] uppercase tracking-[.08em] text-accent-ink">PT fixed yield</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-fg sm:text-3xl">Yield alerts</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            The largest implied APY moves across active Pendle-listed PT pools on OpenPendle-supported networks. A significant move is at least 50 bps and 10% relative over an exact 24-hour window, excluding pools within 72 hours of maturity.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
-            <span className="rounded-full border border-hairline bg-surface px-2.5 py-1">$1m now and throughout the window</span>
-            <span className="rounded-full border border-hairline bg-surface px-2.5 py-1">Pendle-listed only</span>
-            <span className="rounded-full border border-hairline bg-surface px-2.5 py-1">No wallet needed</span>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
-          className="rounded-[10px] border border-hairline bg-surface px-3.5 py-2 text-sm font-medium text-fg hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
-        >
-          {query.isFetching ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </header>
+    <div className="space-y-6 pb-16">
+      <PageHeader
+        title="Yield alerts"
+        lede={
+          <>
+            24-hour implied-APY moves across liquid Pendle-listed pools — no wallet needed.{' '}
+            <span
+              className="cursor-help underline decoration-dotted underline-offset-2"
+              title="Significant = at least 50 bps and 10% relative over an exact 24-hour window; pools need $1m liquidity throughout and more than 72 hours to maturity."
+            >
+              What counts as significant?
+            </span>
+          </>
+        }
+        actions={
+          <button
+            type="button"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+            className="rounded-[10px] border border-hairline bg-surface px-3.5 py-2 text-sm font-medium text-fg hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
+          >
+            {query.isFetching ? 'Refreshing…' : 'Refresh'}
+          </button>
+        }
+      />
 
       {query.isPending ? (
         <AlertsSkeleton />
@@ -177,25 +180,28 @@ export default function AlertsPage() {
         <>
           {query.isError && (
             <div role="status" className="rounded-xl border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-4 py-3 text-sm text-warn">
-              The latest refresh failed. Showing the last successful snapshot; use Refresh to try again.
+              Refresh failed — showing the last snapshot.
             </div>
           )}
 
-          <section aria-label="Alert summary" className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard
+          <section
+            aria-label="Alert summary"
+            className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-lg border border-hairline bg-surface px-4 py-3"
+          >
+            <SummaryStat
               label="Significant moves"
               value={materialCount.toLocaleString('en-US')}
-              note={`${query.data.marketsEligible.toLocaleString('en-US')} liquidity-qualified pools checked`}
+              note={`of ${query.data.marketsEligible.toLocaleString('en-US')} pools`}
             />
-            <SummaryCard
+            <SummaryStat
               label="Largest increase"
               value={biggestIncrease === undefined ? '—' : formatBps(biggestIncrease.deltaBps)}
-              note={biggestIncrease === undefined ? 'No qualified market' : clampLabel(biggestIncrease.name, 28)}
+              note={biggestIncrease === undefined ? undefined : clampLabel(biggestIncrease.name, 28)}
             />
-            <SummaryCard
+            <SummaryStat
               label="Largest decrease"
               value={biggestDecrease === undefined ? '—' : formatBps(biggestDecrease.deltaBps)}
-              note={biggestDecrease === undefined ? 'No qualified market' : clampLabel(biggestDecrease.name, 28)}
+              note={biggestDecrease === undefined ? undefined : clampLabel(biggestDecrease.name, 28)}
             />
           </section>
 
@@ -323,10 +329,10 @@ export default function AlertsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline px-4 py-3 text-[11px] text-faint">
               <span>
-                {visible.length.toLocaleString('en-US')} shown · {query.data.marketsScanned.toLocaleString('en-US')} active catalog rows scanned
-                {query.data.unsupportedMarkets > 0 ? ` · ${query.data.unsupportedMarkets.toLocaleString('en-US')} outside supported networks` : ''}
+                {visible.length.toLocaleString('en-US')} shown of{' '}
+                {query.data.marketsScanned.toLocaleString('en-US')} scanned
               </span>
-              <span>Source: Pendle Core API · refreshes when the hourly window advances</span>
+              <span>Pendle API · refreshes hourly</span>
             </div>
           </section>
         </>

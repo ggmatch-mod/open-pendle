@@ -19,16 +19,17 @@ const LimitOrderPanel = lazy(() => import('./LimitOrderPanel'))
 type TabId = 'wrap' | 'mint' | 'trade' | 'limit' | 'liquidity'
 
 const LIVE_TABS: Array<{ id: TabId; label: string }> = [
-  { id: 'wrap', label: 'Wrap / Unwrap' },
-  { id: 'mint', label: 'Mint / Redeem' },
-  { id: 'trade', label: 'Trade PT & YT' },
-  { id: 'limit', label: 'PT Limits' },
+  { id: 'trade', label: 'Trade' },
   { id: 'liquidity', label: 'Liquidity' },
+  { id: 'limit', label: 'Limit orders' },
+  { id: 'mint', label: 'Mint / redeem' },
+  { id: 'wrap', label: 'Wrap' },
 ]
 
-const TOKEN_TABS: Array<{ id: TabId; label: string }> = LIVE_TABS.filter(
-  (tab) => tab.id === 'wrap' || tab.id === 'mint',
-)
+const TOKEN_TABS: Array<{ id: TabId; label: string }> = [
+  { id: 'wrap', label: 'Wrap' },
+  { id: 'mint', label: 'Mint / redeem' },
+]
 
 export function ActionTabs({
   snapshot,
@@ -42,7 +43,7 @@ export function ActionTabs({
   /** Token mode must never expose market-dependent trade or liquidity panels. */
   variant?: 'market' | 'token'
 }) {
-  const [tab, setTab] = useState<TabId>('wrap')
+  const [tab, setTab] = useState<TabId>(variant === 'token' ? 'wrap' : 'trade')
   // True while the active panel has a send in flight (approving/signing/
   // pending) — freezes SlippageControl and tab switches so nothing can churn
   // the plan (or unmount the flow) under a signed transaction.
@@ -104,7 +105,7 @@ export function ActionTabs({
             onBusyChange={setFlowBusy}
           />
         ) : tab === 'limit' ? (
-          <Suspense fallback={<p className="text-sm text-muted">Loading PT limit orders…</p>}>
+          <Suspense fallback={<p className="text-sm text-muted">Loading limit orders…</p>}>
             <LimitOrderPanel
               snapshot={snapshot}
               positions={positions}

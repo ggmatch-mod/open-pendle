@@ -22,6 +22,7 @@ import type { SupportedChainId } from '../lib/types'
 import { useActionFlow, useAllPositions } from '../lib/hooks'
 import { planClaimAll } from '../lib/actions'
 import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
+import { PageHeader } from '../components/PageHeader'
 import { TxButton } from '../components/TxButton'
 import { TxStatus } from '../components/TxStatus'
 import { MerklSection } from '../components/MerklSection'
@@ -44,23 +45,14 @@ import type {
 } from '../lib/positionView'
 
 function PositionSources({ item }: { item: AggregatedPosition }) {
+  // Official/Saved provenance is not actionable per-card; only the unvalidated
+  // warning is load-bearing (claiming is disabled for those markets).
+  if (item.snapshot === undefined || item.snapshot.validated) return null
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {item.target.sources.includes('official') && (
-        <span className="rounded-md bg-[rgba(var(--op-accent-rgb),0.12)] px-1.5 py-0.5 text-[10px] font-medium text-accent-ink">
-          Official
-        </span>
-      )}
-      {item.target.sources.includes('saved') && (
-        <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-          Saved
-        </span>
-      )}
-      {item.snapshot !== undefined && !item.snapshot.validated && (
-        <span className="rounded-md bg-[var(--op-warn-soft)] px-1.5 py-0.5 text-[10px] font-medium text-warn">
-          Unvalidated
-        </span>
-      )}
+      <span className="rounded-md bg-[var(--op-warn-soft)] px-1.5 py-0.5 text-[10px] font-medium text-warn">
+        Unvalidated
+      </span>
     </div>
   )
 }
@@ -112,37 +104,36 @@ const ROLE_COPY: Record<StandardPositionRole, string> = {
   LP: 'Liquidity positions',
 }
 
+const ROLE_ORDER = ['PT', 'YT', 'LP'] as const
+
 function PositionRoleColumn({
   role,
   rows,
+  showGloss,
 }: {
   role: StandardPositionRole
   rows: StandardPositionRow<AggregatedPosition>[]
+  /** Expand the PT/YT/LP acronym — shown on the first chain group only. */
+  showGloss: boolean
 }) {
   return (
     <section className="rounded-[14px] border border-hairline bg-surface-2/50 p-3">
       <div className="mb-3 flex items-baseline justify-between gap-2 px-0.5">
         <div>
           <h3 className="text-sm font-semibold text-fg">{role}</h3>
-          <p className="text-[11px] text-faint">{ROLE_COPY[role]}</p>
+          {showGloss && <p className="text-[11px] text-faint">{ROLE_COPY[role]}</p>}
         </div>
         <span className="text-[11px] tabular-nums text-faint">{rows.length}</span>
       </div>
-      {rows.length === 0 ? (
-        <p className="rounded-[10px] border border-dashed border-hairline px-3 py-6 text-center text-xs text-faint">
-          No {role} positions
-        </p>
-      ) : (
-        <div className="space-y-2.5">
-          {rows.map(({ item, balance }) => (
-            <PositionRoleCard
-              key={`${balance.role}:${balance.token.toLowerCase()}`}
-              item={item}
-              balance={balance}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-2.5">
+        {rows.map(({ item, balance }) => (
+          <PositionRoleCard
+            key={`${balance.role}:${balance.token.toLowerCase()}`}
+            item={item}
+            balance={balance}
+          />
+        ))}
+      </div>
     </section>
   )
 }
@@ -218,6 +209,7 @@ function ChainGroup({
   onSwitch,
   selectionDisabled,
   onClaimed,
+  showRoleGloss,
 }: {
   chainId: SupportedChainId
   items: AggregatedPosition[]
@@ -226,9 +218,12 @@ function ChainGroup({
   onSwitch: (id: SupportedChainId) => void
   selectionDisabled: boolean
   onClaimed: () => void
+  showRoleGloss: boolean
 }) {
   const chainName = supportedChain(chainId)?.name ?? `Chain ${chainId}`
   const roleRows = useMemo(() => splitStandardPositionRows(items), [items])
+  const presentRoles = ROLE_ORDER.filter((role) => roleRows[role].length > 0)
+  const missingRoles = ROLE_ORDER.filter((role) => roleRows[role].length === 0)
   const claimableItems = items.filter(
     (item) => item.positions !== undefined && hasClaimablePositionRewards(item.positions),
   )
@@ -268,6 +263,9 @@ function ChainGroup({
           <h2 className="text-base font-semibold text-fg">{chainName}</h2>
           <span className="text-xs text-faint">
             {items.length} market{items.length === 1 ? '' : 's'}
+            {presentRoles.length > 0 && missingRoles.length > 0
+              ? ` · no ${missingRoles.join(' or ')} here`
+              : ''}
           </span>
         </div>
         {hasAnyClaimable && (
@@ -303,23 +301,36 @@ function ChainGroup({
       )}
 
       {unvalidatedClaimableCount > 0 && (
-        <p className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+        <p className="mt-3 rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn">
           Claiming is disabled for {unvalidatedClaimableCount} unvalidated market
           {unvalidatedClaimableCount === 1 ? '' : 's'}.
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        {(['PT', 'YT', 'LP'] as const).map((role) => (
-          <PositionRoleColumn key={role} role={role} rows={roleRows[role]} />
-        ))}
-      </div>
+      {presentRoles.length > 0 && (
+        <div
+          className={`mt-4 grid gap-3 ${
+            presentRoles.length === 3
+              ? 'lg:grid-cols-3'
+              : presentRoles.length === 2
+                ? 'lg:grid-cols-2'
+                : ''
+          }`}
+        >
+          {presentRoles.map((role) => (
+            <PositionRoleColumn
+              key={role}
+              role={role}
+              rows={roleRows[role]}
+              showGloss={showRoleGloss}
+            />
+          ))}
+        </div>
+      )}
 
       {claimableRows.length > 0 && (
         <section className="mt-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Yield & rewards
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold text-fg">Yield & rewards</h3>
           <div className="space-y-2">
             {claimableRows.map(({ item, includeYt, includeSy }) => (
               <ClaimableRow
@@ -335,9 +346,7 @@ function ChainGroup({
 
       {errorItems.length > 0 && (
         <section className="mt-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-            Unavailable markets
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold text-fg">Unavailable markets</h3>
           <div className="space-y-2">
             {errorItems.map((item) => (
               <PositionErrorRow
@@ -381,25 +390,22 @@ export default function PositionsPage() {
   }, [shown, activeChainId])
 
   return (
-    <div className="py-8">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">My positions</h1>
-          <p className="mt-1 text-sm text-muted">
-            Your PT loops plus PT, YT, and LP across Saved Pools and Pendle Official Pools — with
-            balances read from their own networks.
-          </p>
-        </div>
-        {isConnected && (
-          <button
-            type="button"
-            onClick={refetch}
-            className="shrink-0 rounded-[10px] border border-hairline bg-surface px-3 py-1.5 text-sm text-muted transition hover:text-fg hover:border-hairline-strong"
-          >
-            Refresh
-          </button>
-        )}
-      </div>
+    <div className="pb-16">
+      <PageHeader
+        title="My positions"
+        lede="Your loops, PT/YT/LP balances and rewards, read from each network."
+        actions={
+          isConnected ? (
+            <button
+              type="button"
+              onClick={refetch}
+              className="shrink-0 rounded-[10px] border border-hairline bg-surface px-3 py-1.5 text-sm text-muted transition hover:text-fg hover:border-hairline-strong"
+            >
+              Refresh
+            </button>
+          ) : undefined
+        }
+      />
 
       {!isConnected ? (
         <section className="rounded-xl border border-hairline bg-surface p-8 text-center">
@@ -408,7 +414,7 @@ export default function PositionsPage() {
             type="button"
             onClick={() => openConnectModal?.()}
             disabled={!openConnectModal}
-            className="mt-4 inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
+            className="mt-4 inline-flex items-center rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:brightness-110"
           >
             Connect wallet
           </button>
@@ -416,22 +422,20 @@ export default function PositionsPage() {
       ) : (
         <div className="space-y-4">
           <LoopPositionsSection />
-          <MerklSection />
           {officialStatus === 'loading' && groups.length > 0 && (
             <section
               role="status"
               className="rounded-xl border border-hairline bg-surface px-4 py-3 text-sm text-muted"
             >
-              Saved Pool positions are shown. Still checking Pendle Official Pools…
+              Still checking official Pendle pools…
             </section>
           )}
           {officialDiscoveryError !== undefined && groups.length > 0 && (
             <section
               role="status"
-              className="rounded-xl border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-4 py-3 text-sm text-warn"
+              className="rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn"
             >
-              Pendle Official Pool discovery is temporarily unavailable. Saved Pool positions are
-              still shown where available.
+              Couldn't check official Pendle pools — your saved pool positions are still shown.
             </section>
           )}
           {status === 'loading' ? (
@@ -443,7 +447,7 @@ export default function PositionsPage() {
           ) : status === 'error' ? (
             <section className="rounded-xl border border-hairline bg-surface p-8 text-center">
               <p className="text-sm text-danger">
-                Couldn&apos;t load your Saved and Official Pool positions.
+                Couldn&apos;t load your saved and official pool positions.
               </p>
               <button
                 type="button"
@@ -456,22 +460,18 @@ export default function PositionsPage() {
           ) : groups.length === 0 ? (
             officialStatus === 'loading' ? (
               <section className="rounded-xl border border-hairline bg-surface p-8 text-center" aria-busy="true">
-                <p className="text-sm font-medium text-fg">Checking Pendle Official Pools…</p>
-                <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                  Saved Pool reads are complete. Official positions will appear when discovery finishes.
-                </p>
+                <p className="text-sm font-medium text-fg">Checking official Pendle pools…</p>
               </section>
             ) : officialDiscoveryError !== undefined ? (
-              <section className="rounded-xl border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-8 text-center">
-                <p className="text-sm font-medium text-warn">Official Pool coverage is incomplete</p>
+              <section className="rounded-xl border border-hairline bg-surface p-8 text-center">
+                <p className="text-sm font-medium text-warn">Couldn&apos;t check every official pool</p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                  No Saved Pool positions were found, but OpenPendle could not confirm all Pendle
-                  Official Pools. This is not a confirmed empty wallet.
+                  You may still have positions in pools we couldn&apos;t reach. Retry to check again.
                 </p>
                 <button
                   type="button"
                   onClick={refetch}
-                  className="mt-4 rounded-md border border-[var(--op-warn-bd)] px-3 py-1.5 text-xs font-medium text-warn hover:bg-surface-2"
+                  className="mt-4 rounded-md border border-hairline-strong px-3 py-1.5 text-xs text-muted hover:bg-surface-2"
                 >
                   Retry
                 </button>
@@ -480,8 +480,7 @@ export default function PositionsPage() {
               <section className="rounded-xl border border-hairline bg-surface p-8 text-center">
                 <p className="text-sm font-medium text-fg">No PT, YT, or LP positions found</p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                  OpenPendle checked your Saved Pools and Pendle Official Pools. You can still save a
-                  community market to include it here.
+                  None found in your saved or official Pendle pools.
                 </p>
                 <div className="mt-4 flex items-center justify-center gap-4 text-sm">
                   <Link to="/explore" className="font-medium text-accent-ink hover:underline">
@@ -495,7 +494,7 @@ export default function PositionsPage() {
             )
           ) : (
             <div className="space-y-4">
-              {groups.map((group) => (
+              {groups.map((group, index) => (
                 <ChainGroup
                   key={group.chainId}
                   chainId={group.chainId}
@@ -505,16 +504,17 @@ export default function PositionsPage() {
                   onSwitch={(chainId) => void selectChain(chainId)}
                   selectionDisabled={isSelectionDisabled}
                   onClaimed={refetch}
+                  showRoleGloss={index === 0}
                 />
               ))}
               {emptyCount > 0 && (
                 <p className="text-center text-[12px] text-faint">
-                  {emptyCount} market{emptyCount === 1 ? '' : 's'} with no PT, YT, LP, or claimable
-                  rewards not shown.
+                  {emptyCount} empty market{emptyCount === 1 ? '' : 's'} hidden.
                 </p>
               )}
             </div>
           )}
+          <MerklSection />
         </div>
       )}
     </div>

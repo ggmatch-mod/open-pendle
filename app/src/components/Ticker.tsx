@@ -7,21 +7,13 @@
  * are unreachable (offline / rate-limited / CSP) it falls back to the static
  * brand facts below, so the bar is never empty.
  */
-import { ROUTER_V4, SY_FACTORY } from '../lib/addresses'
 import { usePendleStats, type TickerItem } from './usePendleStats'
-
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
 // Shown until live stats load, or if every metric source fails.
 const FALLBACK: TickerItem[] = [
-  { value: 'No transaction backend' },
-  { value: 'No whitelist' },
-  { value: 'Core data via RPC' },
-  { value: 'Local pool registry' },
+  { value: 'Permissionless — no whitelist' },
   { value: '6 networks' },
-  { value: `Router V4 · ${short(ROUTER_V4)}` },
-  { value: `SY factory · ${short(SY_FACTORY)}` },
-  { value: 'GPL-3.0 · open source' },
+  { value: 'Open source · no fees' },
 ]
 
 export function Ticker() {
@@ -32,18 +24,27 @@ export function Ticker() {
   const loop = [...items, ...items, ...items, ...items]
 
   return (
-    <div className="overflow-hidden border-b border-hairline bg-bg-2">
+    <div className="hidden overflow-hidden border-b border-hairline bg-bg-2 sm:block">
+      <ul className="sr-only">
+        {items.map((it, i) => (
+          <li key={i}>
+            {it.label ? `${it.label} ` : ''}
+            {it.value}
+            {it.change !== undefined ? ` (${it.change >= 0 ? '+' : '−'}${Math.abs(it.change).toFixed(2)}%)` : ''}
+          </li>
+        ))}
+      </ul>
       <div
-        className="flex w-max [animation:op-ticker_48s_linear_infinite] [will-change:transform] hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:[will-change:auto]"
+        aria-hidden
+        className="flex w-max [animation:op-ticker_64s_linear_infinite] [will-change:transform] hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:[will-change:auto]"
       >
         {loop.map((it, i) => (
           <span
             key={i}
-            className="flex items-center gap-[7px] whitespace-nowrap px-[22px] py-[7px] font-mono text-[11px] uppercase tracking-[.03em] text-faint"
+            className="flex items-center gap-[7px] whitespace-nowrap px-[22px] py-[6px] font-mono text-[10px] tracking-[.03em] text-faint"
           >
-            <span className="h-1 w-1 rounded-full" style={{ background: 'var(--op-accent)', opacity: 0.75 }} />
             {it.label ? <span>{it.label}</span> : null}
-            <span className="text-muted">{it.value}</span>
+            <span>{it.value}</span>
             {it.change !== undefined ? (
               <span className={it.change >= 0 ? 'text-good' : 'text-danger'}>
                 {it.change >= 0 ? '+' : '−'}

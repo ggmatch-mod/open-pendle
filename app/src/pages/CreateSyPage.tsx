@@ -38,7 +38,6 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { getAddress, isAddress } from 'viem'
 import type { Address } from 'viem'
@@ -60,6 +59,7 @@ import {
 } from '../lib/syDeploy'
 import { useActionFlow, useAssetProbe } from '../lib/hooks'
 import { PENDLE_GOVERNANCE } from '../lib/addresses'
+import { PageHeader } from '../components/PageHeader'
 import { AmountInput } from '../components/AmountInput'
 import { TxButton } from '../components/TxButton'
 import { TxStatus } from '../components/TxStatus'
@@ -101,7 +101,7 @@ function Section({
   subtitle,
   children,
 }: {
-  step: number
+  step?: number
   title: string
   subtitle?: string
   children: React.ReactNode
@@ -109,9 +109,11 @@ function Section({
   return (
     <section className="rounded-[16px] border border-hairline bg-surface p-4">
       <div className="flex items-baseline gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg font-mono text-[11px] text-accent-ink">
-          {step}
-        </span>
+        {step !== undefined && (
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg font-mono text-[11px] text-accent-ink">
+            {step}
+          </span>
+        )}
         <div>
           <h2 className="text-sm font-semibold text-fg">{title}</h2>
           {subtitle && <p className="text-xs text-faint">{subtitle}</p>}
@@ -240,7 +242,7 @@ function VerdictPill({ label, verdict }: { label: string; verdict: 'ok' | 'suspe
 // ---------------------------------------------------------------------------
 
 export default function CreateSyPage() {
-  useDocumentTitle('Create an SY adapter')
+  useDocumentTitle('Create an SY')
   const { address: user } = useAccount()
 
   // --- asset input + probe ---
@@ -282,7 +284,7 @@ export default function CreateSyPage() {
       : undefined
   const adapterError =
     tmeta.takesAdapter && trimmedAdapter.length > 0 && !adapterValid
-      ? 'Enter a valid address, or leave blank for a plain 1:1 wrapper.'
+      ? 'Enter a valid address.'
       : undefined
 
   // --- name / symbol (auto-filled from the probe, editable) ---
@@ -571,7 +573,7 @@ export default function CreateSyPage() {
     if (adapterError) return 'Fix the adapter address'
     if (ownerChoice === 'self' && !user) return 'Connect wallet to keep ownership'
     if (needsScreenOverride && !screenOverride)
-      return 'This token was not fully screened — confirm the override to deploy SY-only'
+      return 'Confirm the screening override to deploy'
     if (mode === 'sy-and-market') {
       if (!expiryInFuture || !expiryAligned) return 'Fix the expiry'
       if (!bandValid) return 'Fix the rate band'
@@ -586,24 +588,13 @@ export default function CreateSyPage() {
   const actionLabel = mode === 'sy-only' ? 'deploy SY' : 'deploy SY + pool'
 
   return (
-    <div className="mx-auto max-w-[760px]">
-      <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
-        ← Home
-      </Link>
-
-      <header>
-        <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">
-          Create an SY adapter
-        </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-muted">
-          Deploy a Pendle-audited Standardized Yield (SY) wrapper for any ERC-20
-          or ERC-4626 asset through Pendle's canonical{' '}
-          <span className="font-mono text-xs">syFactory</span> — optionally with
-          a pool in the same transaction. You can fill this in and preview
-          without a wallet; deploying needs one.
-        </p>
-      </header>
+    <div className="mx-auto max-w-[760px] pb-8">
+      <PageHeader
+        back
+        title="Create an SY"
+        lede="Wrap a yield-bearing ERC-20 or ERC-4626 vault as a Pendle SY — optionally with a pool in the same transaction. A wallet is only needed to deploy."
+      />
+      <div className="space-y-5">
 
       {flow.phase === 'confirmed' && flow.txHash ? (
         <SyDeploySuccess txHash={flow.txHash} upgradeable={upgradeable} />
@@ -634,8 +625,7 @@ export default function CreateSyPage() {
           )}
           {assetValid && probeResult.status === 'idle' && (
             <span className="text-faint">
-              Token probing runs here once the data layer is wired. You can still
-              pick a template and configure the deploy below.
+              Token check isn't available yet. You can still configure the deploy below.
             </span>
           )}
           {probeResult.status === 'error' && (
@@ -673,14 +663,11 @@ export default function CreateSyPage() {
             <p className="text-sm font-semibold text-danger">
               This token can't be wrapped safely — deploying is blocked.
             </p>
-            <p className="mt-1 text-xs text-red-200/90">
-              It looks fee-on-transfer or rebasing. Pendle SY accounting assumes a
-              token's balance only changes on explicit transfers of a fixed
-              amount; fee-on-transfer and rebasing tokens break that assumption
-              and the SY would silently under-collateralize (fork-verified).
-              There is no override.
+            <p className="mt-1 text-xs text-danger">
+              Fee-on-transfer and rebasing tokens break SY accounting — the wrapper would silently
+              under-collateralize. There is no override.
             </p>
-            <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-red-200/80">
+            <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-danger">
               {blockers.map((b, i) => (
                 <li key={i}>{b}</li>
               ))}
@@ -695,19 +682,15 @@ export default function CreateSyPage() {
             <p className="text-sm font-semibold text-warn">
               This token wasn't fully screened — an SY-only deploy is blocked by default.
             </p>
-            <p className="mt-1 text-xs text-amber-100/90">
+            <p className="mt-1 text-xs text-warn">
               {probe && probe.feeOnTransfer === 'suspected'
-                ? 'The fee-on-transfer screen flagged this token.'
-                : "The fee-on-transfer screen couldn't complete (this RPC didn't fully support the on-chain probe), so it's inconclusive."}{' '}
-              Unlike the “SY + pool” flow, an <span className="font-medium">SY-only</span>{' '}
-              deploy has no seeding step to revert on a bad token — a
-              fee-on-transfer or rebasing token would deploy successfully and then
-              silently under-collateralize. If you know this token is a plain,
-              non-fee, non-rebasing ERC-20 you can override; otherwise use the
-              “SY + pool” flow (which is protected by its on-chain seeding revert)
-              or pick a cleaner token.
+                ? 'The fee-on-transfer check flagged this token.'
+                : 'The fee-on-transfer check was inconclusive.'}{' '}
+              An SY-only deploy has no on-chain safety net — a bad token would deploy and then
+              break. If you're sure this token doesn't take transfer fees or rebase, override
+              below; otherwise use the "SY + pool" flow, which reverts on a bad token.
             </p>
-            <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-amber-100">
+            <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-warn">
               <input
                 type="checkbox"
                 className="mt-0.5 accent-amber-500"
@@ -729,12 +712,9 @@ export default function CreateSyPage() {
           <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] p-3 text-[11px] leading-snug text-warn">
             <span className="font-semibold text-warn">Heads up:</span>{' '}
             {probe && probe.feeOnTransfer === 'suspected'
-              ? 'the fee-on-transfer screen flagged this token'
-              : "the fee-on-transfer screen couldn't fully complete on this RPC"}
-            . The “SY + pool” flow seeds liquidity on-chain, so a genuinely
-            fee-on-transfer or rebasing token will make this transaction{' '}
-            <span className="font-medium">revert</span> during seeding (your funds
-            stay safe) rather than deploying a broken SY.
+              ? 'the fee-on-transfer check flagged this token.'
+              : 'the fee-on-transfer check was inconclusive.'}{' '}
+            If the token is bad, this transaction reverts during seeding — your funds stay safe.
           </div>
         )}
       </Section>
@@ -803,14 +783,10 @@ export default function CreateSyPage() {
             Advanced: upgradeable / adapter templates
           </summary>
           <div className="space-y-2 border-t border-hairline px-3 py-3">
-            <div className="rounded-md border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-warn">
-              These templates deploy a{' '}
-              <span className="font-medium">TransparentUpgradeableProxy under Pendle's proxyAdmin</span>{' '}
-              — the SY implementation can later be upgraded by Pendle governance.
-              Adapter templates also let the SY owner call{' '}
-              <span className="font-mono">setAdapter</span>, which changes how
-              deposits/redeems are routed. Use only if you specifically need an
-              adapter or an upgradeable SY.
+            <div className="rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[11px] leading-snug text-warn">
+              These deploy as upgradeable proxies: Pendle governance can change the implementation
+              later, and adapter templates let the owner re-route deposits via{' '}
+              <span className="font-mono">setAdapter</span>. Use only if you need that.
             </div>
             {ADVANCED_TEMPLATES.map((t) => {
               const disabled = inputsFrozen || (t.requiresErc4626 && probe !== undefined && !probe.isErc4626)
@@ -854,7 +830,7 @@ export default function CreateSyPage() {
                   disabled={inputsFrozen}
                   mono
                   error={adapterError}
-                  hint="Leave blank to deploy a plain 1:1 wrapper. A pasted adapter is treated as untrusted until you've verified it."
+                  hint="Only use an adapter contract you have verified."
                 />
               </div>
             )}
@@ -943,9 +919,8 @@ export default function CreateSyPage() {
                 </span>
               </p>
               <p className="mt-0.5 text-xs text-faint">
-                Ownership goes to Pendle governance ({shortAddress(PENDLE_GOVERNANCE)}) —
-                the same trust profile as Pendle's own SYs. Traders can verify the
-                owner is Pendle rather than an unknown deployer.
+                Owned by Pendle governance ({shortAddress(PENDLE_GOVERNANCE)}) — the same trust
+                profile as Pendle's own SYs.
               </p>
             </div>
           </label>
@@ -983,16 +958,12 @@ export default function CreateSyPage() {
           </label>
 
           {ownerChoice === 'self' && (
-            <div className="rounded-lg border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2.5 text-xs leading-relaxed text-warn">
-              <span className="font-semibold text-warn">Trust flag:</span> as
-              owner you can <span className="font-medium">pause</span> the SY at
-              any time (freezing wraps/unwraps for everyone holding it)
+            <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2.5 text-xs leading-relaxed text-warn">
+              As owner you can pause the SY at any time
               {tmeta.takesAdapter || upgradeable
-                ? ', and for this adapter/upgradeable template you can also call setAdapter to re-route deposits and redemptions'
+                ? ' and re-route deposits via setAdapter'
                 : ''}
-              . Every pool built on this SY will render an owner-not-Pendle
-              warning to its users. Keep ownership only if you understand and want
-              that responsibility.
+              . Every pool built on it will show users an ownership warning.
               {!user && (
                 <span className="mt-1 block text-warn">
                   Connect a wallet to use your address as the owner.
@@ -1087,7 +1058,7 @@ export default function CreateSyPage() {
                 )}
                 {expiryInFuture && !expiryAligned && (
                   <p className="mt-1 text-warn">
-                    Snapped to the {expiryDivisor}s boundary required by the factory.
+                    Adjusted to the nearest valid expiry (00:00 UTC boundary).
                   </p>
                 )}
               </div>
@@ -1173,9 +1144,8 @@ export default function CreateSyPage() {
                   balanceHint="seed small first, top up later"
                 />
                 <p className="mt-2 text-[11px] leading-snug text-faint">
-                  The pool is seeded with the asset the SY wraps. Pendle's
-                  guidance: seed a small amount (under ~$10), confirm the pool
-                  trades, then add liquidity from the pool page.
+                  Seed small (under ~$10), confirm the pool trades, then add more from the pool
+                  page.
                 </p>
               </>
             )}
@@ -1193,11 +1163,6 @@ export default function CreateSyPage() {
             : 'One transaction: approve the seed token, then deploy the SY + pool and seed it.'
         }
       >
-        {flow.phase === 'confirmed' ? (
-          <p className="mb-2 text-xs text-accent-ink">
-            Deployed — see the success card above. Use “Done” to reset the wizard.
-          </p>
-        ) : null}
         <div className="space-y-2.5">
           <TxButton
             flow={flow}

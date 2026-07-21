@@ -131,8 +131,7 @@ export function MerklSection() {
           >
             Merkl
           </a>{' '}
-          rewards across networks — every protocol, not only Pendle. Claimed in one transaction per
-          network, straight from the Merkl distributor.
+          rewards from every protocol, one claim per network.
         </p>
       </div>
 

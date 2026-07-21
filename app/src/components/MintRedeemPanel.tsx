@@ -331,9 +331,9 @@ export function MintRedeemPanel({
           note={
             chained
               ? direction === 'mint'
-                ? 'Rough estimate chained through wrap → mint — the binding number is simulated before you confirm.'
-                : 'Rough estimate chained through redeem → unwrap — the binding number is simulated before you confirm.'
-              : 'Estimated at the current PY index — the binding number is simulated before you confirm.'
+                ? 'Estimate via wrap → mint — the exact amount is simulated before you sign.'
+                : 'Estimate via redeem → unwrap — the exact amount is simulated before you sign.'
+              : 'Estimate at the current PY index — the exact amount is simulated before you sign.'
           }
         />
       )}

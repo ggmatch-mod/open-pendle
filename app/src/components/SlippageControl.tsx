@@ -100,8 +100,7 @@ export function SlippageControl({
         >
           <h3 className="text-sm font-semibold text-fg">Slippage tolerance</h3>
           <p className="mt-1 text-xs text-faint">
-            Min received = quote × (1 − slippage). The transaction reverts if the
-            outcome would be worse.
+            Your transaction reverts if you'd receive less than the shown minimum.
           </p>
           <div className="mt-2.5 flex items-center gap-1.5">
             {SLIPPAGE_PRESETS.map((p) => (
@@ -169,11 +168,9 @@ export function SlippageControl({
               </div>
             </div>
             <p className="mt-1.5 text-xs leading-relaxed text-faint">
-              <span className="text-muted">Exact</span> approves only the amount
-              being traded — worst-case loss is capped, at the cost of one approval
-              tx per action. <span className="text-muted">Unlimited</span> saves
-              gas on repeat actions but leaves the contract approved to spend this
-              token forever; revoke it yourself if the SY turns out to be hostile.
+              <span className="text-muted">Exact</span> approves only what each action needs —
+              safest, one extra approval tx. <span className="text-muted">Unlimited</span> saves
+              gas but stays approved until you revoke it.
             </p>
           </div>
         </div>

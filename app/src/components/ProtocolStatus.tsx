@@ -60,7 +60,7 @@ function AddressValue({ address, chainId }: { address: Address; chainId: Support
       target="_blank"
       rel="noreferrer"
       title={address}
-      className="font-mono text-sm text-accent-ink hover:text-accent-ink hover:underline"
+      className="font-mono text-sm text-accent-ink hover:underline"
     >
       {shortAddr(address)}
     </a>
@@ -189,10 +189,10 @@ export function ProtocolStatus({ chainId }: { chainId: SupportedChainId }) {
         <SkeletonRows count={8} />
       ) : (
         <div>
-          <Row label="Active market factory">
+          <Row label="Market factory">
             {marketFactory && <AddressValue address={marketFactory} chainId={chainId} />}
           </Row>
-          <Row label="Active yield contract factory">
+          <Row label="Yield contract factory">
             {yieldContractFactory && <AddressValue address={yieldContractFactory} chainId={chainId} />}
           </Row>
           <Row label="Router V4">
@@ -214,7 +214,7 @@ export function ProtocolStatus({ chainId }: { chainId: SupportedChainId }) {
           <Row label="Treasury">
             {ycfTreasury && <AddressValue address={ycfTreasury} chainId={chainId} />}
           </Row>
-          <Row label="Max swap fee (cap)">
+          <Row label="Max swap fee">
             <span className="font-mono text-sm text-fg tabular-nums">
               {maxLnFeeRateRoot !== undefined && formatLnFeeCap(maxLnFeeRateRoot)}
             </span>

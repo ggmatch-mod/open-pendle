@@ -40,8 +40,8 @@ function AddressRow({
   chainId: SupportedChainId
 }) {
   return (
-    <div className="rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] p-3">
-      <p className="text-xs text-accent-ink/80">{label}</p>
+    <div className="rounded-lg border border-hairline bg-bg-2 p-3">
+      <p className="text-xs text-muted">{label}</p>
       <p className="mt-0.5 break-all font-mono text-sm text-fg" title={address}>
         {address}
       </p>
@@ -49,7 +49,7 @@ function AddressRow({
         href={explorerAddressUrl(chainId, address)}
         target="_blank"
         rel="noreferrer"
-        className="mt-1.5 inline-block text-xs text-accent-ink/80 underline decoration-[rgba(var(--op-accent-rgb),0.5)] underline-offset-2 hover:text-accent-ink"
+        className="mt-1.5 inline-block text-xs text-accent-ink underline decoration-[rgba(var(--op-accent-rgb),0.5)] underline-offset-2 hover:text-accent-ink"
       >
         View on {explorerName(chainId)} ↗
       </a>
@@ -109,8 +109,8 @@ export function SyDeploySuccess({
         </h2>
       </div>
 
-      <p className="mt-2 text-xs text-accent-ink/80">
-        Your deploy transaction confirmed:{' '}
+      <p className="mt-2 text-xs text-muted">
+        Transaction:{' '}
         <a
           href={explorerTxUrl(chainId, txHash)}
           target="_blank"
@@ -124,19 +124,17 @@ export function SyDeploySuccess({
       {result ? (
         <div className="mt-3 space-y-2.5">
           <AddressRow
-            label="New SY (Standardized Yield) address"
+            label="New SY address"
             address={result.sy}
             chainId={chainId}
           />
           {result.market && (
-            <AddressRow label="New market (PLP) address" address={result.market} chainId={chainId} />
+            <AddressRow label="New pool address" address={result.market} chainId={chainId} />
           )}
 
           {upgradeable && (
-            <p className="rounded-md border border-[var(--op-warn-bd)] bg-amber-950/30 px-3 py-2 text-[11px] leading-snug text-warn">
-              This SY is a TransparentUpgradeableProxy under Pendle's proxyAdmin.
-              Its implementation can be upgraded by Pendle governance — disclose
-              this to anyone using the pool.
+            <p className="rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] leading-snug text-warn">
+              Upgradeable proxy: Pendle governance can change this SY's implementation.
             </p>
           )}
 
@@ -144,36 +142,35 @@ export function SyDeploySuccess({
             {result.market ? (
               <Link
                 to={marketPath(result.market, chainId)}
-                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:brightness-110"
               >
                 Open the pool →
               </Link>
             ) : (
               <Link
                 to={`/create?sy=${result.sy}`}
-                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:brightness-110"
               >
                 Create a pool for this SY →
               </Link>
             )}
           </div>
-          <p className="text-[11px] text-accent-ink/70">
+          <p className="text-[11px] text-muted">
             {result.market
-              ? 'Opening the pool loads it live — tick “Remember this pool” there to save it to your local registry.'
-              : 'This SY has no market yet. Create one to make it tradeable; the create wizard opens with the SY prefilled.'}
+              ? 'Tick “Remember this pool” on the pool page to save it.'
+              : 'The wizard opens with this SY prefilled.'}
           </p>
         </div>
       ) : decodeFailed ? (
-        <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-amber-950/30 p-3">
-          <p className="text-xs text-warn">
-            The transaction confirmed, but the deployed address couldn't be read
-            from the receipt automatically. Open the transaction on{' '}
-            {explorerName(chainId)} (link above) to find the new SY (and market)
-            in its event logs.
+        <div className="mt-3 rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2">
+          <p className="text-[12.5px] text-warn">
+            Couldn't read the new addresses from the receipt. Open the
+            transaction on {explorerName(chainId)} to find them in its event
+            logs.
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-xs text-accent-ink/70">
+        <p className="mt-3 text-xs text-muted">
           Reading the new SY address from the receipt…
         </p>
       )}

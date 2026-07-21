@@ -9,8 +9,9 @@
  */
 
 import { useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useActiveChain, useRegistry, useRegistrySweep } from '../lib/hooks'
+import { PageHeader } from '../components/PageHeader'
 import { RegistryEmptyState, SavedPoolGroups } from '../components/SavedPoolsList'
 import {
   decodePoolsShare,
@@ -84,19 +85,16 @@ export default function PoolsPage() {
   }
 
   return (
-    <div className="py-8">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">Saved pools</h1>
-          <p className="mt-1 text-sm text-muted">
-            Every pool you've remembered, across all networks — stored locally in your browser,
-            nowhere else.
-          </p>
-        </div>
-        {pools.length > 0 && (
-          <span className="shrink-0 text-xs text-faint">{pools.length} remembered</span>
-        )}
-      </div>
+    <div className="pb-16">
+      <PageHeader
+        title="Saved pools"
+        lede="Pools you've saved, stored only in this browser."
+        actions={
+          pools.length > 0 ? (
+            <span className="shrink-0 text-xs text-faint">{pools.length} saved</span>
+          ) : undefined
+        }
+      />
 
       {sharedCount > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.09)] p-4">
@@ -148,7 +146,9 @@ export default function PoolsPage() {
             e.target.value = ''
           }}
         />
-        {status && <span className="text-xs text-faint">{status}</span>}
+        <span role="status" className="text-xs text-faint">
+          {status}
+        </span>
       </div>
 
       {pools.length === 0 ? (
@@ -156,12 +156,6 @@ export default function PoolsPage() {
       ) : (
         <SavedPoolGroups pools={pools} activeChainId={activeChainId} sweep={sweep} />
       )}
-
-      <p className="mt-8 text-sm">
-        <Link to="/" className="text-accent-ink hover:text-accent-ink">
-          ← Back home
-        </Link>
-      </p>
     </div>
   )
 }

@@ -9,6 +9,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import {
   Link,
+  NavLink,
   Route,
   Routes,
   useLocation,
@@ -53,7 +54,7 @@ function NotFound() {
   return (
     <div className="py-16 text-center">
       <h1 className="text-xl font-semibold text-fg">Page not found</h1>
-      <p className="mt-2 text-sm text-muted">Nothing lives at this route.</p>
+      <p className="mt-2 text-sm text-muted">This page doesn't exist.</p>
       <Link
         to="/"
         className="mt-6 inline-block rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:brightness-110"
@@ -158,34 +159,31 @@ export default function App() {
         style={{ background: 'var(--op-header)' }}
       >
         <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-2 px-3 sm:gap-4 sm:px-7">
-          <Logo />
+          <div className="flex min-w-0 items-center gap-7">
+            <Logo />
+            <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
+              {[
+                { to: '/explore', label: 'Explore' },
+                { to: '/looping', label: 'Looping' },
+                { to: '/alerts', label: 'Alerts' },
+                { to: '/positions', label: 'Positions' },
+                { to: '/create', label: 'Create' },
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `whitespace-nowrap text-[13.5px] font-medium no-underline transition-colors ${
+                      isActive ? 'text-fg' : 'text-muted hover:text-fg'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
           <div className="flex items-center gap-2">
-            <Link
-              to="/explore"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] px-[13px] text-[13px] font-medium text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.12)] xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px]">
-                ◇
-              </span>
-              Explore
-            </Link>
-            <Link
-              to="/looping"
-              className="hidden h-[34px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-hairline bg-surface px-[13px] text-[13px] font-medium text-fg no-underline hover:bg-surface-2 xl:inline-flex"
-            >
-              <span aria-hidden className="text-[12px] text-accent-ink">
-                ↻
-              </span>
-              Looping
-            </Link>
-            <Link
-              to="/create"
-              className="hidden h-[34px] items-center whitespace-nowrap rounded-[10px] px-[13px] text-[13px] font-semibold text-accent-ink no-underline hover:bg-[rgba(var(--op-accent-rgb),0.08)] xl:inline-flex"
-              style={{ border: '1px solid rgba(var(--op-accent-rgb),.4)' }}
-            >
-              Create pool
-            </Link>
-            <span className="mx-0.5 hidden h-[22px] w-px bg-hairline xl:block" />
             <HeaderAccountControls />
             <MobileNav />
           </div>
@@ -201,29 +199,28 @@ export default function App() {
           <div className="flex items-center gap-[11px]">
             <BrandMark className="h-[22px] w-[22px] shrink-0" />
             <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
-              Community pools are permissionless and{' '}
-              <span className="text-warn">unreviewed — use at your own risk</span>. OpenPendle
-              validates market provenance but cannot vouch for the assets or SY contracts underneath.{' '}
-              <span className="text-warn">Not affiliated with Pendle Finance.</span>{' '}
-              <span className="text-accent-ink">
-                OpenPendle is a gift to Pendle's community and takes no fee of its own.
-              </span>
+              Community pools are unreviewed — use at your own risk. Free and open source; no fees
+              of its own. Not affiliated with Pendle Finance.
             </p>
           </div>
-          <div className="flex items-center gap-3.5">
-            <Link to="/about" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
+          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+            <Link to="/about" className="text-[12px] font-medium text-muted no-underline hover:text-fg">
               About &amp; risks
             </Link>
             <span className="h-3 w-px bg-hairline" />
-            <Link to="/status" className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink">
+            <Link to="/status" className="text-[12px] font-medium text-muted no-underline hover:text-fg">
               Protocol status
+            </Link>
+            <span className="h-3 w-px bg-hairline" />
+            <Link to="/pools" className="text-[12px] font-medium text-muted no-underline hover:text-fg">
+              Saved pools
             </Link>
             <span className="h-3 w-px bg-hairline" />
             <a
               href="https://docs.openpendle.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12px] font-medium text-muted no-underline hover:text-accent-ink"
+              className="text-[12px] font-medium text-muted no-underline hover:text-fg"
             >
               Docs
             </a>
@@ -233,7 +230,7 @@ export default function App() {
                 href="https://x.com/openpendle"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="no-underline hover:text-accent-ink"
+                className="no-underline hover:text-fg"
               >
                 @openpendle
               </a>{' '}
@@ -242,14 +239,14 @@ export default function App() {
                 href="https://x.com/ggmxbt"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="no-underline hover:text-accent-ink"
+                className="no-underline hover:text-fg"
               >
                 @ggmxbt
               </a>
             </span>
             <span className="h-3 w-px bg-hairline" />
             <span className="whitespace-nowrap font-mono text-[11px] tracking-[.04em] text-faint">
-              GPL-3.0 · OPEN SOURCE
+              GPL-3.0
             </span>
           </div>
         </div>

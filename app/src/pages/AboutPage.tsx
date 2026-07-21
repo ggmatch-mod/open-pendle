@@ -19,57 +19,52 @@ export default function AboutPage() {
   useDocumentTitle('About, risks & fees')
 
   return (
-    <div className="mx-auto max-w-[760px] py-8">
-      <Link to="/" className="text-sm text-muted hover:text-fg">
+    <div className="mx-auto max-w-[760px] pt-8 pb-16 sm:pt-10">
+      <Link to="/" className="text-[13px] font-medium text-muted hover:text-fg">
         ← Home
       </Link>
 
       <header className="mt-4">
-        <h1 className="text-[28px] font-bold tracking-[-.03em] text-fg">About OpenPendle</h1>
+        <h1 className="text-[26px] font-bold tracking-tight text-fg sm:text-[30px]">
+          About OpenPendle
+        </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           OpenPendle is a free, open-source, static interface to Pendle V2's{' '}
           <span className="text-fg">permissionless community pools</span> — the markets anyone can
-          create, that Pendle's own app doesn't list. Core market state comes straight from the chain;
-          transactions are simulated before signing, while limit orders use separately validated typed data.{' '}
-          <span className="text-accent-ink">It is a gift to Pendle's community and takes no fee of its own.</span>
+          create, that Pendle's own app doesn't list. Market state comes straight from the chain,
+          and every transaction is simulated before you sign.
         </p>
       </header>
 
-      {/* Prominent risk callout */}
+      {/* Canonical risk callout (M9) */}
       <div
         role="note"
-        className="mt-6 rounded-[16px] border p-5"
-        style={{ borderColor: 'var(--op-warn-bd)', background: 'var(--op-warn-soft)' }}
+        className="mt-6 rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] leading-relaxed text-warn"
       >
-        <p className="text-sm font-semibold text-warn">Experimental — use at your own risk</p>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          This is novel, unaudited software for a permissionless protocol. Community pools are{' '}
-          <span className="text-warn">unreviewed</span> and can be created by anyone; interacting
-          with them can lose you funds. OpenPendle is <span className="text-fg">not affiliated with,
-          endorsed by, or operated by Pendle Finance</span>. Nothing here is financial advice, and it
-          comes with no warranty of any kind.
-        </p>
+        <span className="font-semibold">Experimental — use at your own risk.</span> Unaudited
+        software for a permissionless protocol. Anyone can create a community pool; interacting
+        with one can lose you funds. OpenPendle is not affiliated with or operated by Pendle
+        Finance, offers no financial advice, and comes with no warranty.
       </div>
 
       <div className="mt-8 space-y-8">
         <Section title="What community pools are">
           <p>
-            Anyone can permissionlessly create a Pendle V2 market for any yield-bearing asset —
-            no whitelist, no approval. OpenPendle loads any market by its address; there is no
-            listing or curation here by design. A market being loadable is <span className="text-fg">not</span>{' '}
-            an endorsement of it.
+            Anyone can create a Pendle V2 market for any yield-bearing asset — no whitelist, no
+            approval. OpenPendle loads any market by its address; there is no listing or curation
+            here by design.
           </p>
         </Section>
 
         <Section title="What OpenPendle checks — and what it can't">
           <p>
             <span className="text-fg">It checks:</span> that the market was created by a Pendle
-            factory OpenPendle recognizes (a provenance gate) before it lets you save or transact;
-            it simulates every transaction against the chain before you sign; and it defaults to
-            exact-amount token approvals. Unlimited approval is an explicit transaction-setting
-            opt-in that leaves a standing allowance and increases exposure. For supported PT limit
-            orders, it independently checks the typed-data domain, every signed field, the signer,
-            and the Limit Router's on-chain hash before sending the order to Pendle's service.
+            factory OpenPendle recognizes before it lets you save or transact; it simulates every
+            transaction against the chain before you sign; and it defaults to exact-amount token
+            approvals. Unlimited approval is an explicit opt-in in transaction settings that
+            leaves a standing allowance and increases exposure. For PT limit orders, it verifies
+            everything you sign against the Limit Router's on-chain hash before submitting the
+            order.
           </p>
           <p>
             <span className="text-fg">It can't:</span> vouch for the underlying asset or the SY
@@ -81,13 +76,12 @@ export default function AboutPage() {
 
         <Section title="Fees">
           <p>
-            OpenPendle charges <span className="text-accent-ink">nothing</span> and adds no fee of
-            its own. Pendle's own protocol fees still apply — the swap-fee cap, the YT interest fee,
-            limit-order fees, and so on — enforced by Pendle's contracts, not by this interface.
-            Limit-order fees are separate from AMM swap fees and can change. You can read Pendle's
-            factory and AMM fee values live on the{' '}
+            OpenPendle adds no fee of its own. Pendle's protocol fees still apply (the swap-fee
+            cap, the YT interest fee, and limit-order fees), enforced by Pendle's contracts rather
+            than this interface. Limit-order fees are separate from AMM swap fees and can change.
+            Read the live values on the{' '}
             <Link to="/status" className="text-accent-ink hover:underline">
-              Protocol Status &amp; Contracts
+              Protocol status
             </Link>{' '}
             page.
           </p>
@@ -95,28 +89,48 @@ export default function AboutPage() {
 
         <Section title="Your data & privacy">
           <p>
-            There is no request-time OpenPendle app server or account system. The hosted site uses
-            Cloudflare Web Analytics. The pools you remember live only in your browser's local storage;
-            any custom RPC you set stays local too. Explore inventory comes from a same-origin static
-            snapshot generated on a schedule from recognized factory events. Pendle's API supplies
-            listing/display data, Alerts history, the hosted limit-order service, and Official-pool
-            discovery for My positions. Alerts send no wallet address. Opening My positions sends
-            Pendle the connected wallet address to discover relevant Official markets; balances and
-            claims are then read from the relevant chains. Generating, submitting, and reading your
-            limit orders sends Pendle your wallet address, chain, market/YT, token, amount, target rate,
-            expiry, and signed order. A signed order can remain executable until it fills, expires, or
-            an on-chain cancellation is confirmed. Other outbound requests go to configured blockchain
-            RPCs, DefiLlama and CoinGecko for the header ticker, available Blockscout indexes for token
-            lookup, and Merkl when a connected user opens My positions. Merkl receives the wallet
-            address and supported chain IDs.
+            OpenPendle has no server and no accounts. Saved pools and any custom RPC you set stay
+            in your browser's local storage, and the Explore list is a static snapshot bundled
+            with the site, refreshed on a schedule. What leaves your browser:
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              <span className="text-fg">Pendle API</span> — listing and display data, alerts
+              history, and the limit-order service. Opening My positions sends your connected
+              wallet address to find official markets; alerts send no address. Submitting a limit
+              order sends your wallet address, chain, market, token, amount, target rate, expiry,
+              and the signed order.
+            </li>
+            <li>
+              <span className="text-fg">Blockchain RPCs</span> — market state, balances, and
+              claims, read from your configured endpoints.
+            </li>
+            <li>
+              <span className="text-fg">DefiLlama and CoinGecko</span> — price requests for the
+              header ticker.
+            </li>
+            <li>
+              <span className="text-fg">Blockscout</span> — token lookups.
+            </li>
+            <li>
+              <span className="text-fg">Merkl</span> — your wallet address and supported chain IDs
+              when you open My positions.
+            </li>
+            <li>
+              <span className="text-fg">Cloudflare Web Analytics</span> — on the hosted site.
+            </li>
+          </ul>
+          <p>
+            A signed limit order can remain executable until it fills, expires, or is cancelled
+            on-chain.
           </p>
         </Section>
 
         <Section title="Open source">
           <p>
-            OpenPendle is released under <span className="text-fg">GPL-3.0-or-later</span>. It calls
-            Pendle's deployed contracts with hand-written ABIs and ships no smart contracts of its
-            own. Built by{' '}
+            OpenPendle is released under <span className="text-fg">GPL-3.0-or-later</span>. It
+            calls Pendle's deployed contracts directly and ships no smart contracts of its own.
+            Built by{' '}
             <a
               href="https://x.com/ggmxbt"
               target="_blank"
@@ -130,9 +144,9 @@ export default function AboutPage() {
         </Section>
       </div>
 
-      <p className="mt-10 text-sm">
-        <Link to="/" className="text-accent-ink hover:text-accent-ink">
-          ← Back home
+      <p className="mt-10">
+        <Link to="/" className="text-[13px] font-medium text-muted hover:text-fg">
+          ← Home
         </Link>
       </p>
     </div>

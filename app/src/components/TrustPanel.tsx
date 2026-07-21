@@ -62,6 +62,25 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
   const defaultOpen = useFirstVisit(market)
   const [open, setOpen] = useState(defaultOpen)
 
+  const ownerSummary = trust.syOwner
+    ? trust.ownerIsPendleGovernance
+      ? 'Pendle governance'
+      : trust.ownerIsRenounced
+        ? 'ownership renounced'
+        : 'unknown owner'
+    : 'owner unreadable'
+  const proxySummary = trust.syIsProxy
+    ? trust.adminIsPendleProxyAdmin
+      ? 'Pendle proxyAdmin'
+      : 'unknown proxy admin'
+    : 'immutable'
+  const summary = [ownerSummary, trust.syPaused ? 'paused' : 'not paused', proxySummary].join(' · ')
+  const dotClass = trust.syPaused
+    ? 'bg-danger'
+    : ownerSummary === 'unknown owner' || proxySummary === 'unknown proxy admin' || !trust.syOwner
+      ? 'bg-warn'
+      : 'bg-good'
+
   return (
     <section className="rounded-xl border border-hairline bg-surface">
       <button
@@ -69,13 +88,16 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
       >
-        <span className="flex items-center gap-2.5">
-          <h2 className="text-base font-semibold text-fg">Trust panel</h2>
-          <span className="rounded-full border border-hairline-strong bg-surface-2 px-2 py-0.5 text-xs text-muted">
-            valid market ≠ safe SY
-          </span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <h2 className="shrink-0 text-base font-semibold text-fg">Trust panel</h2>
+          {!open && (
+            <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
+              <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
+              <span className="truncate">{summary}</span>
+            </span>
+          )}
         </span>
-        <span aria-hidden className="text-faint">
+        <span aria-hidden className="shrink-0 text-faint">
           {open ? '▾' : '▸'}
         </span>
       </button>
@@ -146,8 +168,7 @@ export function TrustPanel({ market, sy, trust }: { market: Address; sy: Address
           )}
 
           <p className="mt-4 border-t border-hairline pt-3 text-xs text-faint">
-            OpenPendle verifies market provenance, not the safety of the SY or its
-            assets.
+            OpenPendle verifies the market's factory, not the SY or the assets underneath.
           </p>
         </div>
       )}

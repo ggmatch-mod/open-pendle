@@ -180,9 +180,8 @@ function LegacyCantRedeemNotice({
   if (!show) return null
   return (
     <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2.5 text-xs leading-relaxed text-warn">
-      <span className="font-semibold text-warn">Legacy market:</span> This
-      legacy market couldn't be redeemed through OpenPendle — its rescue paths
-      are out of scope. Nothing was sent.
+      <span className="font-semibold text-warn">Legacy market:</span> redemption isn't supported
+      here. Nothing was sent — your tokens are untouched.
     </div>
   )
 }
@@ -202,10 +201,8 @@ function DepegBanner({
         SY exchange rate below the redemption index
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-warn">
-        The SY's live exchange rate has fallen below the redemption index —
-        each PT still redeems at the stored index, but the SY you receive is
-        worth less than 1 {assetLabel} when unwrapped. Value the output via
-        the unwrap quote, not at par.
+        Each PT still redeems at the stored index, but the SY you receive is worth less than 1{' '}
+        {assetLabel} when unwrapped — check the unwrap quote before valuing it at par.
       </p>
     </div>
   )
@@ -390,8 +387,8 @@ function RedeemPtSection({
           slippage={appliedSlippage}
           note={
             (choiceIsSy
-              ? 'Exact at the current PY index — the binding number is simulated before you confirm.'
-              : 'Exact at the current index, chained through redeem → unwrap (SY.previewRedeem) — the binding number is simulated before you confirm.') +
+              ? 'Exact at the current PY index — simulated before you sign.'
+              : 'Exact at the current index via redeem → unwrap — simulated before you sign.') +
             // The cap note only applies to the SY path (exact math); the token
             // path uses full slippage (previewRedeem can move more).
             (choiceIsSy && capped
@@ -732,8 +729,7 @@ function ExitLpSection({
         </div>
 
         <p className="mt-1.5 text-[11px] leading-snug text-faint">
-          Exact — pro-rata LP burn plus PT redemption at the stored index; no
-          swap anywhere. The binding number is simulated before you confirm.
+          Exact — pro-rata LP burn plus PT redemption, no swap. Simulated before you sign.
         </p>
       </div>
 
@@ -824,11 +820,8 @@ export function MaturedPanel({
       </div>
 
       <p className="mt-2 text-xs leading-relaxed text-faint">
-        This market has matured. Swaps, minting and adding liquidity are
-        disabled by the protocol. PT redeems 1:1 for the accounting asset; YT
-        no longer accrues — any residual interest and rewards remain
-        claimable. When supported by the SY, wrapping and unwrapping remain
-        available because they are independent of this market's maturity.
+        This market has matured — PT now redeems 1:1 for the accounting asset. Trading, minting
+        and adding liquidity are closed; residual interest and rewards stay claimable.
       </p>
 
       <div

@@ -8,6 +8,7 @@ import type { CatalogMarket } from '../lib/catalog'
 import type { SupportedChainId } from '../lib/types'
 import { isSupportedChainId, SUPPORTED_CHAINS } from '../lib/addresses'
 import { CatalogMarketCard } from '../components/CatalogMarketCard'
+import { PageHeader } from '../components/PageHeader'
 import { useMarketCatalog } from '../components/useMarketCatalog'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 
@@ -29,7 +30,7 @@ type DirectoryUpdate = Partial<{
 }>
 
 const selectClass =
-  'h-11 w-full rounded-[10px] border border-hairline bg-surface px-3 text-sm text-fg outline-none transition hover:border-hairline-strong focus:border-[rgba(var(--op-accent-rgb),0.7)] focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.12)]'
+  'h-9 rounded-md border border-hairline bg-surface px-2.5 text-[13px] text-fg outline-none transition hover:border-hairline-strong focus:border-[rgba(var(--op-accent-rgb),0.7)] focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.12)]'
 
 const lifecycleOptions: Array<{ value: LifecycleFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -201,20 +202,20 @@ export default function ExplorePage() {
   const factoryCoverageText = (() => {
     if (factoryCoverage === undefined) return ''
     if (factoryCoverage.status === 'unavailable') {
-      return 'Factory snapshot unavailable — showing a Pendle-listed bootstrap only.'
+      return 'Factory scan unavailable — showing only Pendle-listed markets.'
     }
     const totalChains = factoryCoverage.totalChains || SUPPORTED_CHAINS.length
     if (factoryCoverage.status === 'partial') {
-      const incompleteSuffix =
+      const where =
         incompleteNetworkNames.length > 0
           ? ` on ${incompleteNetworkNames.join(', ')}`
-          : ' on uncovered networks'
-      return `${factoryCoverage.completeChains.length}/${totalChains} network scans complete — community inventory may be missing${incompleteSuffix}.`
+          : ' on unscanned networks'
+      return `${factoryCoverage.completeChains.length} of ${totalChains} networks scanned — community markets${where} may be missing.`
     }
     if (staleNetworkNames.length > 0) {
-      return `Last-known-complete factory inventory is stale on ${staleNetworkNames.join(', ')} — newly created markets may be missing · ${factoryCoverage.marketCount.toLocaleString()} ${factoryCoverage.marketCount === 1 ? 'market' : 'markets'} indexed.`
+      return `Data for ${staleNetworkNames.join(', ')} is stale — recently created markets may be missing.`
     }
-    return `Factory coverage complete across ${totalChains} networks · ${factoryCoverage.marketCount.toLocaleString()} ${factoryCoverage.marketCount === 1 ? 'market' : 'markets'} indexed.`
+    return ''
   })()
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -297,49 +298,24 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="py-8 sm:py-10">
-      <div className="relative overflow-hidden rounded-[20px] border border-hairline bg-surface px-5 py-7 sm:px-8 sm:py-9">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full opacity-20 blur-3xl"
-          style={{ background: 'var(--op-accent)' }}
-        />
-        <div className="relative max-w-3xl">
-          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.15em] text-accent-ink">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-            V2 market directory
-          </div>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-            Factory-created markets, one directory
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-            Explore the factory-indexed universe across OpenPendle networks — including community
-            pools absent from Pendle's frontend. The coverage notice shows which network scans are
-            complete. Search by protocol, market name, or any market, PT, YT or SY address.
-          </p>
-        </div>
-      </div>
+    <div className="pb-16">
+      <PageHeader
+        title="Explore markets"
+        lede={`Every Pendle V2 market across ${SUPPORTED_CHAINS.length} networks, including pools not listed on Pendle's site.`}
+        actions={
+          catalog.status === 'success' ? (
+            <p className="text-xs tabular-nums text-faint" aria-live="polite">
+              {filtered.length === 0
+                ? 'No matching markets'
+                : `${firstResult}–${lastResult} of ${filtered.length.toLocaleString()} ${filtered.length === 1 ? 'market' : 'markets'}`}
+            </p>
+          ) : undefined
+        }
+      />
 
-      <aside className="mt-4 rounded-[14px] border border-hairline bg-surface px-4 py-3.5" aria-label="Catalog trust notice">
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[rgba(var(--op-accent-rgb),0.35)] bg-[rgba(var(--op-accent-rgb),0.09)] text-xs font-bold text-accent-ink"
-          >
-            i
-          </span>
-          <p className="text-xs leading-5 text-muted">
-            <span className="font-semibold text-fg">Factory-created does not mean safe.</span>{' '}
-            Events establish market provenance; Pendle's catalog only adds listing and display
-            metadata. Neither source reviews the underlying asset or SY. Always inspect the SY
-            owner, pause controls, liquidity and contract addresses before transacting.
-          </p>
-        </div>
-      </aside>
-
-      <section className="mt-6" aria-label="Market directory filters">
-        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_190px_190px]">
-          <label className="relative block">
+      <section aria-label="Market directory filters">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative block min-w-[220px] flex-1">
             <span className="sr-only">Search markets</span>
             <svg
               aria-hidden
@@ -347,7 +323,7 @@ export default function ExplorePage() {
               fill="none"
               stroke="currentColor"
               strokeWidth="1.7"
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
             >
               <circle cx="8.5" cy="8.5" r="5.5" />
               <path d="m13 13 4 4" strokeLinecap="round" />
@@ -358,7 +334,7 @@ export default function ExplorePage() {
               value={query}
               onChange={(event) => updateDirectory({ query: event.target.value, page: 1 })}
               placeholder="Search name, protocol or address…"
-              className="h-11 w-full rounded-[10px] border border-hairline bg-surface pl-10 pr-4 text-sm text-fg outline-none transition placeholder:text-faint hover:border-hairline-strong focus:border-[rgba(var(--op-accent-rgb),0.7)] focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.12)]"
+              className="h-9 w-full rounded-md border border-hairline bg-surface pl-9 pr-3 text-[13px] text-fg outline-none transition placeholder:text-faint hover:border-hairline-strong focus:border-[rgba(var(--op-accent-rgb),0.7)] focus:ring-2 focus:ring-[rgba(var(--op-accent-rgb),0.12)]"
             />
           </label>
 
@@ -399,132 +375,90 @@ export default function ExplorePage() {
               <option value="newest">Newest created</option>
             </select>
           </label>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-          <div className="flex min-w-0 flex-wrap gap-3">
-            <div className="min-w-0">
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-faint">
-                Lifecycle
-              </p>
-              <div
-                className="inline-flex max-w-full overflow-x-auto rounded-[10px] border border-hairline bg-surface p-1"
-                role="group"
-                aria-label="Filter by market lifecycle"
+          <div
+            className="inline-flex h-9 max-w-full items-center overflow-x-auto rounded-md border border-hairline bg-surface p-0.5"
+            role="group"
+            aria-label="Filter by market status"
+          >
+            {lifecycleOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => updateDirectory({ lifecycle: option.value, page: 1 })}
+                aria-pressed={lifecycleFilter === option.value}
+                className={
+                  lifecycleFilter === option.value
+                    ? 'shrink-0 rounded-sm bg-[rgba(var(--op-accent-rgb),0.13)] px-2.5 py-1 text-xs font-semibold text-accent-ink'
+                    : 'shrink-0 rounded-sm px-2.5 py-1 text-xs font-medium text-muted transition hover:bg-surface-2 hover:text-fg'
+                }
               >
-                {lifecycleOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => updateDirectory({ lifecycle: option.value, page: 1 })}
-                    aria-pressed={lifecycleFilter === option.value}
-                    className={
-                      lifecycleFilter === option.value
-                        ? 'shrink-0 rounded-[7px] bg-[rgba(var(--op-accent-rgb),0.13)] px-3 py-1.5 text-xs font-semibold text-accent-ink'
-                        : 'shrink-0 rounded-[7px] px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-surface-2 hover:text-fg'
-                    }
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-faint">
-                Source
-              </p>
-              <div
-                className="inline-flex max-w-full overflow-x-auto rounded-[10px] border border-hairline bg-surface p-1"
-                role="group"
-                aria-label="Filter by market source"
-              >
-                {sourceOptions.map((option) => {
-                  const unavailable = option.value === 'community' && !pendleCoverageComplete
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => updateDirectory({ source: option.value, page: 1 })}
-                      aria-pressed={sourceFilter === option.value}
-                      disabled={unavailable}
-                      title={
-                        unavailable
-                          ? 'Community classification requires complete Pendle listing coverage.'
-                          : undefined
-                      }
-                      className={
-                        unavailable
-                          ? 'shrink-0 cursor-not-allowed rounded-[7px] px-3 py-1.5 text-xs font-medium text-faint opacity-50'
-                          : sourceFilter === option.value
-                            ? 'shrink-0 rounded-[7px] bg-[rgba(var(--op-accent-rgb),0.13)] px-3 py-1.5 text-xs font-semibold text-accent-ink'
-                            : 'shrink-0 rounded-[7px] px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-surface-2 hover:text-fg'
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                {option.label}
+              </button>
+            ))}
           </div>
 
-          {catalog.status === 'success' && (
-            <p className="pb-2 text-xs tabular-nums text-faint" aria-live="polite">
-              {filtered.length === 0
-                ? 'No matching markets'
-                : `${firstResult}–${lastResult} of ${filtered.length.toLocaleString()} ${filtered.length === 1 ? 'market' : 'markets'}`}
-            </p>
-          )}
+          <div
+            className="inline-flex h-9 max-w-full items-center overflow-x-auto rounded-md border border-hairline bg-surface p-0.5"
+            role="group"
+            aria-label="Filter by market source"
+          >
+            {sourceOptions.map((option) => {
+              const unavailable = option.value === 'community' && !pendleCoverageComplete
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => updateDirectory({ source: option.value, page: 1 })}
+                  aria-pressed={sourceFilter === option.value}
+                  disabled={unavailable}
+                  title={unavailable ? 'Unavailable until listing data fully loads.' : undefined}
+                  className={
+                    unavailable
+                      ? 'shrink-0 cursor-not-allowed rounded-sm px-2.5 py-1 text-xs font-medium text-faint opacity-50'
+                      : sourceFilter === option.value
+                        ? 'shrink-0 rounded-sm bg-[rgba(var(--op-accent-rgb),0.13)] px-2.5 py-1 text-xs font-semibold text-accent-ink'
+                        : 'shrink-0 rounded-sm px-2.5 py-1 text-xs font-medium text-muted transition hover:bg-surface-2 hover:text-fg'
+                  }
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
+
+        <p className="mt-2 text-[12.5px] text-faint">
+          Factory-created does not mean safe — check a pool's trust panel before transacting.
+        </p>
       </section>
 
-      {catalog.status === 'success' && catalog.data !== undefined && (
-        <div
-          className={
-            catalogCoverageHasWarnings
-              ? 'mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-4 py-3 text-xs text-warn'
-              : 'mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-hairline bg-surface px-4 py-3 text-xs text-muted'
-          }
-        >
-          <div className="flex min-w-0 items-start gap-2.5" role="status">
-            <span
-              aria-hidden
-              className={
-                catalogCoverageHasWarnings
-                  ? 'mt-1 h-2 w-2 shrink-0 rounded-full bg-warn'
-                  : 'mt-1 h-2 w-2 shrink-0 rounded-full bg-good'
-              }
-            />
-            <div className="min-w-0 leading-5">
-              <p className={catalogCoverageHasWarnings ? 'font-medium text-warn' : 'font-medium text-fg'}>
-                {factoryCoverageText}
-              </p>
+      {catalog.status === 'success' && catalog.data !== undefined && catalogCoverageHasWarnings && (
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 items-start gap-2 text-[12.5px] leading-5 text-warn" role="status">
+            <span aria-hidden className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-warn" />
+            <div className="min-w-0">
+              {factoryCoverageText !== '' && <p>{factoryCoverageText}</p>}
               {!pendleCoverageComplete && (
-                <p>
-                  Pendle listing enrichment is partial. Unmatched factory markets are labeled
-                  “Listing unknown,” not community/unlisted.
-                </p>
+                <p>Listing data is incomplete — unmatched markets show “Listing unknown.”</p>
               )}
               {(factoryCoverage?.quarantinedLogCount ?? 0) > 0 && (
                 <p>
-                  {factoryCoverage?.quarantinedLogCount.toLocaleString()} undecodable factory{' '}
-                  {factoryCoverage?.quarantinedLogCount === 1 ? 'log was' : 'logs were'} quarantined
-                  from results.
+                  {factoryCoverage?.quarantinedLogCount.toLocaleString()}{' '}
+                  {factoryCoverage?.quarantinedLogCount === 1 ? 'market was' : 'markets were'}{' '}
+                  skipped (unreadable on-chain data).
                 </p>
               )}
             </div>
           </div>
-          {catalogCoverageHasWarnings && (
-            <button
-              type="button"
-              onClick={() => void catalog.refetch()}
-              disabled={catalog.isFetching}
-              className="rounded-[8px] border border-hairline-strong bg-surface px-3 py-1.5 font-medium text-fg transition hover:bg-surface-2 disabled:cursor-wait disabled:opacity-50"
-            >
-              {catalog.isFetching ? 'Retrying…' : 'Retry now'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void catalog.refetch()}
+            disabled={catalog.isFetching}
+            className="rounded-md border border-hairline-strong bg-surface px-2.5 py-1 text-xs font-medium text-fg transition hover:bg-surface-2 disabled:cursor-wait disabled:opacity-50"
+          >
+            {catalog.isFetching ? 'Retrying…' : 'Retry now'}
+          </button>
         </div>
       )}
 
@@ -533,15 +467,15 @@ export default function ExplorePage() {
       <section
         ref={resultsRef}
         tabIndex={-1}
-        className="mt-5 scroll-mt-24 rounded-[16px] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
+        className="mt-5 scroll-mt-24 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
         aria-label="Markets"
         aria-busy={catalog.isPending}
       >
         {catalog.isPending ? (
           <div aria-hidden className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 9 }, (_, index) => (
-              <div key={index} className="h-[238px] animate-pulse rounded-[16px] border border-hairline bg-surface motion-reduce:animate-none">
-                <div className="h-full rounded-[16px] bg-surface-2 opacity-40" />
+              <div key={index} className="h-44 animate-pulse rounded-lg border border-hairline bg-surface motion-reduce:animate-none">
+                <div className="h-full rounded-lg bg-surface-2 opacity-40" />
               </div>
             ))}
           </div>

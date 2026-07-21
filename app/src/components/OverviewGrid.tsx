@@ -58,7 +58,7 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat
           label="Implied APY"
           sub={isExpired ? 'not meaningful after maturity' : undefined}
@@ -78,11 +78,6 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
           {formatPrice(metrics.ytPriceAsset)}
         </Stat>
 
-        <Stat label="TVL" sub={`in ${assetSymbol} terms`}>
-          {formatCompact(metrics.tvlAsset)}{' '}
-          <span className="text-sm font-normal text-muted">{assetSymbol}</span>
-        </Stat>
-
         <Stat
           label="Maturity"
           sub={
@@ -98,23 +93,38 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
         >
           {formatDate(expiry)}
         </Stat>
+      </div>
 
-        <Stat label="Fee tier">{formatPercent(metrics.feeTier)}</Stat>
-
-        <Stat
-          label="PT proportion"
-          sub={
-            <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-              <span
-                className="block h-full rounded-full bg-accent/80"
-                style={{ width: `${proportionPct}%` }}
-              />
-            </span>
-          }
+      <div className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-xl border border-hairline bg-surface px-4 py-3">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">TVL</span>
+          <span className="text-sm font-semibold tabular-nums text-fg">
+            {formatCompact(metrics.tvlAsset)} {assetSymbol}
+          </span>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">Fee</span>
+          <span className="text-sm font-semibold tabular-nums text-fg">
+            {formatPercent(metrics.feeTier)}
+          </span>
+        </div>
+        <div
+          className="flex min-w-[160px] flex-1 items-center gap-2"
           title="Share of the pool held as PT (trades cap at 96%)"
         >
-          {formatPercent(metrics.ptProportion, 1)}
-        </Stat>
+          <span className="font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">
+            PT share
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-fg">
+            {formatPercent(metrics.ptProportion, 1)}
+          </span>
+          <span className="block h-1.5 min-w-[60px] flex-1 overflow-hidden rounded-full bg-surface-2">
+            <span
+              className="block h-full rounded-full bg-accent/80"
+              style={{ width: `${proportionPct}%` }}
+            />
+          </span>
+        </div>
       </div>
     </div>
   )

@@ -80,7 +80,7 @@ function BandBar({
       <div className="mt-2 rounded-md border border-hairline bg-bg-2 px-2.5 py-1.5 text-[11px] text-muted">
         Launch PT proportion:{' '}
         <span className="font-medium text-fg">
-          {proportion !== undefined ? pct(proportion) : 'computed on preview'}
+          {proportion !== undefined ? pct(proportion) : '—'}
         </span>{' '}
         of the pool starts as PT.
       </div>
@@ -90,11 +90,12 @@ function BandBar({
 
 function DerivedRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-xs text-faint" title={hint}>
-        {label}
-      </span>
-      <span className="font-mono text-xs text-muted">{value}</span>
+    <div className="py-1">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xs text-faint">{label}</span>
+        <span className="font-mono text-xs text-muted">{value}</span>
+      </div>
+      {hint && <p className="text-[11px] leading-snug text-faint">{hint}</p>}
     </div>
   )
 }
@@ -124,7 +125,7 @@ export function PoolParamEducation({
   return (
     <section className="rounded-xl border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.08)] p-4">
       <h2 className="text-sm font-semibold text-accent-ink">
-        Read this before you deploy
+        Before you deploy
       </h2>
 
       {showBar ? (
@@ -140,27 +141,14 @@ export function PoolParamEducation({
         </p>
       )}
 
-      <div className="mt-4 space-y-2.5 text-xs leading-relaxed text-fg/80">
-        <p>
-          <span className="font-semibold text-warn">
-            This rate band is PERMANENT.
-          </span>{' '}
-          If the pool's implied APY ever leaves the range above, the pool goes
-          out of range and can't be traded — you'd need to deploy a new one. The
-          band maps to an immutable scalarRoot / anchor at deploy time and can
-          never be changed.
+      <div className="mt-4 space-y-2 text-xs leading-relaxed text-fg/80">
+        <p className="rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn">
+          The rate band is permanent. If the pool's implied APY leaves this
+          range, trading stops — the only fix is deploying a new pool.
         </p>
         <p>
-          <span className="font-semibold text-accent-ink">
-            Seeding mints PT + YT and gives you the LP plus the YT.
-          </span>{' '}
-          You'll be long yield until you sell the YT — the YT lands in your
-          wallet alongside the LP position. That's expected; it's how the seed
-          liquidity is created.
-        </p>
-        <p className="text-accent-ink/60">
-          Pendle's own guidance: seed a small amount first (under ~$10), confirm
-          the pool lists and trades, then top up liquidity from the pool page.
+          Seeding mints PT and YT: you keep the LP plus the YT, so you're long
+          yield until you sell the YT.
         </p>
       </div>
 
@@ -191,14 +179,13 @@ export function PoolParamEducation({
                 value={derived.yearsToExpiry.toFixed(4)}
               />
               <p className="mt-2 text-[11px] leading-snug text-faint">
-                These are a client-side floating-point mirror for preview only.
-                The deploy transaction recomputes them on-chain from your inputs.
+                Preview values — the transaction computes the exact numbers
+                on-chain.
               </p>
             </>
           ) : (
             <p className="py-1 text-xs text-faint">
-              Derived parameters appear once the live preview computes them from
-              a complete, valid configuration.
+              Complete the form to see derived parameters.
             </p>
           )}
         </div>

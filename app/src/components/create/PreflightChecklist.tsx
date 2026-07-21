@@ -18,7 +18,7 @@ function Dot({ tone }: { tone: 'ok' | 'bad' | 'warn' | 'idle' }) {
       : tone === 'bad'
         ? 'bg-danger'
         : tone === 'warn'
-          ? 'bg-amber-400'
+          ? 'bg-warn'
           : 'bg-[var(--op-faint)]'
   return <span className={`mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${cls}`} aria-hidden />
 }
@@ -34,7 +34,7 @@ function Line({
     tone === 'ok'
       ? 'text-accent-ink/90'
       : tone === 'bad'
-        ? 'text-red-200/90'
+        ? 'text-danger'
         : tone === 'warn'
           ? 'text-warn'
           : 'text-muted'
@@ -50,29 +50,49 @@ function Line({
  * The six hard checks. `syValid` is a structured field; the rest are inferred
  * from the preflight's human error strings via conservative keyword matching
  * (a check reads "needs fixing" only when an error clearly names its topic).
- * The full, verbatim error list still renders separately below, so a wording
- * the keyword map misses is never hidden — it just also shows there.
+ * Errors the keyword map attributes to a check line are consumed by it; only
+ * the unattributed remainder renders in the verbatim list below, so a wording
+ * the map misses is never hidden — and nothing shows twice.
  */
-function hardChecks(pf: DeployPreflight): { label: string; ok: boolean }[] {
+function hardChecks(pf: DeployPreflight): {
+  checks: { label: string; ok: boolean }[]
+  unattributed: string[]
+} {
   const errs = pf.errors.map((e) => e.toLowerCase())
-  const has = (...needles: string[]): boolean =>
-    errs.some((e) => needles.some((n) => e.includes(n)))
-  return [
-    { label: 'Expiry is in the future and divisor-aligned', ok: !has('expiry') },
+  const attributed = new Set<number>()
+  const has = (...needles: string[]): boolean => {
+    let hit = false
+    errs.forEach((e, i) => {
+      if (needles.some((n) => e.includes(n))) {
+        attributed.add(i)
+        hit = true
+      }
+    })
+    return hit
+  }
+  const checks = [
+    { label: 'Expiry is in the future and on a valid boundary', ok: !has('expiry') },
     { label: 'Rate band is valid (max > min)', ok: !has('band', 'ratemax', 'ratemin') },
     { label: 'Launch APY is strictly inside the band', ok: !has('desired', 'launch apy', 'implied rate') },
     { label: 'Fee is within the 5% cap', ok: !has('fee') },
     { label: 'SY implements IStandardizedYield', ok: pf.syValid },
     { label: 'Seed token is the SY or an accepted token', ok: !has('seed token', 'seed') },
   ]
+  return {
+    checks,
+    unattributed: pf.errors.filter((_, i) => !attributed.has(i)),
+  }
 }
 
 export function PreflightChecklist({
+  step,
   status,
   preflight,
   error,
   incomplete,
 }: {
+  /** Wizard step number, rendered like the page's Section shell. */
+  step?: number
   status: QueryStatus
   preflight?: DeployPreflight
   error?: string
@@ -80,9 +100,16 @@ export function PreflightChecklist({
   incomplete?: boolean
 }) {
   return (
-    <section className="rounded-xl border border-hairline bg-surface p-4">
+    <section className="rounded-[16px] border border-hairline bg-surface p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-fg">Preflight</h2>
+        <div className="flex items-baseline gap-2.5">
+          {step !== undefined && (
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-bg font-mono text-[11px] text-accent-ink">
+              {step}
+            </span>
+          )}
+          <h2 className="text-sm font-semibold text-fg">Preflight</h2>
+        </div>
         {status === 'loading' && (
           <span className="text-xs text-faint">checking…</span>
         )}
@@ -90,40 +117,41 @@ export function PreflightChecklist({
 
       {incomplete && status === 'idle' ? (
         <p className="mt-2 text-xs text-faint">
-          Fill in the SY, expiry, rate band, launch APY, fee and a seed amount to
-          run the live checks and the binding on-chain simulation.
+          Complete the form above to run the live checks.
         </p>
       ) : status === 'idle' ? (
         <p className="mt-2 text-xs text-faint">
-          The live preflight is not available yet — the checklist and binding
-          simulation will run here once the deploy data layer is wired. Deploy
-          stays disabled until every hard check passes.
+          Preflight checks aren't available yet. Deploy stays disabled.
         </p>
       ) : status === 'error' ? (
         <p className="mt-2 text-xs text-danger">
-          Couldn't run preflight: {error ?? 'the RPC read failed.'} Deploy stays
-          disabled.
+          Couldn't run preflight: {error ?? 'the RPC read failed.'}
         </p>
       ) : preflight ? (
         (() => {
           // Deploy gates on the HARD checks only (FIX A) — not the advisory
           // simulation. `hardBlocked` drives the summary banner tone.
           const hardBlocked = preflight.errors.length > 0 || !preflight.syValid
+          const { checks, unattributed } = hardChecks(preflight)
           return (
         <div className="mt-3 space-y-3">
           <ul className="space-y-1.5">
-            {hardChecks(preflight).map((c) => (
+            {checks.map((c) => (
               <Line key={c.label} tone={c.ok ? 'ok' : 'bad'}>
-                {c.ok ? '' : 'Needs fixing: '}
+                {c.ok ? (
+                  <span className="sr-only">Passed: </span>
+                ) : (
+                  'Needs fixing: '
+                )}
                 {c.label}
               </Line>
             ))}
           </ul>
 
-          {/* Extra hard errors the keyword map didn't attribute to a line. */}
-          {preflight.errors.length > 0 && (
+          {/* Errors the keyword map didn't attribute to a check line. */}
+          {unattributed.length > 0 && (
             <ul className="space-y-1.5 border-t border-hairline pt-2.5">
-              {preflight.errors.map((e, i) => (
+              {unattributed.map((e, i) => (
                 <Line key={i} tone="bad">
                   {e}
                 </Line>
@@ -138,19 +166,17 @@ export function PreflightChecklist({
             <ul className="space-y-1.5 border-t border-hairline pt-2.5">
               {preflight.ptExistsOnActive && (
                 <Line tone="warn">
-                  A PT already exists for this SY + expiry on the active factory —
-                  it will be reused
+                  A PT already exists for this SY + expiry and will be reused
                   {preflight.existingPt
                     ? ` (${shortAddress(preflight.existingPt)})`
                     : ''}
-                  . This is normal, not an error.
+                  .
                 </Line>
               )}
               {preflight.legacyParallelPts.map((p) => (
                 <Line key={p.pt} tone="warn">
-                  A parallel PT for this SY + expiry exists on a legacy factory
-                  ({p.gen}: {shortAddress(p.pt)}) — informational only; your new
-                  pool uses the active generation.
+                  An older-factory PT exists for this SY + expiry ({p.gen}:{' '}
+                  {shortAddress(p.pt)}); your pool won't use it.
                 </Line>
               ))}
               {preflight.warnings.map((w, i) => (
@@ -168,21 +194,20 @@ export function PreflightChecklist({
           <div className="border-t border-hairline pt-2.5">
             {preflight.simulated ? (
               <Line tone="ok">
-                Binding simulation passed — the exact deploy call succeeds from
-                your address.
+                Simulation passed — the deploy call succeeds from your address.
               </Line>
             ) : preflight.simulationPendingApproval ? (
               <Line tone="warn">
-                Advisory simulation pending — approve the seed token first, then
-                it runs against your allowance. This does not block deploying.
+                Simulation will run after you approve the seed token — it
+                doesn't block deploying.
               </Line>
             ) : preflight.simulationError ? (
               <Line tone="bad">
-                Advisory simulation reverted: {preflight.simulationError}
+                Simulation failed: {preflight.simulationError}
               </Line>
             ) : (
               <Line tone="idle">
-                Advisory simulation runs once every hard check passes.
+                Simulation runs once all checks pass.
               </Line>
             )}
           </div>
@@ -195,8 +220,8 @@ export function PreflightChecklist({
             }`}
           >
             {hardBlocked
-              ? 'Deploy stays disabled until every hard check passes.'
-              : 'Hard checks passed — approve the seed token, then deploy.'}
+              ? 'Deploy stays disabled until every check passes.'
+              : 'Checks passed — approve the seed token, then deploy.'}
           </div>
         </div>
           )

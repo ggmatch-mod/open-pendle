@@ -76,13 +76,11 @@ function impactTierOf(impact: number): ImpactTier {
 
 const MODE_COPY: Record<`${TradeAction}-${SwapSide}`, string> = {
   'buy-pt':
-    'Buying PT locks in the current implied rate — each PT redeems for 1 unit of the accounting asset at maturity.',
+    "Each PT redeems for 1 unit of the asset at maturity — buying locks in today's rate.",
   'buy-yt':
     'Buying YT is a leveraged bet on yield — YT collects the underlying yield until expiry, then expires worthless.',
-  'sell-pt':
-    'Selling PT swaps it back through the pool at the current implied rate, before maturity.',
-  'sell-yt':
-    'Selling YT exits the yield position through the pool, before expiry.',
+  'sell-pt': '',
+  'sell-yt': '',
 }
 
 export function TradePanel({
@@ -239,10 +237,10 @@ export function TradePanel({
     reason: string | null
   } => {
     if (!isConnected || user === undefined) return { plan: null, reason: null } // TxButton → Connect wallet
-    if (inDecimals === undefined) return { plan: null, reason: 'Token metadata unavailable' }
+    if (inDecimals === undefined) return { plan: null, reason: 'Token details unavailable' }
     // Output token metadata unknown (sell to an unreadable token): refuse to
     // plan rather than displaying min-out/quotes with a guessed 18 decimals.
-    if (outDecimals === undefined) return { plan: null, reason: 'Token metadata unavailable' }
+    if (outDecimals === undefined) return { plan: null, reason: 'Token details unavailable' }
     if (parsed.error) return { plan: null, reason: 'Fix the amount' }
     if (amount === undefined || amount === 0n) return { plan: null, reason: 'Enter an amount' }
     if (balance === undefined) return { plan: null, reason: 'Loading balances…' }
@@ -252,7 +250,7 @@ export function TradePanel({
     // Cap pre-check (before the quote gates: the pre-quote projection blocks
     // even while a doomed quote is still loading or has already failed).
     if (capBlocked) {
-      return { plan: null, reason: "Exceeds the pool's 0.96 PT-proportion cap — reduce the size" }
+      return { plan: null, reason: 'Trade too large for this pool' }
     }
     if (quoteLoading) return { plan: null, reason: 'Fetching quote…' }
     // Covers quote errors AND the pre-integration 'idle' stub — disabled, not broken.
@@ -386,7 +384,9 @@ export function TradePanel({
         </label>
       </div>
 
-      <p className="text-xs leading-relaxed text-faint">{MODE_COPY[`${action}-${side}`]}</p>
+      {MODE_COPY[`${action}-${side}`] && (
+        <p className="text-xs leading-relaxed text-faint">{MODE_COPY[`${action}-${side}`]}</p>
+      )}
 
       <AmountInput
         label={action === 'buy' ? 'You pay' : 'You sell'}
@@ -410,7 +410,13 @@ export function TradePanel({
               {quoteLoading ? (
                 <span className="text-faint">…</span>
               ) : quoteUnavailable ? (
-                <span className="text-warn">quote unavailable</span>
+                // The warning slot below carries the decoded failure — don't
+                // repeat it inside the card.
+                quoteError ? (
+                  <span className="text-faint">—</span>
+                ) : (
+                  <span className="text-warn">quote unavailable</span>
+                )
               ) : quote !== undefined ? (
                 `~${formatAmount(quote.amountOut, outDecimals)} ${clampLabel(outSymbol, 16)}`
               ) : (
@@ -469,73 +475,73 @@ export function TradePanel({
           )}
 
           <p className="mt-1.5 text-[11px] leading-snug text-faint">
-            Estimated from RouterStatic — the final number is simulated before you confirm.
-            {slippageFloored &&
-              ' Your slippage setting is below the 0.05% floor applied to static-derived minimums.'}
+            Estimate — the exact amount is simulated before you sign.
           </p>
         </div>
       )}
 
-      {/* Quote errors run through decodePendleError in useSwapQuote, so the
-          revert families arrive pre-translated (e.g. "Trade too large… or the
-          quote went stale" from 'search range overflow' / APPROX_EXHAUSTED). */}
-      {quoteUnavailable && quoteError && (
-        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
-          <span className="font-semibold text-warn">Quote failed:</span> {quoteError}
-        </div>
-      )}
-
-      {/* PT-proportion cap projection (primary guard); the TVL-fraction note
-          below stays as a secondary heuristic. */}
-      {projectedProportion !== undefined && projectedProportion > PROPORTION_WARN && (
-        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
-          {capBlocked ? (
-            <>
-              <span className="font-semibold text-warn">
-                Exceeds the pool's PT-proportion cap:
+      {/* Single warning slot — only the most severe message shows
+          (cap-block > quote-failed > red impact > cap-warn > large trade >
+          amber impact). Quote errors arrive pre-decoded from useSwapQuote. */}
+      {(() => {
+        const warnStyle =
+          'rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn'
+        const dangerStyle =
+          'rounded-md border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-[12.5px] text-danger'
+        if (capBlocked && projectedProportion !== undefined) {
+          return (
+            <div className={warnStyle}>
+              <span className="font-semibold">Trade too large:</span> it would push the pool's
+              PT share to ~{formatPercent(Math.min(projectedProportion, 1))}, past the 0.96 cap.
+              Reduce the size.
+            </div>
+          )
+        }
+        if (quoteUnavailable && quoteError) {
+          return (
+            <div className={warnStyle}>
+              <span className="font-semibold">Quote failed:</span> {quoteError}
+            </div>
+          )
+        }
+        if (impactTier === 'red-banner' && quote !== undefined) {
+          return (
+            <div className={dangerStyle}>
+              <span className="font-semibold">
+                Very high price impact ({formatPercent(quote.priceImpact)})
               </span>{' '}
-              this trade would push the pool's PT share to ~
-              {formatPercent(Math.min(projectedProportion, 1))}, past the 0.96 hard cap the AMM
-              enforces. Reduce the size.
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-warn">
-                Approaching the pool's PT-proportion cap:
-              </span>{' '}
-              this trade would push the pool's PT share to ~{formatPercent(projectedProportion)},
-              near the 0.96 cap where trades start reverting. Consider a smaller size.
-            </>
-          )}
-        </div>
-      )}
-
-      {largeTrade && largeTradeRatio !== undefined && (
-        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
-          <span className="font-semibold text-warn">
-            Large trade for this pool's liquidity
-          </span>{' '}
-          — roughly {formatPercent(Math.min(largeTradeRatio, 9.99))} of pool TVL. Expect heavy
-          price impact or a failed quote; consider splitting it into smaller trades.
-        </div>
-      )}
-
-      {impactTier === 'amber-banner' && quote !== undefined && (
-        <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
-          <span className="font-semibold text-warn">High price impact:</span> this trade
-          moves the pool price by {formatPercent(quote.priceImpact)}. Consider a smaller size.
-        </div>
-      )}
-
-      {impactTier === 'red-banner' && quote !== undefined && (
-        <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-xs text-red-200/90">
-          <span className="font-semibold text-danger">
-            Very high price impact ({formatPercent(quote.priceImpact)}):
-          </span>{' '}
-          you will likely lose money to price impact. Reduce the trade size — this pool is too
-          shallow for it.
-        </div>
-      )}
+              — reduce the trade size.
+            </div>
+          )
+        }
+        if (projectedProportion !== undefined && projectedProportion > PROPORTION_WARN) {
+          return (
+            <div className={warnStyle}>
+              <span className="font-semibold">Nearing the pool's PT cap:</span> this trade
+              would push the PT share to ~{formatPercent(projectedProportion)}, near the 0.96
+              cap. Consider a smaller size.
+            </div>
+          )
+        }
+        if (largeTrade && largeTradeRatio !== undefined) {
+          return (
+            <div className={warnStyle}>
+              <span className="font-semibold">Large trade</span> — about{' '}
+              {formatPercent(Math.min(largeTradeRatio, 9.99))} of this pool's TVL. Consider
+              splitting it.
+            </div>
+          )
+        }
+        if (impactTier === 'amber-banner' && quote !== undefined) {
+          return (
+            <div className={warnStyle}>
+              <span className="font-semibold">High price impact:</span> this trade moves the
+              pool price by {formatPercent(quote.priceImpact)}. Consider a smaller size.
+            </div>
+          )
+        }
+        return null
+      })()}
 
       <TxButton
         flow={flow}

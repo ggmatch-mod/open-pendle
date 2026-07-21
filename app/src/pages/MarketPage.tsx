@@ -1,11 +1,12 @@
 /**
  * MarketPage — /market/:address. Loads a full market snapshot via
  * useMarketSnapshot: header (name, vintage, matured badge, remember toggle),
- * overview grid, trust panel, the actions area (PositionsCard + ActionTabs on
- * validated live markets; the M5 MaturedPanel on validated expired markets;
- * the red no-tx placeholder on unvalidated markets), and the PT/YT/SY token
- * strip. Legacy probe failures render the DegradedBanner instead of failing
- * the page (PLAN M1).
+ * then a two-column body at lg: (left: overview grid, trust panel, positions,
+ * token strip; right: sticky actions card). Below lg the actions card sits
+ * directly after the stat grid. Validated live markets get ActionTabs;
+ * validated expired markets the M5 MaturedPanel; unvalidated markets a
+ * disabled placeholder. Legacy probe failures render the DegradedBanner
+ * instead of failing the page (PLAN M1).
  */
 
 import { useEffect } from 'react'
@@ -30,32 +31,25 @@ import { useDocumentTitle } from '../components/useDocumentTitle'
 // Small pieces
 // ---------------------------------------------------------------------------
 
+/** Badge for abnormal provenance only — the normal (active, validated) case renders nothing. */
 function VintageBadge({ vintage, validated }: { vintage: Vintage; validated: boolean }) {
   if (!validated || vintage === 'unvalidated') {
     return (
       <span
-        title="No known Pendle factory recognizes this address — possibly fake, or a newer factory generation than this build knows"
+        title="Not recognized by any Pendle factory"
         className="rounded-full border border-[var(--op-danger-bd)] bg-red-950/70 px-2.5 py-0.5 text-xs font-semibold text-danger"
       >
-        not validated
+        Not validated
       </span>
     )
   }
-  const isActive = vintage === 'active'
+  if (vintage === 'active') return null
   return (
     <span
-      title={
-        isActive
-          ? 'Created through the active factory generation'
-          : `Legacy factory generation (${vintage}) — loads best-effort`
-      }
-      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-        isActive
-          ? 'border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink'
-          : 'border-hairline-strong bg-surface-2 text-muted'
-      }`}
+      title={`Older Pendle factory (${vintage})`}
+      className="rounded-full border border-hairline-strong bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-muted"
     >
-      {isActive ? 'active gen' : `legacy ${vintage}`}
+      Legacy {vintage}
     </span>
   )
 }
@@ -72,13 +66,9 @@ function UnvalidatedBanner() {
         Not validated by any Pendle factory
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-red-200/80">
-        No known Pendle factory recognizes this address. It may be a fake
-        market built to look real, or a newer factory generation than this
-        build knows about. Nothing shown on this page can be trusted — the
-        numbers below come from the contract itself and may be fabricated. Do
-        not interact with it unless you fully trust whoever gave you this
-        address. If Pendle has shipped a new factory generation, check for an
-        updated OpenPendle build.
+        No Pendle factory recognizes this address — it may be fake. The numbers
+        below come from the contract itself and can't be trusted. Transactions
+        are disabled.
       </p>
     </div>
   )
@@ -97,30 +87,10 @@ function MaturedBadge() {
  * offers transaction UI (PLAN §3.4). Validated live markets get ActionTabs.
  */
 function ActionsPlaceholder() {
-  const tabs = [
-    { label: 'Wrap / Mint / Redeem', arrives: 'disabled — market not validated' },
-    { label: 'Trade PT & YT', arrives: 'disabled — market not validated' },
-    { label: 'Liquidity', arrives: 'disabled — market not validated' },
-  ]
   return (
-    <section className="rounded-xl border border-hairline bg-surface p-5">
+    <section aria-disabled="true" className="rounded-xl border border-hairline bg-surface p-5">
       <h2 className="text-base font-semibold text-fg">Actions</h2>
-      <p className="mt-1 text-xs text-faint">
-        Transactions are never offered on markets no known Pendle factory
-        validates.
-      </p>
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-        {tabs.map((tab) => (
-          <div
-            key={tab.label}
-            aria-disabled="true"
-            className="cursor-not-allowed rounded-lg border border-hairline bg-bg-2 px-4 py-3.5 text-center"
-          >
-            <p className="text-sm font-medium text-faint">{tab.label}</p>
-            <p className="mt-0.5 text-xs text-faint">{tab.arrives}</p>
-          </div>
-        ))}
-      </div>
+      <p className="mt-2 text-sm text-faint">Disabled for unvalidated markets.</p>
     </section>
   )
 }
@@ -154,7 +124,7 @@ function TokenStrip({ snapshot }: { snapshot: MarketSnapshot }) {
 
 function PageSkeleton() {
   return (
-    <div className="space-y-5 py-8" aria-busy="true" aria-label="Loading market">
+    <div className="space-y-5 pb-16 pt-8 sm:pt-10" aria-busy="true" aria-label="Loading market">
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-2.5">
           <div className="h-6 w-64 max-w-[60vw] animate-pulse rounded bg-surface-2" />
@@ -162,8 +132,8 @@ function PageSkeleton() {
         </div>
         <div className="h-10 w-44 animate-pulse rounded-xl bg-surface-2" />
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="h-24 animate-pulse rounded-xl bg-surface" />
         ))}
       </div>
@@ -178,11 +148,11 @@ function BadAddress({ raw }: { raw: string }) {
       <h1 className="text-xl font-semibold text-fg">Not a valid address</h1>
       <p className="mx-auto mt-2 max-w-md break-all text-sm text-muted">
         <span className="font-mono text-xs text-faint">{raw || '(empty)'}</span>{' '}
-        isn't a valid Ethereum address, so there's no market to load.
+        isn't a valid Ethereum address.
       </p>
       <Link
         to="/"
-        className="mt-6 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
+        className="mt-6 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:brightness-110"
       >
         ← Back home
       </Link>
@@ -246,8 +216,8 @@ function MarketView({ address }: { address: Address }) {
   if (status === 'idle' || status === 'loading' || !snapshot) return <PageSkeleton />
 
   return (
-    <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
+    <div className="space-y-5 pb-16 pt-8 sm:pt-10">
+      <Link to="/" className="inline-block text-[13px] font-medium text-muted hover:text-fg">
         ← Home
       </Link>
 
@@ -261,7 +231,7 @@ function MarketView({ address }: { address: Address }) {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="min-w-0 max-w-full break-words text-xl font-bold tracking-tight text-fg sm:text-2xl">
+            <h1 className="min-w-0 max-w-full break-words text-[26px] font-bold tracking-tight text-fg sm:text-[30px]">
               {clampLabel(snapshot.displayName)}
             </h1>
             <VintageBadge vintage={snapshot.vintage} validated={snapshot.validated} />
@@ -274,36 +244,47 @@ function MarketView({ address }: { address: Address }) {
         <RememberToggle snapshot={snapshot} />
       </header>
 
-      <div className="mt-7 grid items-start gap-7 lg:grid-cols-[1.5fr_.96fr]">
-        <div className="space-y-5">
-          <OverviewGrid snapshot={snapshot} />
+      {/* Two-column at lg: (left: stats, trust, positions, tokens; right: sticky
+          actions). Below lg the wrapper dissolves (display: contents) and the
+          order-* utilities put Actions directly after the stat grid. */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-5">
+          <div className="order-1">
+            <OverviewGrid snapshot={snapshot} />
+          </div>
 
-          <TrustPanel
-            market={snapshot.address}
-            sy={snapshot.sy.address}
-            trust={snapshot.trust}
-          />
+          <div className="order-3">
+            <TrustPanel
+              market={snapshot.address}
+              sy={snapshot.sy.address}
+              trust={snapshot.trust}
+            />
+          </div>
 
           {/* PositionsCard whenever the market is validated and a wallet is
               connected (the card gates on connection itself — claims stay valid
               on expired markets). */}
           {snapshot.validated && (
-            <PositionsCard
-              snapshot={snapshot}
-              positions={positions}
-              status={positionsStatus}
-              error={positionsError}
-              refetch={refetchPositions}
-            />
+            <div className="order-4">
+              <PositionsCard
+                snapshot={snapshot}
+                positions={positions}
+                status={positionsStatus}
+                error={positionsError}
+                refetch={refetchPositions}
+              />
+            </div>
           )}
 
-          <TokenStrip snapshot={snapshot} />
+          <div className="order-5">
+            <TokenStrip snapshot={snapshot} />
+          </div>
         </div>
 
-        <div className="lg:sticky lg:top-24">
+        <div className="order-2 lg:sticky lg:top-20 lg:w-[420px] lg:shrink-0">
           {/* Actions area: live tabs on validated non-expired markets; the M5
               MaturedPanel (redeem PT / exit LP) on validated expired ones.
-              Unvalidated keeps the no-tx red state, expired or not. */}
+              Unvalidated keeps the no-tx state, expired or not. */}
           {snapshot.validated && snapshot.isExpired ? (
             <MaturedPanel
               snapshot={snapshot}

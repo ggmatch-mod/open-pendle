@@ -32,7 +32,7 @@ function ProfilePanel({
       role="dialog"
       aria-label="Profile and settings"
       data-testid="profile-panel"
-      className="absolute right-[-42px] top-[calc(100%+8px)] z-50 max-h-[min(72vh,640px)] w-[min(320px,calc(100vw-24px))] overflow-y-auto rounded-[16px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)] xl:right-0"
+      className="absolute right-[-42px] top-[calc(100%+8px)] z-50 max-h-[min(72vh,640px)] w-[min(320px,calc(100vw-24px))] overflow-y-auto rounded-[16px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)] lg:right-0"
     >
       <div className="border-b border-hairline px-4 py-3.5">
         <p className="font-mono text-[10px] uppercase tracking-[.08em] text-faint">
@@ -88,9 +88,9 @@ function ProfilePanel({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-fg">Active network</p>
-            <p className="mt-0.5 text-[10.5px] text-faint">
-              {isTransactionInFlight ? 'Locked while a transaction is pending' : 'App reads and wallet'}
-            </p>
+            {isTransactionInFlight ? (
+              <p className="mt-0.5 text-[10.5px] text-faint">Locked while a transaction is pending</p>
+            ) : null}
           </div>
           <span className="font-mono text-[10px] text-faint">#{chainId}</span>
         </div>
@@ -216,7 +216,7 @@ export function HeaderAccountControls() {
         if (!connected) {
           return (
             <>
-              <div className="hidden items-center gap-2 xl:flex">
+              <div className="hidden items-center gap-2 lg:flex">
                 <NetworkSelector />
                 <RpcSettings />
               </div>

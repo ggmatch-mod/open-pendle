@@ -411,7 +411,7 @@ export function LimitOrderPanel({
             Stop retrying locally
           </button>
           <p className="text-[11px] leading-relaxed text-warn">
-            Stopping only discards this browser's retry copy. The original order may still be live; check Your orders before creating another.
+            The order may already be live — check Your orders before creating another.
           </p>
         </div>
       )
@@ -457,8 +457,8 @@ export function LimitOrderPanel({
           </div>
           <span className="rounded-md border border-hairline bg-bg-2 px-2 py-1 text-[11px] text-muted">
             {annualizedFeeParameter === undefined
-              ? 'Fee parameter unavailable'
-              : `Annualized fee parameter: ${formatPercent(annualizedFeeParameter)}`}
+              ? 'Fee unavailable'
+              : `Fee: ${formatPercent(annualizedFeeParameter)}/yr`}
           </span>
         </div>
 
@@ -467,17 +467,12 @@ export function LimitOrderPanel({
         )}
         {flow.eligibility.status === 'unsupported' && (
           <StatusBanner tone="warn">
-            This market and direction are not enabled by Pendle's limit-order service. Listing status alone does not determine support.
+            Limit orders aren't available for this market and direction.
           </StatusBanner>
         )}
         {flow.eligibility.status === 'unavailable' && (
           <StatusBanner tone="danger">
             Support could not be verified safely, so signing is disabled. {flow.eligibility.error}
-          </StatusBanner>
-        )}
-        {flow.eligibility.status === 'supported' && (
-          <StatusBanner tone="neutral">
-            Pendle's API approved this exact market, YT, SY, network, and direction. The live fee setting also matches on-chain. The actual fill fee depends on direction and time to market maturity, and declines toward maturity.
           </StatusBanner>
         )}
 
@@ -581,7 +576,7 @@ export function LimitOrderPanel({
             {flow.error}
             {flow.phase === 'ambiguous' && (
               <span className="mt-1 block">
-                The exact hash, signature, and request are retained. Retry never creates or signs a different order.
+                Retry re-submits the same signed order — it never creates a new one.
               </span>
             )}
           </StatusBanner>
@@ -589,10 +584,11 @@ export function LimitOrderPanel({
         {primaryButton}
 
         <div className="space-y-1 text-[11px] leading-relaxed text-faint">
-          <p>Funds are not reserved. Keep enough balance and allowance available until the order fills.</p>
-          <p>Placing the signed order is gasless. Token approval and on-chain cancellation can cost gas.</p>
-          <p>Limit-order fees are separate from pool trading fees and can change; the live setting is rechecked before signing and again before submission.</p>
-          <p>Smart-contract wallets are disabled until Pendle's ERC-1271 behavior is verified.</p>
+          <p>
+            Funds aren't reserved — keep balance and allowance available until the order fills.
+            Placing is gasless; approvals and cancellation cost gas.
+          </p>
+          <p>Smart-contract wallets aren't supported.</p>
         </div>
       </div>
 
@@ -600,9 +596,6 @@ export function LimitOrderPanel({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-fg">Order book</h3>
-            <p className="mt-0.5 text-[11px] text-faint">
-              Pendle's “Long yield” and “Short yield” book labels; these are book sides, not outcome promises.
-            </p>
           </div>
           <span className="text-[11px] text-faint">refreshes about every 15s</span>
         </div>
@@ -624,7 +617,7 @@ export function LimitOrderPanel({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-fg">Your orders</h3>
-            <p className="mt-0.5 text-[11px] text-faint">Direct-SY Buy PT and Sell PT orders for this market.</p>
+            <p className="mt-0.5 text-[11px] text-faint">Your orders for this market.</p>
           </div>
           <span className="text-[11px] text-faint">refreshes about every 20s</span>
         </div>
