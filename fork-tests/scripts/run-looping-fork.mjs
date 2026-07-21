@@ -14,6 +14,7 @@ const PENDLE_READ_TOKENS_SELECTOR = '0x2c8ce6bc'
 const SY_GET_TOKENS_IN_SELECTOR = '0x213cae63'
 const SY_GET_TOKENS_OUT_SELECTOR = '0x071bc3c9'
 const MAX_QUOTE_ROUTES = 16
+const PENDLE_QUOTE_RETRY_DELAYS_MS = Object.freeze([5_000, 15_000, 45_000])
 
 const CHAINS = {
   ethereum: {
@@ -339,14 +340,31 @@ async function pendleQuoteRoutes({ tokenIn, tokenOut, amountIn, aggregator, chai
   url.searchParams.set('enableAggregator', 'true')
   url.searchParams.set('aggregators', aggregator)
 
-  const response = await fetch(url, { headers: { accept: 'application/json' } })
-  if (!response.ok) fail(`Pendle quote returned HTTP ${response.status}: ${await response.text()}`)
-  const payload = await response.json()
-  const routes = payload.routes
-  if (!Array.isArray(routes) || routes.length === 0 || routes.length > MAX_QUOTE_ROUTES) {
-    fail(`Pendle quote must contain between 1 and ${MAX_QUOTE_ROUTES} routes`)
+  for (let attempt = 0; attempt <= PENDLE_QUOTE_RETRY_DELAYS_MS.length; attempt += 1) {
+    const response = await fetch(url, { headers: { accept: 'application/json' } })
+    if (response.ok) {
+      const payload = await response.json()
+      const routes = payload.routes
+      if (!Array.isArray(routes) || routes.length === 0 || routes.length > MAX_QUOTE_ROUTES) {
+        fail(`Pendle quote must contain between 1 and ${MAX_QUOTE_ROUTES} routes`)
+      }
+      return routes
+    }
+
+    const responseBody = await response.text()
+    if (response.status !== 429 || attempt === PENDLE_QUOTE_RETRY_DELAYS_MS.length) {
+      fail(`Pendle quote returned HTTP ${response.status}: ${responseBody}`)
+    }
+
+    const retryDelayMs = PENDLE_QUOTE_RETRY_DELAYS_MS[attempt]
+    console.warn(
+      `Pendle quote rate-limited; retrying in ${retryDelayMs / 1_000}s ` +
+      `(${attempt + 1}/${PENDLE_QUOTE_RETRY_DELAYS_MS.length})`,
+    )
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
   }
-  return routes
+
+  fail('Pendle quote retry policy exhausted unexpectedly')
 }
 
 function validatePendleRoute(route, { method, aggregator, chain }) {
