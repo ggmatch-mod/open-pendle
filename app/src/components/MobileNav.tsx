@@ -10,8 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { SUPPORTED_CHAINS } from '../lib/addresses'
-import { useNetworkSelection } from './useNetworkSelection'
+import { NetworkPicker } from './NetworkPicker'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
   { to: '/explore', label: 'Explore markets', glyph: '◇' },
@@ -34,7 +33,6 @@ export function MobileNav() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const { chainId, selectChain, isSelectionDisabled } = useNetworkSelection()
 
   useEffect(() => {
     if (!open) return
@@ -112,27 +110,7 @@ export function MobileNav() {
 
           <div className="border-t border-hairline px-4 py-2.5">
             <p className="mb-1.5 font-mono text-[10.5px] uppercase tracking-[.06em] text-faint">Network</p>
-            <div className="grid grid-cols-2 gap-1">
-              {SUPPORTED_CHAINS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  disabled={isSelectionDisabled}
-                  onClick={() => {
-                    void selectChain(c.id)
-                    close()
-                  }}
-                  className={`flex items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-[12px] disabled:cursor-wait disabled:opacity-60 ${
-                    c.id === chainId
-                      ? 'bg-[rgba(var(--op-accent-rgb),0.12)] font-medium text-accent-ink'
-                      : 'text-fg hover:bg-surface-2'
-                  }`}
-                >
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                  {c.name}
-                </button>
-              ))}
-            </div>
+            <NetworkPicker onSelect={close} />
           </div>
         </div>
       )}

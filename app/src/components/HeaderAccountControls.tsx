@@ -1,10 +1,10 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { SUPPORTED_CHAINS } from '../lib/addresses'
 import { useRegistry } from '../lib/hooks'
 import { useTheme } from '../theme/useTheme'
 import { ThemeToggle } from '../theme/ThemeToggle'
+import { NetworkPicker } from './NetworkPicker'
 import { NetworkSelector } from './NetworkSelector'
 import { RpcSettings, RpcSettingsForm } from './RpcSettings'
 import { useNetworkSelection } from './useNetworkSelection'
@@ -24,8 +24,7 @@ function ProfilePanel({
 }) {
   const { pools } = useRegistry()
   const { theme, toggle } = useTheme()
-  const { chainId, selectChain, isSelectionDisabled, isTransactionInFlight } =
-    useNetworkSelection()
+  const { chainId, isTransactionInFlight } = useNetworkSelection()
 
   return (
     <div
@@ -95,32 +94,7 @@ function ProfilePanel({
           </div>
           <span className="font-mono text-[10px] text-faint">#{chainId}</span>
         </div>
-        <div role="radiogroup" aria-label="Select active network" className="mt-2.5 grid grid-cols-2 gap-1">
-          {SUPPORTED_CHAINS.map((chain) => {
-            const active = chain.id === chainId
-            return (
-              <button
-                key={chain.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                disabled={isSelectionDisabled}
-                onClick={() => void selectChain(chain.id)}
-                className={`flex min-h-9 items-center gap-2 rounded-[9px] px-2.5 py-2 text-left text-[11.5px] disabled:cursor-wait disabled:opacity-60 ${
-                  active
-                    ? 'bg-[rgba(var(--op-accent-rgb),0.12)] font-semibold text-accent-ink'
-                    : 'text-muted hover:bg-surface-2 hover:text-fg'
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-accent' : 'bg-[var(--op-faint)]'}`}
-                />
-                <span className="truncate">{chain.name}</span>
-              </button>
-            )
-          })}
-        </div>
+        <NetworkPicker className="mt-2.5" />
       </div>
 
       <div className="border-t border-hairline px-4 py-3">
