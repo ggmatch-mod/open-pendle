@@ -2,7 +2,7 @@
  * My positions (M12) — a cross-pool, cross-chain view of the connected wallet's
  * Pendle positions, aggregated over Saved Pools plus wallet-discovered Pendle
  * Official pools. Standard positions are split into PT, YT, and LP like the
- * Pendle dashboard; looped PT positions remain outside this standard grouping.
+ * Pendle dashboard; looped PT positions stay in their separate section.
  *
  * Reads are cross-chain (each pool via its own chain's client). WRITES go only
  * to the ACTIVE chain (useActionFlow's constraint), so the active chain's group
@@ -25,6 +25,7 @@ import { SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
 import { TxButton } from '../components/TxButton'
 import { TxStatus } from '../components/TxStatus'
 import { MerklSection } from '../components/MerklSection'
+import { LoopPositionsSection } from '../components/LoopPositionsSection'
 import { clampLabel, formatAmount } from '../components/format'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 import { useNetworkSelection } from '../components/useNetworkSelection'
@@ -385,7 +386,7 @@ export default function PositionsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">My positions</h1>
           <p className="mt-1 text-sm text-muted">
-            Your PT, YT, and LP across Saved Pools and Pendle Official Pools — with
+            Your PT loops plus PT, YT, and LP across Saved Pools and Pendle Official Pools — with
             balances read from their own networks.
           </p>
         </div>
@@ -414,6 +415,7 @@ export default function PositionsPage() {
         </section>
       ) : (
         <div className="space-y-4">
+          <LoopPositionsSection />
           <MerklSection />
           {officialStatus === 'loading' && groups.length > 0 && (
             <section

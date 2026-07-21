@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDocumentTitle } from '../components/useDocumentTitle'
+import {
+  LoopingExecutionAction,
+  LoopingExecutionPanel,
+  LoopingExecutionProvider,
+} from '../components/LoopingExecutionPanel'
 import { useLoopingMarkets } from '../components/useLoopingMarkets'
 import {
   clampLabel,
@@ -10,6 +15,7 @@ import {
   shortAddress,
 } from '../components/format'
 import { isSupportedChainId, SUPPORTED_CHAINS, supportedChain } from '../lib/addresses'
+import { useTransactionInFlight } from '../lib/hooks'
 import {
   calculateLoopingLeverageCap,
   calculateLoopingScenario,
@@ -17,14 +23,21 @@ import {
   type LoopingScenario,
   type LoopingScenarioInput,
 } from '../lib/looping'
+import { isLoopingExecutionCandidateSupported } from '../lib/loopingRegistry'
 import type { SupportedChainId } from '../lib/types'
+import {
+  LOOPING_EXECUTION_BETA_ENABLED,
+  LOOPING_EXIT_BETA_ENABLED,
+} from '../lib/loopingBeta'
+import {
+  evaluateLoopingRiskIncreaseEligibility,
+  LOOPING_MIN_BORROW_LIQUIDITY_USD,
+} from '../lib/loopingEligibility'
 
-const ARBITRUM_CANARY_MARKET_ID =
-  '0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985'
 const MARKET_STATE_STALE_AFTER_SECONDS = 60 * 60
 const DIRECTORY_SNAPSHOT_STALE_AFTER_SECONDS = 15 * 60
 const DIRECTORY_PAGE_SIZE = 3
-const DEFAULT_MIN_BORROW_LIQUIDITY_USD = 50_000
+const DEFAULT_MIN_BORROW_LIQUIDITY_USD = LOOPING_MIN_BORROW_LIQUIDITY_USD
 const SLIDER_MAX_POLICY = {
   collateralPriceDrop: 0,
   lltvBuffer: 0.01,
@@ -182,9 +195,8 @@ function parseExactAssets(value: string, decimals: number): bigint {
   return units
 }
 
-function isCanary(candidate: LoopingMarketCandidate): boolean {
-  return candidate.morpho.chainId === 42161 &&
-    candidate.morpho.marketId.toLowerCase() === ARBITRUM_CANARY_MARKET_ID
+function isExecutionEnabled(candidate: LoopingMarketCandidate): boolean {
+  return isLoopingExecutionCandidateSupported(candidate)
 }
 
 function formatAge(seconds: number): string {
@@ -268,6 +280,7 @@ function NumberField({
   max,
   step,
   help,
+  disabled = false,
 }: {
   id: string
   label: string
@@ -278,6 +291,7 @@ function NumberField({
   max: number
   step: string
   help: string
+  disabled?: boolean
 }) {
   const helpId = `${id}-help`
   return (
@@ -294,7 +308,8 @@ function NumberField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           aria-describedby={helpId}
-          className={`${inputClass} ${suffix ? 'pr-12' : ''}`}
+          disabled={disabled}
+          className={`${inputClass} ${suffix ? 'pr-12' : ''} disabled:cursor-not-allowed disabled:opacity-60`}
         />
         {suffix && (
           <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-faint">
@@ -322,11 +337,13 @@ function MarketOption({
   selected,
   now,
   onSelect,
+  disabled = false,
 }: {
   candidate: LoopingMarketCandidate
   selected: boolean
   now: number
   onSelect: () => void
+  disabled?: boolean
 }) {
   const { morpho, pendle } = candidate
   const spread = marketSpread(candidate)
@@ -336,10 +353,11 @@ function MarketOption({
     <button
       type="button"
       onClick={onSelect}
+      disabled={disabled}
       aria-pressed={selected}
       className={selected
-        ? 'w-full rounded-xl border border-[rgba(var(--op-accent-rgb),0.55)] bg-[rgba(var(--op-accent-rgb),0.08)] p-4 text-left shadow-[var(--op-shadow)] outline-none ring-1 ring-[rgba(var(--op-accent-rgb),0.12)] focus-visible:ring-2 focus-visible:ring-accent'
-        : 'w-full rounded-xl border border-hairline bg-surface p-4 text-left outline-none transition hover:border-hairline-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent'}
+        ? 'w-full rounded-xl border border-[rgba(var(--op-accent-rgb),0.55)] bg-[rgba(var(--op-accent-rgb),0.08)] p-4 text-left shadow-[var(--op-shadow)] outline-none ring-1 ring-[rgba(var(--op-accent-rgb),0.12)] focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60'
+        : 'w-full rounded-xl border border-hairline bg-surface p-4 text-left outline-none transition hover:border-hairline-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60'}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -361,9 +379,9 @@ function MarketOption({
             : 'rounded-full border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[.06em] text-warn'}>
             {morpho.listed ? 'Morpho listed' : 'Morpho unlisted'}
           </span>
-          {isCanary(candidate) && (
+          {isExecutionEnabled(candidate) && (
             <span className="rounded-full border border-[rgba(52,211,153,0.3)] bg-[var(--op-good-soft)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[.06em] text-good">
-              Arbitrum canary
+              Looping enabled
             </span>
           )}
         </div>
@@ -399,7 +417,8 @@ function MarketOption({
 }
 
 export default function LoopingPage() {
-  useDocumentTitle('PT looping research')
+  useDocumentTitle('PT looping')
+  const transactionInFlight = useTransactionInFlight()
   const marketsQuery = useLoopingMarkets()
   const [searchParams, setSearchParams] = useSearchParams()
   const [form, setForm] = useState<CalculatorForm>(DEFAULT_FORM)
@@ -440,6 +459,7 @@ export default function LoopingPage() {
   }
 
   const setSelectedMarket = (marketKey: string | null) => {
+    if (transactionInFlight) return
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous)
       if (marketKey === null || next.get('selected') === marketKey) next.delete('selected')
@@ -485,6 +505,9 @@ export default function LoopingPage() {
   )
   const selectedMatchesFilters = selectedCandidate !== undefined &&
     visible.some((candidate) => candidate.key === selectedCandidate.key)
+  const selectedRiskIncreaseEligibility = selectedCandidate === undefined
+    ? undefined
+    : evaluateLoopingRiskIncreaseEligibility(selectedCandidate, now)
   const selectedSpread = selectedCandidate === undefined ? null : marketSpread(selectedCandidate)
   const leverageMaximum = selectedCandidate === undefined
     ? 5
@@ -518,7 +541,7 @@ export default function LoopingPage() {
   }, [chain, minimumLiquidityUsd, positiveSpreadOnly, queryText, sort])
 
   useEffect(() => {
-    if (selectedCandidate === undefined) return
+    if (selectedCandidate === undefined || transactionInFlight) return
     const currentLeverage = Number(form.leverage)
     if (Number.isFinite(currentLeverage) && currentLeverage >= 1) {
       if (currentLeverage <= leverageMaximum) return
@@ -527,7 +550,7 @@ export default function LoopingPage() {
     }
     const fallbackLeverage = Math.min(Number(DEFAULT_FORM.leverage), leverageMaximum)
     setForm((current) => ({ ...current, leverage: fallbackLeverage.toFixed(2) }))
-  }, [form.leverage, leverageMaximum, selectedCandidate])
+  }, [form.leverage, leverageMaximum, selectedCandidate, transactionInFlight])
 
   const calculator = useMemo<CalculatorSuccess | CalculatorFailure | null>(() => {
     if (selectedCandidate === undefined) return null
@@ -621,10 +644,12 @@ export default function LoopingPage() {
   ).length
 
   const setFormField = (key: keyof CalculatorForm, value: string) => {
+    if (transactionInFlight) return
     setForm((current) => ({ ...current, [key]: value }))
   }
 
   const resetAdvancedAssumptions = () => {
+    if (transactionInFlight) return
     setForm((current) => ({
       ...current,
       holdingMonths: DEFAULT_FORM.holdingMonths,
@@ -672,17 +697,26 @@ export default function LoopingPage() {
               Morpho × Pendle research
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
-              PT looping, modeled before execution
+              PT looping
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
               Compare Morpho markets whose collateral exactly matches a live, factory-indexed
-              Pendle PT. Adjust leverage to compare estimated APY and liquidation distance,
-              then open the optional stress and transaction details only when you need them.
+              Pendle PT. Model leverage and inspect the reviewed entry and exit path.
+              {LOOPING_EXECUTION_BETA_ENABLED
+                ? ` Allowlisted beta markets can open a small loop from your wallet${LOOPING_EXIT_BETA_ENABLED ? ' and fully unwind it' : ''}.`
+                : LOOPING_EXIT_BETA_ENABLED
+                  ? ' New entries are gated, while existing allowlisted positions can still use the reviewed full-exit flow.'
+                  : ' New entry and full exit remain launch-gated; bounded safety recovery remains available for prior attempts.'}
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-[10.5px] text-muted">
               <span className="rounded-full border border-hairline bg-surface-2 px-2.5 py-1">Exact PT-to-collateral join</span>
               <span className="rounded-full border border-hairline bg-surface-2 px-2.5 py-1">Calculator estimates</span>
-              <span className="rounded-full border border-hairline bg-surface-2 px-2.5 py-1">Execution disabled</span>
+              <span className="rounded-full border border-hairline bg-surface-2 px-2.5 py-1">Unsigned wallet-RPC simulation</span>
+              <span className="rounded-full border border-hairline bg-surface-2 px-2.5 py-1">
+                {LOOPING_EXECUTION_BETA_ENABLED
+                  ? 'Reviewed-market entry beta'
+                  : LOOPING_EXIT_BETA_ENABLED ? 'Exit-only beta' : 'Entry and exit gated'}
+              </span>
             </div>
           </div>
           <button
@@ -887,12 +921,13 @@ export default function LoopingPage() {
                   <p className="mt-1.5 text-sm text-muted">Clear a filter or search another token or address.</p>
                 </div>
               ) : orderedVisible.slice(0, visibleLimit).map((candidate) => (
-                <MarketOption
-                  key={candidate.key}
-                  candidate={candidate}
-                  selected={candidate.key === selectedCandidate?.key}
-                  now={now}
-                  onSelect={() => setSelectedMarket(candidate.key)}
+                  <MarketOption
+                    key={candidate.key}
+                    candidate={candidate}
+                    selected={candidate.key === selectedCandidate?.key}
+                    now={now}
+                    onSelect={() => setSelectedMarket(candidate.key)}
+                    disabled={transactionInFlight}
                 />
               ))}
               {orderedVisible.length > visibleLimit && (
@@ -920,9 +955,9 @@ export default function LoopingPage() {
                 {selectedKey === null
                   ? 'Choose a market from the directory to model its leverage and estimated APY.'
                   : 'This saved market is no longer present in the current directory data.'}
-              </p>
-              {selectedKey !== null && (
-                <button type="button" onClick={() => setSelectedMarket(null)} className="mt-4 text-sm font-medium text-accent-ink hover:underline">
+                </p>
+                {selectedKey !== null && (
+                  <button type="button" disabled={transactionInFlight} onClick={() => setSelectedMarket(null)} className="mt-4 text-sm font-medium text-accent-ink hover:underline disabled:cursor-not-allowed disabled:opacity-60">
                   Clear selection
                 </button>
               )}
@@ -954,8 +989,9 @@ export default function LoopingPage() {
                       </span>
                       <button
                         type="button"
+                        disabled={transactionInFlight}
                         onClick={() => setSelectedMarket(null)}
-                        className="rounded-full border border-hairline px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.06em] text-muted hover:border-hairline-strong hover:text-fg"
+                        className="rounded-full border border-hairline px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.06em] text-muted hover:border-hairline-strong hover:text-fg disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Clear selection
                       </button>
@@ -968,10 +1004,19 @@ export default function LoopingPage() {
                     </div>
                   )}
 
-                  {isCanary(selectedCandidate) && (
+                  {isExecutionEnabled(selectedCandidate) && (
                     <div className="mt-4 rounded-lg border border-[rgba(52,211,153,0.28)] bg-[var(--op-good-soft)] px-3.5 py-3 text-xs text-good">
-                      <span className="font-semibold">Arbitrum atomic canary market ID</span>
-                      <code className="mt-1 block break-all font-mono text-[10.5px] text-fg">{ARBITRUM_CANARY_MARKET_ID}</code>
+                      <span className="font-semibold">Atomic looping enabled for this market</span>
+                      <code className="mt-1 block break-all font-mono text-[10.5px] text-fg">{selectedCandidate.morpho.marketId}</code>
+                    </div>
+                  )}
+
+                  {isExecutionEnabled(selectedCandidate) &&
+                    selectedRiskIncreaseEligibility?.eligible === false && (
+                    <div className="mt-4 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3.5 py-3 text-xs leading-5 text-warn">
+                      <span className="font-semibold">New borrowing paused.</span>{' '}
+                      {selectedRiskIncreaseEligibility.message} Existing leverage reductions,
+                      full exit, and permission recovery are not blocked by this liquidity gate.
                     </div>
                   )}
 
@@ -1022,20 +1067,17 @@ export default function LoopingPage() {
                   </p>
                 </div>
 
+                <LoopingExecutionProvider
+                  candidate={selectedCandidate}
+                  equityAssets={calculator !== null && calculator.ok ? calculator.equityAssets : 0n}
+                  leverage={form.leverage}
+                >
                 <div className="mt-5 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
                   <div>
-                    <NumberField id="loop-equity" label={`Amount (${selectedCandidate.morpho.loanAsset.symbol})`} value={form.equity} onChange={(value) => setFormField('equity', value)} min={0} max={1e15} step="any" help="Used only to estimate exposure and debt; no wallet balance is read." />
-                    <button
-                      type="button"
-                      disabled
-                      aria-describedby="loop-execute-help"
-                      className="mt-3 h-10 w-full cursor-not-allowed rounded-[10px] bg-accent px-4 text-sm font-semibold text-accent-fg opacity-45"
-                    >
-                      Execute
-                    </button>
-                    <p id="loop-execute-help" className="mt-1.5 text-center text-[10.5px] leading-4 text-faint">
-                      Loop execution is not available yet.
-                    </p>
+                    <NumberField id="loop-equity" label={`Amount (${selectedCandidate.morpho.loanAsset.symbol})`} value={form.equity} onChange={(value) => setFormField('equity', value)} min={0} max={1e15} step="any" help="Sets modeled equity; executable beta preflight also checks the connected wallet balance." disabled={transactionInFlight} />
+                    <div className="mt-3">
+                      <LoopingExecutionAction />
+                    </div>
                   </div>
                   <div className="rounded-xl border border-hairline bg-surface-2 p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -1053,13 +1095,14 @@ export default function LoopingPage() {
                         id="loop-leverage"
                         type="range"
                         min={1}
-                        max={leverageMaximum}
-                        step={SLIDER_MAX_POLICY.step}
-                        value={form.leverage}
+                          max={leverageMaximum}
+                          step={SLIDER_MAX_POLICY.step}
+                          value={form.leverage}
+                        disabled={transactionInFlight}
                         onChange={(event) => setFormField('leverage', event.target.value)}
                         aria-describedby="loop-leverage-help"
                         aria-valuetext={`${Number(form.leverage).toFixed(2)} times leverage${beyondLeverageWarning ? ', below the 10% liquidation buffer' : ''}`}
-                        className="block h-2 w-full cursor-pointer accent-[var(--op-accent)]"
+                        className="block h-2 w-full cursor-pointer accent-[var(--op-accent)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <span
                         aria-hidden
@@ -1098,23 +1141,25 @@ export default function LoopingPage() {
                       <EstimateCard label="Drop to liquidation" value={calculator.scenario.priceDropToLiquidation === null ? 'No debt' : formatPercent(calculator.scenario.priceDropToLiquidation)} note="Simplified constant-debt estimate; not an oracle guarantee." tone={calculator.scenario.priceDropToLiquidation !== null && calculator.scenario.priceDropToLiquidation < 0.15 ? 'warn' : 'neutral'} />
                     </div>
 
+                    <LoopingExecutionPanel />
+
                     <details className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
                       <summary className="cursor-pointer text-sm font-semibold text-fg">Advanced stress assumptions</summary>
                       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-                        <p className="max-w-2xl text-[10.5px] leading-4 text-muted">
-                          Optional stress and cost inputs affect only the result below, not the primary current-rate APY, the 10% marker, or the slider's 1% maximum.
-                        </p>
-                        <button type="button" onClick={resetAdvancedAssumptions} className="text-xs font-medium text-accent-ink hover:underline">Reset stress assumptions</button>
+                          <p className="max-w-2xl text-[10.5px] leading-4 text-muted">
+                            Optional stress and cost inputs affect only the result below, not the primary current-rate APY, the 10% marker, or the slider's 1% maximum.
+                          </p>
+                        <button type="button" disabled={transactionInFlight} onClick={resetAdvancedAssumptions} className="text-xs font-medium text-accent-ink hover:underline disabled:cursor-not-allowed disabled:opacity-60">Reset stress assumptions</button>
                       </div>
                       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <NumberField id="loop-holding" label="Holding period" value={form.holdingMonths} onChange={(value) => setFormField('holdingMonths', value)} suffix="mo" min={0.25} max={120} step="0.25" help={`Must end by ${formatDate(selectedCandidate.pendle.expiry)}; used only to annualize modeled one-time costs.`} />
-                        <NumberField id="loop-drop" label="Collateral price drop" value={form.collateralPriceDrop} onChange={(value) => setFormField('collateralPriceDrop', value)} suffix="%" min={0} max={99} step="0.1" help="Absolute stress to PT collateral value." />
-                        <NumberField id="loop-buffer" label="Relative LLTV buffer" value={form.lltvBuffer} onChange={(value) => setFormField('lltvBuffer', value)} suffix="%" min={0} max={99} step="0.1" help="A 10% setting uses 90% of the protocol LLTV in this model." />
-                        <NumberField id="loop-borrow-stress" label="Borrow APY increase" value={form.borrowApyIncrease} onChange={(value) => setFormField('borrowApyIncrease', value)} suffix="pp" min={0} max={100} step="0.1" help="Percentage points added to current borrowing cost." />
-                        <NumberField id="loop-pt-stress" label="PT APY haircut" value={form.ptApyHaircut} onChange={(value) => setFormField('ptApyHaircut', value)} suffix="pp" min={0} max={100} step="0.1" help="Percentage points removed from current PT APY." />
-                        <NumberField id="loop-entry-cost" label="Entry cost" value={form.entryCost} onChange={(value) => setFormField('entryCost', value)} suffix="%" min={0} max={25} step="0.01" help="One-time estimate on gross PT exposure." />
-                        <NumberField id="loop-exit-cost" label="Exit cost" value={form.exitCost} onChange={(value) => setFormField('exitCost', value)} suffix="%" min={0} max={25} step="0.01" help="One-time estimate on gross PT exposure." />
-                        <NumberField id="loop-fixed-cost" label="Fixed cost on equity" value={form.fixedCost} onChange={(value) => setFormField('fixedCost', value)} suffix="%" min={0} max={25} step="0.01" help="Gas, relayer, and aggregator estimate." />
+                        <NumberField id="loop-holding" label="Holding period" value={form.holdingMonths} onChange={(value) => setFormField('holdingMonths', value)} suffix="mo" min={0.25} max={120} step="0.25" help={`Must end by ${formatDate(selectedCandidate.pendle.expiry)}; used only to annualize modeled one-time costs.`} disabled={transactionInFlight} />
+                        <NumberField id="loop-drop" label="Collateral price drop" value={form.collateralPriceDrop} onChange={(value) => setFormField('collateralPriceDrop', value)} suffix="%" min={0} max={99} step="0.1" help="Absolute stress to PT collateral value." disabled={transactionInFlight} />
+                        <NumberField id="loop-buffer" label="Relative LLTV buffer" value={form.lltvBuffer} onChange={(value) => setFormField('lltvBuffer', value)} suffix="%" min={0} max={99} step="0.1" help="A 10% setting uses 90% of the protocol LLTV in this model." disabled={transactionInFlight} />
+                        <NumberField id="loop-borrow-stress" label="Borrow APY increase" value={form.borrowApyIncrease} onChange={(value) => setFormField('borrowApyIncrease', value)} suffix="pp" min={0} max={100} step="0.1" help="Percentage points added to current borrowing cost." disabled={transactionInFlight} />
+                        <NumberField id="loop-pt-stress" label="PT APY haircut" value={form.ptApyHaircut} onChange={(value) => setFormField('ptApyHaircut', value)} suffix="pp" min={0} max={100} step="0.1" help="Percentage points removed from current PT APY." disabled={transactionInFlight} />
+                        <NumberField id="loop-entry-cost" label="Entry cost" value={form.entryCost} onChange={(value) => setFormField('entryCost', value)} suffix="%" min={0} max={25} step="0.01" help="One-time estimate on gross PT exposure." disabled={transactionInFlight} />
+                        <NumberField id="loop-exit-cost" label="Exit cost" value={form.exitCost} onChange={(value) => setFormField('exitCost', value)} suffix="%" min={0} max={25} step="0.01" help="One-time estimate on gross PT exposure." disabled={transactionInFlight} />
+                        <NumberField id="loop-fixed-cost" label="Fixed cost on equity" value={form.fixedCost} onChange={(value) => setFormField('fixedCost', value)} suffix="%" min={0} max={25} step="0.01" help="Gas, relayer, and aggregator estimate." disabled={transactionInFlight} />
                       </div>
                       {advancedCalculator === null ? null : !advancedCalculator.ok ? (
                         <div role="alert" className="mt-4 rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-4 py-3 text-sm text-danger">
@@ -1138,6 +1183,7 @@ export default function LoopingPage() {
                     </details>
                   </>
                 )}
+                </LoopingExecutionProvider>
               </section>
 
             </div>

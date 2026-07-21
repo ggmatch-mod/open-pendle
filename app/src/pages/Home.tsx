@@ -167,12 +167,12 @@ type GuideCard = {
 
 const GUIDE_CARDS: GuideCard[] = [
   {
-    badge: 'Research preview',
+    badge: 'Reviewed beta',
     description:
-      'Match Pendle PT collateral with Morpho markets, compare leveraged APY and liquidation distance, and inspect the read-only entry and exit outline.',
+      'Match reviewed Pendle PT collateral with Morpho markets, compare leveraged APY and liquidation distance, and manage supported loops from your wallet.',
     glyph: '↻',
     primaryLabel: 'Open Looping',
-    title: 'Model a PT loop',
+    title: 'Loop a Pendle PT',
     to: '/looping',
     featured: true,
   },

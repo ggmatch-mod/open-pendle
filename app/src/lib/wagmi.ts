@@ -5,8 +5,10 @@
  * Base (8453), Plasma (9745), Arbitrum (42161). Each is registered with its own
  * user-configurable HTTP RPC transport (openpendle.rpc.<chainId>).
  *
- * - All reads flow through the HTTP RPC transports, never the connected wallet,
- *   so the whole app browses wallet-less on any selected chain.
+ * - Normal browsing reads flow through the HTTP RPC transports, so the app can
+ *   browse wallet-less. The allowlisted looping-execution beta is the narrow
+ *   exception: its live safety reads and unsigned simulations use the connected
+ *   wallet's read-only transport for the selected supported execution chain.
  * - Multicall batching is on: viem aggregates reads through Multicall3.
  * - Injected-only: NO WalletConnect. EIP-6963 discovery lists each installed
  *   injected wallet (MetaMask, Rabby, Brave); there is no WC QR option and no

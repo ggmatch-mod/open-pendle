@@ -19,6 +19,11 @@
 /startup-recovery.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+/looping-execution-policy.v1.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cloudflare-CDN-Cache-Control: no-store
+  CDN-Cache-Control: no-store
+
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
