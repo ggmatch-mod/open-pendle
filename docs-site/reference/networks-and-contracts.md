@@ -1,19 +1,11 @@
 # Networks & contracts
 
-OpenPendle ships **no smart contracts of its own**. Every read and every transaction it makes goes to Pendle V2's already-deployed contracts, called with hand-written ABIs. This page is the authoritative reference for *which* contracts those are: the six supported networks, the entry-point addresses that are identical on all of them, the per-chain contracts that vary and are therefore resolved live, the RPC endpoints the app reads through, and how to verify every one of these facts yourself.
-
-It is a reference page, not a tutorial. For the interface around this — the network selector, browsing without a wallet, the custom-RPC field — see [Browsing & networks](/guides/browsing). If `PT`, `YT`, and `SY` are unfamiliar, start with [How Pendle works](/concepts/how-pendle-works); this page assumes them.
-
-::: info OpenPendle is only an interface
-Because OpenPendle deploys nothing, every address below belongs to Pendle Finance or is a canonical public utility (like `Multicall3`). OpenPendle validates that a market descends from a Pendle factory it recognises, but it cannot vouch for the assets or SY contracts underneath. Not affiliated with Pendle Finance, and it takes no fee of its own.
-:::
+OpenPendle ships no OpenPendle-authored smart contracts. It calls Pendle's deployed contracts and, in the Create flow, asks Pendle's factories and helper to deploy Pendle SY and market contracts. This page records the network configuration used by the production interface.
 
 ## Supported networks
 
-OpenPendle supports six chains. Pendle V2's core contracts are deployed on each, and the app reads from and writes to them directly.
-
-| Network | Chain ID | Native token |
-| --- | --- | --- |
+| Network | Chain ID | Native gas token |
+| --- | ---: | --- |
 | Ethereum | `1` | ETH |
 | BNB Smart Chain | `56` | BNB |
 | Monad | `143` | MON |
@@ -21,130 +13,125 @@ OpenPendle supports six chains. Pendle V2's core contracts are deployed on each,
 | Plasma | `9745` | XPL |
 | Arbitrum | `42161` | ETH |
 
-The **native token** is the chain's gas asset — what you pay transaction fees in — and on some chains it is also an asset a pool can accept directly at deploy time. Note that ETH is the native token on three of these chains (Ethereum, Base, Arbitrum), so "ETH" alone does not identify a chain; the **chain ID is the unambiguous identifier**, and it is the value the app keys everything on.
+The preferred chain is stored under `openpendle.chain` and defaults to Arbitrum. A market/token URL with `?chain=<id>` overrides it for that tab. Selecting a chain also asks an injected wallet to switch; rejecting the wallet request leaves read-only browsing on the selected OpenPendle chain.
 
-The **active network** — the one the whole app currently reads from and would send a transaction to — normally comes from a UI preference stored under `openpendle.chain` (default **Arbitrum**). A market/token URL with `?chain=<id>` overrides that preference only for its own tab. It remains distinct from the wallet's chain, although an explicit selector click asks a connected wallet to synchronize. See [Browsing & networks](/guides/browsing) for the selector and wrong-network behavior.
-
-::: warning A market lives on exactly one chain
-A `PendleMarket` address exists only on the single chain it was deployed to. If the active network does not match the chain a market lives on, that market will not resolve. When you open a pool from a shared address or an `?import=` link, make sure the active network matches the chain the market was created on. See [Opening a pool](/guides/opening-a-pool).
+::: warning A market is chain-specific
+An address is not enough to identify a market across networks. Confirm the chain ID before reading, sharing, approving, or signing.
 :::
 
 ## Shared entry points
 
-A set of Pendle's contracts is deployed to the **same address on all six chains**. These are the entry points OpenPendle calls most often, and because the address is identical everywhere, they are safe to hardcode. Each is reproduced here character-for-character; verify them against a block explorer on any chain (see [Verify for yourself](#verify-for-yourself)).
+These addresses are configured identically on all six chains:
 
 | Contract | Address | Role |
 | --- | --- | --- |
-| Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | AMM trades, liquidity add/remove, and exits route through it |
-| Limit Router | `0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321` | PT limit-order fills, cancellations, nonces, fee roots, and signature checks |
-| `PendleCommonPoolDeployHelperV2` | `0x2Ed473F528E5B320f850d17ADfe0e558f0298aA9` | One-transaction pool deploy, optionally bundling an SY deploy |
-| `PendleCommonSYFactory` | `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8` | Permissionless SY deploys from its registered templates |
-| `PendlePYLpOracle` | `0x5542be50420E88dd7D5B4a3D488FA6ED82F6DAc2` | TWAP oracle used to price PT / YT / LP |
-| `Multicall3` | `0xcA11bde05977b3631167028862bE2a173976CA11` | Batches many reads into a single RPC call |
-| Pendle governance proxy | `0x2aD631F72fB16d91c4953A7f4260A97C2fE2f31e` | Default owner of SYs deployed through the create wizard |
-| Pendle ProxyAdmin | `0xA28c08f165116587D4F3E708743B4dEe155c5E64` | Admin of Pendle's upgradeable (adapter) SY proxies |
+| Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | AMM trades, liquidity, and exits |
+| Limit Router | `0x000000000000c9B3E2C3Ec88B1B4c0cD853f4321` | Limit-order validation, settlement, and cancellation |
+| `PendleCommonPoolDeployHelperV2` | `0x2Ed473F528E5B320f850d17ADfe0e558f0298aA9` | Market deployment and initial liquidity; can also deploy an SY |
+| `PendleCommonSYFactory` | `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8` | Permissionless SY-template deployment |
+| `PendlePYLpOracle` | `0x5542be50420E88dd7D5B4a3D488FA6ED82F6DAc2` | PT/YT/LP TWAP pricing |
+| Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` | Batched reads |
+| Pendle governance proxy | `0x2aD631F72fB16d91c4953A7f4260A97C2fE2f31e` | Default owner option for wizard-deployed SYs |
+| Pendle ProxyAdmin | `0xA28c08f165116587D4F3E708743B4dEe155c5E64` | Admin of factory-deployed upgradeable SY proxies |
 
-A few notes on what each one means in practice:
+The same address on two chains still represents two separate contract instances and states.
 
-- **Router V4** is the contract your immediate AMM trades, liquidity actions, and exits flow through. When one of those actions needs approval, Router V4 receives the allowance: exact-amount by default, or unlimited only after an explicit settings opt-in. See [Buying PT](/guides/buying-pt), [Buying YT](/guides/buying-yt), and [Providing liquidity](/guides/providing-liquidity).
-- **Limit Router** is the separate settlement and validation contract for [PT limit orders](/guides/limit-orders). OpenPendle's MVP signs PT ↔ SY orders for this EIP-712 domain, compares local and on-chain hashes, and uses it for cancellation. SY or PT approval for a limit order goes to this router, not Router V4. Pendle's live limit-order fee root is mutable and is checked before signing.
-- **`PendleCommonPoolDeployHelperV2`** and **`PendleCommonSYFactory`** are the creation surface — the helper deploys a market (and can bundle the SY in the same transaction), and the factory deploys an SY from its registered templates. See [Creating a pool: overview](/create/overview), [Creating an SY](/create/standardized-yield), and [Deploying a market](/create/deploying-a-market).
-- **`PendlePYLpOracle`** provides the time-weighted prices used to value PT, YT, and LP. It reads from a market's on-chain observation buffer, which is why a freshly deployed market may need an oracle cardinality bump before *other* protocols can price it. See [Initializing the price oracle](/create/price-oracle).
-- **`Multicall3`** is the canonical community deployment present at the same address across most EVM chains; OpenPendle uses it to fold many core reads into one RPC round-trip, which keeps browsing responsive without an OpenPendle-operated backend or indexer. See [How OpenPendle works](/reference/architecture).
-- The **governance proxy** and **ProxyAdmin** are Pendle-controlled. The governance proxy is the default **owner** of an SY you deploy through the wizard (so you do not end up controlling the SY machinery), and the ProxyAdmin is the **admin** of Pendle's upgradeable SY proxies — adapter SYs are `TransparentUpgradeableProxy` contracts whose admin is Pendle governance, not you. See [Creating an SY](/create/standardized-yield).
+Router V4 receives allowances for immediate AMM actions. The Limit Router is a separate spender for supported limit orders. The deployment helper receives a seed-token allowance during market creation. Review the spender in every wallet prompt; identical-looking actions can legitimately target different contracts.
 
-::: info Same address, still per-chain instances
-"Identical address on all six chains" does not mean one shared contract — it is a separate deployment on each chain that happens to sit at the same address (Pendle uses deterministic deployment for these). Router V4 on Arbitrum and Router V4 on Base are distinct contracts holding distinct state; only the address they occupy is the same. Reads and writes always go to the instance on the **active network**.
-:::
+## Bundled configuration versus live reads
 
-## Per-chain contracts (resolved live)
+The production release contains a chain-keyed address book. It includes `RouterStatic`, PENDLE, wrapped-native tokens, treasury and governance references, plus the recognized market/yield-factory lineage. These values are not all rediscovered on every page load.
 
-Not everything is identical across chains. The following are **chain-specific**, and OpenPendle does **not** hardcode them for routing:
+OpenPendle also reads the following live:
 
-- the `PENDLE` token,
-- `RouterStatic` (the read-only quoting helper),
-- the treasury,
-- the governance multisig,
-- the wrapped-native token, and
-- most importantly, the **market and yield-contract factories**.
+- the common deployment helper's active market factory, yield-contract factory, router, and SY factory;
+- mutable expiry, interest-fee, treasury, and swap-fee-cap parameters from the active factories; and
+- each opened market's contract state and trust signals.
 
-Two facts make live resolution necessary rather than a convenience. First, these addresses genuinely differ from chain to chain. Second, Pendle's factories are **governance-mutable** — governance can change which factory is the active one — so a value that is correct today may not be tomorrow. Hardcoding the "active" factory would eventually route against a stale contract.
+The [Protocol Status & Contracts](https://openpendle.com/#/status) page displays that active wiring and those mutable parameters for every supported chain. It is a live status view, not a complete historical contract registry.
 
-So OpenPendle resolves the current per-chain contracts **live at runtime**, from the chain itself, and treats its built-in factory list as a *provenance* set only — used to answer "was this market minted by a genuine Pendle factory?", never as the source of the address it routes a trade to.
+The bundled factory lineage serves more than one purpose: catalog generation, PT/YT-to-market matching, duplicate checks during deployment, and provenance validation. A provenance pass means a recognized Pendle factory created the market; it does not endorse the asset or SY.
 
-::: info Provenance validation, not endorsement
-The hardcoded factory set exists so the app can confirm a market's **origin** before you save or transact against it. A pass means a recognised Pendle factory created the market — nothing more. It is not a statement that the underlying asset or SY is safe. Community pools are permissionless and unreviewed. See [Community pools & incentives](/concepts/community-pools).
-:::
+Chain-specific bundled fields include:
 
-### Factory lineage by chain
+- `RouterStatic`, used for read-only quotes and position helpers;
+- the PENDLE token and wrapped-native token;
+- governance and treasury reference addresses; and
+- each recognized market factory paired with its yield-contract factory.
 
-Pendle has shipped several factory generations over time, and not every chain carries the whole history. A chain can only host markets made by a factory in *its* lineage, so the set of possible community pools differs per network. The lineage present on each chain:
+These values are selected by chain ID. The release never reuses Arbitrum's chain-specific addresses on another network.
 
-| Network | Factory lineage present |
+### Factory lineage bundled with this release
+
+| Network | Recognized generations |
 | --- | --- |
-| Ethereum | v1 + V3 + V4 + V5 + V6 |
-| BNB Smart Chain | v1 + V3 + V4 + V5 + V6 |
-| Arbitrum | v1 + V3 + V4 + V5 + V6 |
-| Base | V5 + V6 |
-| Plasma | V5 + V6 |
-| Monad | V6 only |
+| Ethereum | v1, V3, V4, V5, V6 |
+| BNB Smart Chain | v1, V3, V4, V5, V6 |
+| Arbitrum | v1, V3, V4, V5, V6 |
+| Base | V5, V6 |
+| Plasma | V5, V6 |
+| Monad | V6 |
 
-The three oldest chains (Ethereum, BSC, Arbitrum) carry the full lineage back to v1. Base and Plasma joined later and carry V5 + V6. Monad launched on the current generation and is **V6 only**. A market created by, say, a V3 factory can therefore exist on Ethereum, BSC, or Arbitrum, but not on Monad — the factory that would have minted it was never deployed there.
+Factory addresses can change or new generations can be introduced. The app and catalog must be updated when the recognized lineage changes; the status page alone does not add a new generation to a previously built release.
 
-::: tip Read the live set from the app
-Because the per-chain contracts and the exact live factory addresses can change with governance, the source of truth is the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page, which reads them from the chain in real time for whichever network you are on. This documentation page deliberately does not print those mutable addresses, so it cannot go stale against the chain.
-:::
+## RPC behavior
 
-## RPC endpoints
+OpenPendle uses public RPCs for chain reads, quotes, provenance checks, simulations, and receipt polling. Each chain has keyless defaults wrapped in a viem `fallback()` transport, so a failed primary can roll over to a backup.
 
-Core blockchain data — pool state, quotes, balances, maturities, provenance checks, and simulations — arrives over an **RPC endpoint**, and every transaction is submitted through one. No OpenPendle request-time backend, database, indexer, or transaction relay sits in that path. Explore's static inventory is generated on a schedule by scanning these factory lineages; aggregate ticker metrics, Pendle listing enrichment, PT/YT-to-pool discovery, and Merkl rewards use the scoped data sources listed below.
+### Bundled public defaults
 
-### Keyless defaults with automatic fallback
+| Chain | Primary | Backup |
+| --- | --- | --- |
+| Ethereum | `ethereum-rpc.publicnode.com` | `cloudflare-eth.com` |
+| BNB Smart Chain | `bsc-rpc.publicnode.com` | `bsc-dataseed.bnbchain.org` |
+| Monad | `rpc.monad.xyz` | `monad.drpc.org` |
+| Base | `base.publicnode.com` | `mainnet.base.org` |
+| Plasma | `plasma.drpc.org` | `rpc.plasma.to` |
+| Arbitrum | `arb1.arbitrum.io/rpc` | `arbitrum-one-rpc.publicnode.com` |
 
-Each chain ships with **keyless public RPC defaults** — no API key, nothing to configure, works out of the box. To stay resilient, OpenPendle wraps each chain's default endpoints in a viem `fallback()` transport: if the primary endpoint is rate-limiting or unreachable, the app **automatically rolls over to a backup**. For most people this is invisible and needs no attention.
+These are convenience defaults, not endorsements or availability guarantees. Providers can rate-limit, log, censor, or return stale data. The effective list is fixed when the app starts.
 
-### Overriding the endpoint per chain
+You can replace those defaults for one chain in **RPC settings**. The override is stored locally under:
 
-You can replace the endpoint for any single chain. In **RPC settings**, each network has its own field; the endpoint you enter is stored locally under the key `openpendle.rpc.<chainId>` — for example `openpendle.rpc.42161` for Arbitrum, `openpendle.rpc.1` for Ethereum. When your override is set and valid, it **replaces the default list for that chain**; clear it (or enter something invalid) and the app reverts to the keyless public defaults.
+```
+openpendle.rpc.<chainId>
+```
 
-Three properties of overrides are worth stating precisely:
+For example, Arbitrum uses `openpendle.rpc.42161`. The older `openpendle.rpc` key remains an Arbitrum-only fallback. Saving an override reloads the app because transports are created at startup. On an HTTPS deployment, the override must also use HTTPS.
 
-- **They are local.** An override is stored in your browser's localStorage, exactly like your other preferences. It never leaves the browser, and clearing site data removes it.
-- **They are per-chain and independent.** An override keyed to one chain ID affects only that chain; the other five are untouched, each governed by its own key.
-- **Saving reloads the app.** The transport is built once at startup, so applying an override restarts the app to rebuild it against the new endpoint. This is expected, not an error.
+An invalid override is not saved. Clearing the per-chain field restores the bundled fallback pair for that chain without changing the other five networks.
 
-::: info Legacy Arbitrum key
-For historical reasons, Arbitrum also honours the older un-suffixed key `openpendle.rpc` when the newer `openpendle.rpc.42161` is unset. New overrides should use the chain-suffixed form; the legacy key is read only as a fallback for Arbitrum.
-:::
+### Reads and transaction submission are separate
 
-For why you might set an override — rate limits, latency, privacy, or reading from a specific node — and a worked walkthrough, see [Custom RPC endpoints](/guides/browsing#custom-rpc-endpoints).
+The custom OpenPendle RPC affects app reads and simulations. It does **not** reconfigure an injected wallet. When you approve or execute an on-chain action, OpenPendle sends the transaction request to the wallet; the wallet broadcasts through its own configured provider. OpenPendle's public client then follows the result.
 
-::: warning A malicious or misconfigured RPC can mislead you
-An RPC endpoint answers the app's read queries, so a hostile or broken endpoint could return misleading data (wrong balances, stale prices) or silently drop requests. Overriding the RPC changes *where* reads and transactions are sent, not *what* is read — contract addresses, the provenance gate, and simulation logic are unaffected — but those protections operate against whatever chain view the endpoint provides. Only point a chain at an endpoint you trust. Community pools are permissionless and unreviewed, and interacting with them can lose you funds; see [Risks & disclosures](/reference/risks).
-:::
+Both providers matter:
 
-### Outbound requests
+- A bad **app RPC** can return stale or misleading reads or simulations.
+- A bad **wallet RPC** can delay, reject, or misroute transaction submission.
 
-RPC endpoints carry the blockchain reads and writes you point them at. The stock app also downloads its generated factory-market snapshot, calls **DefiLlama/CoinGecko** for aggregate header metrics, uses Pendle's market API for Explore enrichment and PT/YT pool lookup, and uses keyless **Blockscout** log APIs as a lookup fallback where available. **Yield alerts** request Pendle's active catalog and hourly market histories directly from the browser. **PT limit orders** use Pendle's hosted API for live support, book data, generated order fields, signed-order placement, and maker-order reads; maker reads and placement disclose the wallet address and placement sends the complete signed order. **Merkl** receives the wallet address and chain ID when a connected user opens **My positions**. **Cloudflare Web Analytics** receives page-view and performance metrics from the stock interface; the beacon is not intentionally sent wallet addresses. The Content-Security-Policy blocks JavaScript `eval()`/`Function` and allowlists Cloudflare's analytics script; fonts remain self-hosted. See [How OpenPendle works](/reference/architecture).
+Use providers you trust and verify the chain shown in the wallet before signing.
 
-## Verify for yourself
+## Market URLs and active-chain behavior
 
-None of these addresses require trust in OpenPendle, because OpenPendle authored none of them. You can confirm every one independently:
+Market and token routes include `?chain=<id>`. The app waits until the route's read client matches that chain before querying the address. This avoids briefly loading an address against a previous/default network.
 
-- **Block explorers.** Look up any address above on the block explorer for the relevant chain — Etherscan for Ethereum, Arbiscan for Arbitrum, BscScan for BNB Smart Chain, and the corresponding explorers for Base, Plasma, and Monad. For a shared entry point, you can check the *same* address on each of the six explorers and see the deployment on every chain.
-- **Pendle's public source.** Cross-check the roles and deployments against Pendle's open repository, [`pendle-finance/pendle-core-v2-public`](https://github.com/pendle-finance/pendle-core-v2-public). It is the reference for what each contract is and where it lives.
-- **The live per-chain set.** For the chain-specific and governance-mutable addresses this page does not print, read them from the chain via the app's [Protocol Status & Contracts](https://openpendle.com/#/status) page, then verify those too against the explorer and Pendle's repo.
+The selected OpenPendle chain and the wallet chain can differ during wallet-less browsing. A wrong-network banner blocks signing and offers a switch. Rejecting that switch does not prevent reads on the selected OpenPendle chain.
 
-::: tip The addresses are checksummed
-Every address on this page is in EIP-55 checksummed form and is copied verbatim from the fact sheet. Paste them into an explorer exactly as written. If a tool rejects an address for a bad checksum, you have a transcription error — re-copy from here rather than adjusting the casing by hand.
-:::
+Creation routes do not infer a target chain from an asset address. They use the active OpenPendle chain, so verify both the selector and wallet prompt before deploying.
 
-## See also
+## What else the browser contacts
 
-- [Browsing & networks](/guides/browsing) — the network selector, custom-RPC field, and wrong-network banner in the interface.
-- [How OpenPendle works](/reference/architecture) — the static, RPC-first, simulate-before-sign architecture and ancillary-service disclosure.
-- [PT limit orders](/guides/limit-orders) — how the shared Limit Router and Pendle's hosted order API divide responsibilities.
-- [Community pools & incentives](/concepts/community-pools) — what "permissionless and unreviewed" means, and how provenance is checked.
-- [Anatomy of a pool](/concepts/pool-anatomy) — how the market, PT, YT, and SY contracts wire together.
-- [Creating a pool: overview](/create/overview) — the factories and helper a deploy calls, and what you receive.
-- [Risks & disclosures](/reference/risks) — please read before you transact against any community pool.
+The RPC is not the only network dependency. The stock interface also contacts its same-origin catalog and looping entry policy, Pendle APIs, Morpho for Looping discovery, supported Blockscout endpoints, DefiLlama/CoinGecko, Merkl on Positions, and Cloudflare Web Analytics. Pendle's hosted APIs supply looping routes and the off-chain limit-order path.
+
+The canonical trigger-and-data disclosure is under [Outbound requests](/reference/architecture#outbound-requests).
+
+## Verify independently
+
+- Compare shared addresses above with Pendle's public [`pendle-core-v2-public`](https://github.com/pendle-finance/pendle-core-v2-public) repository and the relevant block explorer.
+- Use [Protocol Status](https://openpendle.com/#/status) for active helper wiring and mutable fee/treasury parameters.
+- Inspect the repository's chain address book for the exact bundled lineage used by a particular release.
+
+For mutable values, record the chain and block when verifying. For bundled addresses, record the OpenPendle commit or release. That distinction makes later drift explainable rather than treating documentation as timeless state.
+
+Addresses prove contract identity, not safety. Read [Risks & disclosures](/reference/risks) before interacting with a community market.

@@ -25,6 +25,12 @@ PT and YT are token positions, so a shared PT/YT pair is shown once even if more
 
 Standalone SY balances and bridged cross-chain PT representations are not folded into the PT/YT/LP groups.
 
+## Loop positions
+
+Looped PT collateral is managed separately from ordinary wallet PT balances. Select a supported network under **Loop positions**; OpenPendle scans its permanent reviewed position-management registry through the connected wallet's RPC and shows positions with Morpho debt or collateral.
+
+A clean supported loop can adjust leverage or fully exit. Risk-increasing adjustments use the live entry gates, while reductions and full exit use the separate exit path. If the PT has matured, adjustment is disabled but the position remains visible and **Full exit** uses PT redemption before repaying the Morpho debt. A paused entry policy never removes the position or its bounded recovery controls.
+
 ## Claims are grouped by network
 
 Cross-chain balances can be read together, but a transaction can only execute on one network at a time. The active network gets the live claim action. Other groups show **Switch to _network_ to claim** first.
@@ -44,6 +50,7 @@ If there is nothing claimable, the Merkl section stays hidden. See [Risks & disc
 - Displayed position balances and Pendle-native claims come from RPC reads, not Pendle's cached claim values.
 - Merkl receives the connected wallet address and supported chain IDs for reward lookup.
 - OpenPendle has no account system and does not synchronize the saved registry between devices.
+- Supported loop discovery uses the permanent reviewed registry, so it does not depend on the PT remaining in the live, unexpired Looping directory.
 
 ## See also
 

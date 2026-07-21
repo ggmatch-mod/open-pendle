@@ -15,7 +15,7 @@ export default withMermaid(
   defineConfig({
     title: 'OpenPendle',
     description:
-      'Documentation for OpenPendle — an open-source, backend-free frontend for Pendle V2 community pools.',
+      'Documentation for OpenPendle — a static, open-source Pendle frontend for market discovery, fixed-yield tools, positions, and community-pool creation.',
     lang: 'en-US',
     cleanUrls: true,
     lastUpdated: true,
@@ -25,7 +25,7 @@ export default withMermaid(
       ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
       ['meta', { name: 'theme-color', content: '#6366F1' }],
       ['meta', { property: 'og:title', content: 'OpenPendle Docs' }],
-      ['meta', { property: 'og:description', content: 'How to use OpenPendle — the permissionless frontend for Pendle V2 community pools.' }],
+      ['meta', { property: 'og:description', content: 'How to use OpenPendle — the permissionless frontend for Pendle V2 markets.' }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { name: 'twitter:card', content: 'summary' }],
     ],
@@ -55,7 +55,7 @@ export default withMermaid(
         },
         {
           text: 'Understanding Pendle',
-          collapsed: false,
+          collapsed: true,
           items: [
             { text: 'How Pendle works', link: '/concepts/how-pendle-works' },
             { text: 'Standardized Yield (SY)', link: '/concepts/standardized-yield' },
@@ -70,7 +70,7 @@ export default withMermaid(
         },
         {
           text: 'Using OpenPendle',
-          collapsed: false,
+          collapsed: true,
           items: [
             { text: 'Connecting a wallet', link: '/guides/connecting-a-wallet' },
             { text: 'Browsing & networks', link: '/guides/browsing' },
@@ -89,18 +89,18 @@ export default withMermaid(
         },
         {
           text: 'Creating a pool',
-          collapsed: false,
+          collapsed: true,
           items: [
             { text: 'Overview', link: '/create/overview' },
             { text: 'Creating an SY', link: '/create/standardized-yield' },
             { text: 'Deploying the market', link: '/create/deploying-a-market' },
             { text: 'Initializing the oracle', link: '/create/price-oracle' },
-            { text: 'Incentivizing with Merkl', link: '/create/incentives' },
+            { text: 'Pool incentives', link: '/create/incentives' },
           ],
         },
         {
           text: 'Reference',
-          collapsed: false,
+          collapsed: true,
           items: [
             { text: 'How OpenPendle works', link: '/reference/architecture' },
             { text: 'Networks & contracts', link: '/reference/networks-and-contracts' },
