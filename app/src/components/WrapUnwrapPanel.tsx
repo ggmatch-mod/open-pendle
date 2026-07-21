@@ -161,10 +161,7 @@ export function WrapUnwrapPanel({
 
   if (sy.tokensIn.length === 0 && sy.tokensOut.length === 0) {
     return (
-      <p className="text-sm text-faint">
-        This SY reports no deposit or withdrawal tokens — wrap/unwrap isn't
-        possible through the standard interface.
-      </p>
+      <p className="text-sm text-faint">This SY doesn't support wrap or unwrap.</p>
     )
   }
 
@@ -252,7 +249,7 @@ export function WrapUnwrapPanel({
               symbol={outSymbol}
               minOut={minOut}
               slippage={slippage}
-              note="Estimated from the SY's preview call — the binding number is simulated before you confirm."
+              note="Estimate — the exact amount is simulated before you sign."
             />
           )}
 

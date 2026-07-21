@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { PageHeader } from '../components/PageHeader'
 import type { Address } from 'viem'
 import type { ActionPlan, DerivedDeployParams, PoolConfig } from '../lib/types'
 import { computeDeployParams, planDeployPool } from '../lib/deploy'
@@ -362,27 +363,13 @@ export default function CreatePoolPage() {
   })()
 
   return (
-    <div className="mx-auto max-w-[760px]">
-      <div className="space-y-5 py-8">
-      <Link to="/" className="inline-block text-sm text-muted hover:text-fg">
-        ← Home
-      </Link>
-
-      <header>
-        <h1 className="text-xl font-bold tracking-tight text-fg sm:text-2xl">
-          Create a community pool
-        </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-muted">
-          Deploy a Pendle V2 market for an existing SY and seed its first
-          liquidity — one transaction through Pendle's canonical{' '}
-          <span className="font-mono text-xs">commonDeploy</span> helper. You can
-          fill this in and preview without a wallet; deploying needs one.
-        </p>
-      </header>
-
-      {flow.phase === 'confirmed' && flow.txHash ? (
-        <DeploySuccess txHash={flow.txHash} />
-      ) : null}
+    <div className="mx-auto max-w-[760px] pb-16">
+      <PageHeader
+        back
+        title="Create a community pool"
+        lede="Deploy a Pendle V2 market for an existing SY and seed its first liquidity — a wallet is only needed at the deploy step."
+      />
+      <div className="space-y-5">
 
       {/* 1 — SY address */}
       <Section
@@ -406,8 +393,7 @@ export default function CreatePoolPage() {
           )}
           {syMeta.status === 'error' && (
             <span className="text-danger">
-              That address doesn't implement IStandardizedYield (no
-              name/symbol/getTokensIn). Paste an SY contract.
+              Not an SY contract — it doesn't implement IStandardizedYield.
             </span>
           )}
           {syMeta.status === 'success' && syMeta.meta && (
@@ -444,7 +430,7 @@ export default function CreatePoolPage() {
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60"
             />
           </div>
           <button
@@ -461,15 +447,15 @@ export default function CreatePoolPage() {
             <p className="text-muted">
               Expiry: <span className="font-medium">{formatUtcDateTime(expiryUnix)}</span>{' '}
               <span className="text-faint">
-                ({daysToExpiry(expiryUnix)} days from now · unix {expiryUnix})
+                ({daysToExpiry(expiryUnix)} days from now)
               </span>
             </p>
             {!expiryInFuture && (
               <p className="mt-1 text-danger">Expiry must be in the future.</p>
             )}
             {expiryInFuture && !expiryAligned && (
-              <p className="mt-1 text-warn">
-                Snapped to the {expiryDivisor}s boundary required by the factory.
+              <p className="mt-1 text-faint">
+                Adjusted to the nearest valid expiry date.
               </p>
             )}
           </div>
@@ -480,7 +466,7 @@ export default function CreatePoolPage() {
       <Section
         step={3}
         title="Rate band, launch APY and fee"
-        subtitle="The implied-APY range is permanent — see the panel below."
+        subtitle="Permanent once deployed."
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <PercentField
@@ -521,7 +507,7 @@ export default function CreatePoolPage() {
             placeholder="default = max ÷ 25"
             disabled={inputsFrozen}
             error={feeError}
-            hint="Left blank = Pendle's heuristic (max ÷ 25). Max 5%."
+            hint="Max 5%."
           />
         </div>
       </Section>
@@ -538,7 +524,7 @@ export default function CreatePoolPage() {
       <Section
         step={4}
         title="Seed liquidity"
-        subtitle="Seeds the pool with an initial position. You receive LP plus YT."
+        subtitle="You receive LP plus YT."
       >
         {syMeta.status !== 'success' ? (
           <p className="text-xs text-faint">
@@ -551,7 +537,7 @@ export default function CreatePoolPage() {
               value={activeSeedToken ? `${activeSeedToken.address}:${activeSeedToken.isSy}` : ''}
               onChange={(e) => setSeedTokenAddr(e.target.value)}
               disabled={inputsFrozen}
-              className="mt-1 block w-full rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60 [color-scheme:dark]"
+              className="mt-1 block w-full rounded-[10px] border border-hairline-strong bg-bg-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-[rgba(var(--op-accent-rgb),0.14)] disabled:opacity-60"
             >
               {seedTokens.map((t) => (
                 <option key={`${t.address}:${t.isSy}`} value={`${t.address}:${t.isSy}`}>
@@ -572,7 +558,6 @@ export default function CreatePoolPage() {
                 isNative={isNativeSeed}
                 disabled={inputsFrozen}
                 error={seedError}
-                balanceHint="seed small first, top up later"
               />
             </div>
             <p className="mt-2 text-[11px] leading-snug text-faint">
@@ -585,23 +570,23 @@ export default function CreatePoolPage() {
 
       {/* 5 — Preflight */}
       <PreflightChecklist
+        step={5}
         status={preflight.status}
         preflight={preflight.preflight}
         error={preflight.error}
         incomplete={!configComplete}
       />
 
+      {flow.phase === 'confirmed' && flow.txHash ? (
+        <DeploySuccess txHash={flow.txHash} />
+      ) : null}
+
       {/* 6 — Deploy */}
       <Section
         step={6}
         title="Deploy + seed"
-        subtitle="One transaction: approve the seed token, then create and seed the pool."
+        subtitle="Approve the seed token if needed, then deploy and seed in a single transaction."
       >
-        {flow.phase === 'confirmed' ? (
-          <p className="text-xs text-accent-ink">
-            Deployed — see the success card above. Use “Done” to reset the wizard.
-          </p>
-        ) : null}
         <div className="space-y-2.5">
           <TxButton
             flow={flow}

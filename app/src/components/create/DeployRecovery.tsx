@@ -65,9 +65,7 @@ export function DeployRecovery() {
       </summary>
       <div className="border-t border-hairline px-4 py-3">
         <p className="text-xs leading-relaxed text-muted">
-          Deployed a pool but lost the address (closed tab, RPC dropped)? Paste
-          the deploy transaction hash and we'll pull the market out of its
-          receipt.
+          Lost the pool address? Paste the deploy transaction hash to look it up.
         </p>
         <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
           <input
@@ -83,7 +81,7 @@ export function DeployRecovery() {
             type="button"
             onClick={() => void recover()}
             disabled={!validHash || busy || !client}
-            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-faint"
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:brightness-110 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-faint"
           >
             {busy ? 'Recovering…' : 'Recover'}
           </button>
@@ -104,7 +102,7 @@ export function DeployRecovery() {
             </p>
             <Link
               to={marketPath(result.market, chainId)}
-              className="mt-2 inline-block rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110"
+              className="mt-2 inline-block rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
             >
               Open the pool →
             </Link>

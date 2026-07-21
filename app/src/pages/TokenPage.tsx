@@ -108,8 +108,7 @@ export default function TokenPage() {
         {snapshot ? clampLabel(snapshot.displayName) : 'Token actions'}
       </h1>
       <p className="mt-1 text-sm text-muted">
-        Act on a PT or YT directly — wrap or unwrap its SY, mint, redeem, and claim without the
-        market. Swaps and liquidity still need the market.
+        Wrap, mint, redeem, or claim on this token. Trading and liquidity need the market page.
       </p>
 
       {/* Loading / not-a-PT-YT / error states */}
@@ -130,10 +129,8 @@ export default function TokenPage() {
         <section className="mt-6 rounded-xl border border-hairline bg-surface p-6">
           <p className="text-sm font-medium text-fg">Not a PT or YT</p>
           <p className="mt-2 text-sm text-muted">
-            This address isn't a Pendle Principal or Yield token. If it's an <span className="text-fg">SY</span>,
-            note that one SY backs many maturities, so it can't open a single pool — paste a specific{' '}
-            <span className="text-fg">PT</span>, <span className="text-fg">YT</span>, or the{' '}
-            <span className="text-fg">market (PLP)</span> address instead.
+            This isn't a Pendle PT or YT. Paste a PT, YT, or market (PLP) address — an SY can't
+            resolve to a single pool.
           </p>
           <Link
             to="/"
@@ -178,29 +175,38 @@ export default function TokenPage() {
           {/* Risk callout — this is a community token, unreviewed. */}
           <div
             role="note"
-            className="rounded-[14px] border p-4"
-            style={{ borderColor: 'var(--op-warn-bd)', background: 'var(--op-warn-soft)' }}
+            className="rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn"
           >
-            <p className="text-sm text-muted">
-              <span className="font-semibold text-warn">Unreviewed — use at your own risk.</span>{' '}
-              OpenPendle resolved this token set from the chain but can't vouch for the SY or the asset
-              underneath. Verify the addresses below before you transact.
-            </p>
+            Unreviewed token — verify the addresses below before you transact.
           </div>
 
-          {/* Resolved set */}
-          <section className="rounded-xl border border-hairline bg-surface p-5">
-            <h2 className="text-base font-semibold text-fg">Resolved token set</h2>
-            <div className="mt-2 divide-y divide-hairline">
-              <AddrRow role="PT" symbol={snapshot.ptSymbol} address={snapshot.pt} chainId={chainId} />
-              <AddrRow role="YT" symbol={snapshot.ytSymbol} address={snapshot.yt} chainId={chainId} />
-              <AddrRow role="SY" symbol={snapshot.sy.symbol} address={snapshot.sy.address} chainId={chainId} />
-            </div>
-            <p className="mt-2 text-[11px] text-faint">
-              {snapshot.isExpired ? 'Matured' : 'Matures'} {snapshot.displayName.split('·')[1]?.trim()}
-              {snapshot.isExpired ? ' — PT is redeemable 1:1 for the underlying.' : '.'}
-            </p>
-          </section>
+          {/* SY and PT/YT actions that do not require a market. A terminal
+              balance-query failure must not masquerade as perpetual loading. */}
+          {isConnected && positionsStatus === 'error' ? (
+            <section
+              role="alert"
+              className="rounded-xl border border-hairline bg-surface p-5"
+            >
+              <h2 className="text-base font-semibold text-fg">Token actions</h2>
+              <p className="mt-2 text-sm text-danger">
+                Couldn't load wallet balances{positionsError ? ` — ${positionsError}` : ''}.
+              </p>
+              <button
+                type="button"
+                onClick={refetchPositions}
+                className="mt-3 rounded-md border border-hairline-strong px-3 py-1.5 text-xs text-muted hover:bg-surface-2"
+              >
+                Retry
+              </button>
+            </section>
+          ) : (
+            <ActionTabs
+              snapshot={snapshot}
+              positions={positions}
+              refetchPositions={refetchPositions}
+              variant="token"
+            />
+          )}
 
           {/* Balances + market-less claim */}
           {isConnected && positions !== undefined && (
@@ -263,37 +269,19 @@ export default function TokenPage() {
             </section>
           )}
 
-          {/* SY and PT/YT actions that do not require a market. A terminal
-              balance-query failure must not masquerade as perpetual loading. */}
-          {isConnected && positionsStatus === 'error' ? (
-            <section
-              role="alert"
-              className="rounded-xl border border-hairline bg-surface p-5"
-            >
-              <h2 className="text-base font-semibold text-fg">Token actions</h2>
-              <p className="mt-2 text-sm text-danger">
-                Couldn't load wallet balances{positionsError ? ` — ${positionsError}` : ''}.
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-faint">
-                Actions are paused because OpenPendle can't safely check the amount against your
-                balance.
-              </p>
-              <button
-                type="button"
-                onClick={refetchPositions}
-                className="mt-3 rounded-md border border-hairline-strong px-3 py-1.5 text-xs text-muted hover:bg-surface-2"
-              >
-                Retry
-              </button>
-            </section>
-          ) : (
-            <ActionTabs
-              snapshot={snapshot}
-              positions={positions}
-              refetchPositions={refetchPositions}
-              variant="token"
-            />
-          )}
+          {/* Resolved set */}
+          <section className="rounded-xl border border-hairline bg-surface p-5">
+            <h2 className="text-base font-semibold text-fg">Resolved token set</h2>
+            <div className="mt-2 divide-y divide-hairline">
+              <AddrRow role="PT" symbol={snapshot.ptSymbol} address={snapshot.pt} chainId={chainId} />
+              <AddrRow role="YT" symbol={snapshot.ytSymbol} address={snapshot.yt} chainId={chainId} />
+              <AddrRow role="SY" symbol={snapshot.sy.symbol} address={snapshot.sy.address} chainId={chainId} />
+            </div>
+            <p className="mt-2 text-[11px] text-faint">
+              {snapshot.isExpired ? 'Matured' : 'Matures'} {snapshot.displayName.split('·')[1]?.trim()}
+              {snapshot.isExpired ? ' — PT is redeemable 1:1 for the underlying.' : '.'}
+            </p>
+          </section>
 
           {marketResolveStatus === 'loading' && (
             <section
@@ -312,11 +300,9 @@ export default function TokenPage() {
             resolvedMarkets.length === 0 && (
             <section className="rounded-xl border border-hairline bg-bg-2 p-4">
               <p className="text-sm text-muted">
-                <span className="font-medium text-fg">Want to trade or provide liquidity?</span> Swaps and
-                LP need the market (PLP) address — we couldn't find it in Pendle's listings or the
-                community-market indexes available for this network.{' '}
+                No pool found for this token. To trade or LP, paste the market (PLP) address.{' '}
                 <Link to="/" className="text-accent-ink hover:underline">
-                  Load the market →
+                  Load a market →
                 </Link>
               </p>
             </section>

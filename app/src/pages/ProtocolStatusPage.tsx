@@ -4,9 +4,9 @@
  * Each card reuses the ProtocolStatus component (live reads for its own chain).
  * Moved off Home; linked from the footer.
  */
-import { Link } from 'react-router-dom'
 import { SUPPORTED_CHAINS } from '../lib/addresses'
 import { useActiveChain } from '../lib/hooks'
+import { PageHeader } from '../components/PageHeader'
 import { ProtocolStatus } from '../components/ProtocolStatus'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 
@@ -20,22 +20,12 @@ export default function ProtocolStatusPage() {
   ]
 
   return (
-    <div className="py-8">
-      <Link to="/" className="text-sm text-muted hover:text-fg">
-        ← Home
-      </Link>
-
-      <header className="mt-4">
-        <h1 className="text-[28px] font-bold tracking-[-.03em] text-fg">
-          Protocol Status &amp; Contracts
-        </h1>
-        <p className="mt-3 max-w-[72ch] text-sm leading-relaxed text-muted">
-          The live Pendle wiring on every supported network. Active factories are
-          resolved from commonDeploy's immutables at runtime; fee parameters are
-          governance-mutable and read live from the chain, never hardcoded — no wallet
-          needed. Each contract links to its block explorer.
-        </p>
-      </header>
+    <div className="pb-16">
+      <PageHeader
+        back
+        title="Protocol status"
+        lede="Live Pendle contracts and fees per network, read from the chain — no wallet needed."
+      />
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         {chains.map((c) => (

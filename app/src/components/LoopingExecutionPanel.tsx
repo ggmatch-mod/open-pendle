@@ -53,11 +53,11 @@ const ACTIVE_STEP_LABELS: Partial<Record<LoopingExecutionPhase, string>> = {
   checking: 'Checking the live position, contracts, and route',
   'clearing-allowance': 'Clearing the old token allowance',
   approving: 'Setting the exact token allowance',
-  simulating: 'Simulating unsigned action calldata',
+  simulating: 'Simulating the transaction',
   'signing-authorize': 'Sign 1 of 2 · temporary Morpho authorization',
   'signing-revoke': 'Sign 2 of 2 · mandatory Morpho revocation',
-  revalidating: 'Rechecking every signed state binding',
-  submitting: 'Confirm the exact Bundler3 transaction',
+  revalidating: 'Rechecking before submitting',
+  submitting: 'Confirm in your wallet',
   pending: 'Waiting for the transaction receipt',
   verifying: 'Verifying position, allowance, and permissions',
   recovering: 'Securing the exposed Morpho authorization',
@@ -178,7 +178,7 @@ function LoopingExecutionActionView({
       </button>
     )
   } else if (execution.busy) {
-    action = <button type="button" disabled className={disabledClass}>{activeStep ?? 'Working safely…'}</button>
+    action = <button type="button" disabled className={disabledClass}>{activeStep ?? 'Working…'}</button>
   } else if (preview !== undefined && execution.phase === 'ready') {
     const label = preview.kind === 'entry-preview'
       ? 'Start loop'
@@ -258,8 +258,8 @@ function LoopingExecutionActionView({
           ? 'text-danger'
           : 'text-muted'}`}>
           {highRiskConfirmationRequired
-            ? 'Below the 10% warning marker. Explicit confirmation is required; 1% remains the absolute preflight floor.'
-            : '10% is the warning marker; 1% remains the absolute preflight floor. Final inclusion may differ.'}
+            ? 'Execution is allowed only after explicit confirmation. A 1% preflight floor still applies.'
+            : '10% is the warning marker; 1% remains the absolute preflight floor.'}
         </p>
       )}
     </div>
@@ -296,14 +296,11 @@ function LoopingExecutionDetails({
       <div className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-fg">Calculator only for this market</p>
+            <p className="text-xs font-semibold text-fg">Calculator only</p>
             <p className="mt-1 max-w-2xl text-[10.5px] leading-4 text-muted">
-              Wallet execution is not yet enabled for this reviewed market tuple.
+              Execution isn't enabled for this market yet.
             </p>
           </div>
-          <span className="rounded-full border border-hairline px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] text-faint">
-            not allowlisted
-          </span>
         </div>
         {showAction && (
           <div className="mt-3">
@@ -321,9 +318,6 @@ function LoopingExecutionDetails({
   const increasePreview = preview?.kind === 'increase-preview' ? preview : undefined
   const decreasePreview = preview?.kind === 'decrease-preview' ? preview : undefined
   const riskReducingPreview = exitPreview ?? decreasePreview
-  const highRiskPreview = preview !== undefined && requiresLoopingHighRiskConfirmation(preview)
-  const riskIncreasingBufferBps = entryPreview?.health.liquidationBufferBps ??
-    increasePreview?.conservativePost.liquidationBufferBps
   const quoteSecondsRemaining = preview === undefined
     ? undefined
     : Math.max(0, Math.ceil((preview.validUntilMs - nowMs) / 1_000))
@@ -340,58 +334,34 @@ function LoopingExecutionDetails({
         <div>
           <p className="text-xs font-semibold text-fg">Execute on {executionChainName}</p>
           <p className="mt-1 max-w-2xl text-[10.5px] leading-4 text-muted">
-            One transaction can open, adjust, or fully exit the reviewed PT/Morpho loop.
-            Every action is rebuilt from the latest position and bounded Pendle quote.
+            Runs as a single transaction from your wallet.
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
-          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] ${execution.entryEnabled
-            ? 'border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] text-warn'
-            : 'border-hairline bg-surface text-faint'}`}>
-            {execution.entryEnabled ? 'entry beta' : 'entry gated'}
-          </span>
-          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] ${execution.exitEnabled
-            ? 'border-[var(--op-good-bd)] bg-[var(--op-good-soft)] text-good'
-            : 'border-hairline bg-surface text-faint'}`}>
-            {execution.exitEnabled ? 'exit enabled' : 'exit gated'}
-          </span>
-          <span className="rounded-full border border-[var(--op-good-bd)] bg-[var(--op-good-soft)] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] text-good">
-            recovery available
-          </span>
+          {!execution.entryEnabled && (
+            <span className="rounded-full border border-hairline bg-surface px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] text-faint">
+              entry gated
+            </span>
+          )}
+          {!execution.exitEnabled && (
+            <span className="rounded-full border border-hairline bg-surface px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[.07em] text-faint">
+              exit gated
+            </span>
+          )}
         </div>
       </div>
 
       {preview === undefined && execution.intent === 'adjust' ? (
         <div className="mt-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-[10.5px] leading-4 text-muted">
-          A fresh position read determines whether this target increases or decreases risk.
-          Increasing leverage past the red 10% marker requires explicit risk confirmation;
-          a strictly safer reduction remains available.
-        </div>
-      ) : preview === undefined && execution.intent === 'full-exit' ? (
-        <div className="mt-3 rounded-lg border border-[var(--op-good-bd)] bg-[var(--op-good-soft)] px-3 py-2 text-[10.5px] leading-4 text-good">
-          Full exit uses a fresh bounded quote for the exact live position and is independent from the risk-increase gate.
+          Raising leverage past the red mark needs confirmation; lowering it is always allowed.
         </div>
       ) : riskReducingPreview ? (
         <div className="mt-3 rounded-lg border border-[var(--op-good-bd)] bg-[var(--op-good-soft)] px-3 py-2 text-[10.5px] leading-4 text-good">
           {decreasePreview
-            ? 'Reducing leverage repays part of the debt with an exact PT sale. It remains available when it strictly improves the live position, even if the position is already inside the warning zone.'
-            : 'Full exit uses a fresh bounded quote for the exact live position. Permission recovery remains available even when entry and exit are launch-gated.'}
+            ? 'Reducing leverage sells PT to repay part of the debt.'
+            : 'Full exit is quoted against your live position.'}
         </div>
-      ) : highRiskPreview ? (
-        <div className="mt-3 rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-[10.5px] leading-4 text-danger">
-          This preview leaves an estimated {riskIncreasingBufferBps === undefined
-            ? 'sub-10%'
-            : formatBps(riskIncreasingBufferBps)} liquidation buffer, past the red 10% marker.
-          Execution is allowed only after explicit confirmation. A 1% preflight floor still applies,
-          and the final buffer can change before inclusion.
-        </div>
-      ) : (
-        <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[10.5px] leading-4 text-warn">
-          The red 10% marker is the standard warning threshold. Execution can continue toward
-          the 1% preflight floor after explicit risk confirmation; the final buffer can change before inclusion.
-          {' OpenPendle imposes no beta-size amount cap; wallet balance, Morpho liquidity, quote capacity, and every execution safety check still apply.'}
-        </div>
-      )}
+      ) : null}
 
       {activeStep && (
         <div role="status" className="mt-3 flex items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-2 text-xs text-fg">
@@ -597,9 +567,9 @@ function LoopingExecutionDetails({
       )}
 
       <p className="mt-2 text-center text-[10px] leading-4 text-muted">
-        Unsigned safety checks use your wallet&apos;s {executionChainName} RPC. OpenPendle never simulates the signed calldata.
-        The two Morpho signatures stay in memory, and the final transaction goes only to your wallet after
-        a last state recheck.
+        Checks run through your wallet's {executionChainName} RPC — OpenPendle never simulates the signed calldata,
+        and nothing is sent without your confirmation. There is no beta-size amount cap;
+        wallet balance, liquidity, and every safety check still apply.
       </p>
       {execution.phase === 'ambiguous' && (
         <p className="mt-1 text-center text-[10px] leading-4 text-danger">
@@ -609,7 +579,7 @@ function LoopingExecutionDetails({
               ? 'No authorization signature was exposed. Only stale browser recovery metadata needs removal.'
               : execution.pendingRecord?.txHash !== undefined || execution.txHash !== undefined
                 ? 'OpenPendle will first verify the completed position and permission state. It will not send another transaction unless an active permission actually needs to be secured.'
-                : 'OpenPendle never retries an unresolved transaction automatically. Permission rescue is offered only when the live nonce, position, and authorization state can be classified safely.'}
+                : 'Nothing is retried automatically. Recovery is offered only when the on-chain state is unambiguous.'}
         </p>
       )}
       <p className="mt-1 text-center font-mono text-[9px] text-faint">

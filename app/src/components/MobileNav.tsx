@@ -13,15 +13,15 @@ import { Link } from 'react-router-dom'
 import { NetworkPicker } from './NetworkPicker'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
-  { to: '/explore', label: 'Explore markets', glyph: '◇' },
-  { to: '/alerts', label: 'Yield alerts', glyph: '↕' },
+  { to: '/explore', label: 'Explore', glyph: '◇' },
   { to: '/looping', label: 'Looping', glyph: '↻' },
+  { to: '/alerts', label: 'Alerts', glyph: '↕' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },
   {
     to: 'https://docs.openpendle.com/introduction/quickstart',
-    label: 'Docs & quick start',
+    label: 'Docs',
     glyph: '?',
     external: true,
   },
@@ -56,7 +56,7 @@ export function MobileNav() {
   const close = () => setOpen(false)
 
   return (
-    <div ref={ref} className="relative xl:hidden">
+    <div ref={ref} className="relative lg:hidden">
       <button
         ref={triggerRef}
         type="button"

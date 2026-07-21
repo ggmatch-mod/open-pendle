@@ -51,7 +51,7 @@ export function NetworkSelector() {
         title={
           isTransactionInFlight
             ? 'Network selection is locked while a transaction is pending'
-            : 'Active network — switches app reads and the connected wallet'
+            : 'Switch network'
         }
       >
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
@@ -63,9 +63,6 @@ export function NetworkSelector() {
 
       {open && (
         <div className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-[14px] border border-hairline bg-surface shadow-[var(--op-shadow-lg)]">
-          <p className="border-b border-hairline px-3 py-2 text-xs text-faint">
-            Active network — app &amp; wallet
-          </p>
           <NetworkPicker className="p-1.5" onSelect={() => setOpen(false)} />
         </div>
       )}

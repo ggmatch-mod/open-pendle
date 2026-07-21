@@ -285,10 +285,7 @@ export function PositionsCard({
           <TxStatus flow={claimFlow} />
         </div>
         {snapshot.isExpired && (
-          <p className="mt-2 text-[11px] text-faint">
-            This market has matured — accrual is frozen but residual claims stay
-            valid forever.
-          </p>
+          <p className="mt-2 text-[11px] text-faint">Matured — you can still claim.</p>
         )}
       </div>
 

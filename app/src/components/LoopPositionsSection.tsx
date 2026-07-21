@@ -279,9 +279,8 @@ function LoopPositionManager({
     return (
       <div className="mt-3">
         <div className="rounded-lg border border-[var(--op-good-bd)] bg-[var(--op-good-soft)] px-3 py-3 text-xs leading-5 text-good">
-          <span className="font-semibold">PT matured · full exit only.</span>{' '}
-          Leverage adjustments are disabled. Full exit uses Pendle&apos;s post-expiry PT
-          redemption path, repays the Morpho debt, and returns the remainder to the wallet.
+          <span className="font-semibold">PT matured — full exit only.</span>{' '}
+          Exit redeems the PT, repays the debt, and returns the rest to your wallet.
         </div>
         <LoopingExecutionPanel
           candidate={candidate}
@@ -372,9 +371,7 @@ function LoopPositionManager({
                 </span>
               </div>
               <p className="mt-2 text-[10.5px] leading-4 text-muted">
-                Grey mark: current leverage. Red mark: {warningThreshold.toFixed(2)}× high-risk warning.
-                The market&apos;s 1% model boundary is {marketMaximum.toFixed(2)}×. The preview uses a fresh Pendle quote,
-                so the conservative result can land below the selected target.
+                Grey: current · red: high risk above {warningThreshold.toFixed(2)}×.
               </p>
               {beyondWarningThreshold && (
                 <p role="status" className="mt-2 text-[10.5px] font-medium text-danger">
@@ -406,7 +403,7 @@ function LoopPositionManager({
               className="mt-3 h-11 w-full cursor-not-allowed rounded-[10px] border border-hairline bg-surface px-4 text-sm font-semibold text-faint"
             >
               {liquidityIncreaseBlocked
-                  ? 'Fresh $100+ borrow liquidity required'
+                  ? 'Not enough borrow liquidity (min $100)'
                 : currentLeverage === null
                   ? 'Adjustment unavailable'
                   : 'Choose a different target'}
@@ -539,22 +536,17 @@ function LoopPositionCard({
 
       {!cleanOpenLoop && (
         <p className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs leading-5 text-warn">
-          Manual review required. This is not the exact debt-and-collateral position shape supported by OpenPendle&apos;s automatic full exit.
+          This position's shape isn't supported for automatic exit — manage it directly on Morpho.
         </p>
       )}
       {cleanOpenLoop && !directoryDataAvailable && (
         <p className="mt-3 rounded-lg border border-hairline bg-surface px-3 py-2 text-xs leading-5 text-muted">
-          Live directory enrichment is unavailable. Management remains available from the reviewed registry and rechecks the position, contracts and exit quote before any wallet action.
+          Live market data is unavailable. You can still manage this position — everything is rechecked before any transaction.
         </p>
       )}
 
       {canManage && expanded && (
         <div className="mt-4 border-t border-hairline pt-1">
-          <p className="mt-3 text-[10.5px] leading-4 text-muted">
-            {matured
-              ? 'This PT is past maturity. Only full exit is available, using PT redemption before the Morpho debt is repaid.'
-              : 'Adjust leverage or fully exit. OpenPendle re-reads the position and builds a fresh bounded quote before any wallet action.'}
-          </p>
           <LoopPositionManager
             candidate={directoryCandidate ?? candidate}
             market={market}
@@ -665,7 +657,7 @@ export function LoopPositionsSection() {
             </span>
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">
-            Morpho positions in OpenPendle&apos;s reviewed PT-loop markets, read directly from chain and independent of saved pools.
+            Your loop positions, read directly from chain.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">

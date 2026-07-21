@@ -24,9 +24,6 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
           <input type="checkbox" checked={false} disabled readOnly className="h-4 w-4" />
           <span className="text-sm font-medium">Remember this pool</span>
         </label>
-        <p className="mt-1.5 text-xs text-faint">
-          unvalidated markets can't be remembered
-        </p>
       </div>
     )
   }
@@ -68,15 +65,16 @@ export function RememberToggle({ snapshot }: { snapshot: MarketSnapshot }) {
       {/* Nudge for pool creators — incentivize this pool's LPs via Merkl (v1.5
           will surface active campaigns in-app; for now this deep-links out). */}
       <p className="mt-1.5 text-xs text-faint">
-        Is this your Pool? You can add incentives over at{' '}
+        Pool creator? Add LP incentives on{' '}
         <a
           href="https://studio.merkl.xyz/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-ink underline decoration-dotted underline-offset-2 hover:text-accent-ink"
+          className="text-accent-ink underline decoration-dotted underline-offset-2"
         >
           Merkl
         </a>
+        .
       </p>
     </div>
   )

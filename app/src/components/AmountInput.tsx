@@ -118,7 +118,7 @@ export function AmountInput({
         </p>
       ) : decimals === undefined ? (
         <p className="mt-1 text-xs text-warn">
-          Token metadata unavailable — cannot size amounts safely.
+          Token details unavailable — amounts can't be entered.
         </p>
       ) : null}
     </div>

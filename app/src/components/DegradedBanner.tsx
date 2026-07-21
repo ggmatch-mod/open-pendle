@@ -38,8 +38,8 @@ export function DegradedBanner({
       </p>
       <p className={`mt-1 text-xs ${legacy ? 'text-warn' : 'text-muted'}`}>
         {legacy
-          ? 'Some on-chain probes failed, so parts of this page are incomplete. Older market generations load best-effort:'
-          : 'Some on-chain probes failed, so parts of this page are incomplete:'}
+          ? "Some data for this older market couldn't be loaded:"
+          : "Some data couldn't be loaded:"}
       </p>
       <ul
         className={`mt-2 list-inside list-disc space-y-0.5 text-xs ${

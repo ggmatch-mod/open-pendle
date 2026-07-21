@@ -37,17 +37,14 @@ function OracleCta() {
       </summary>
       <div className="border-t border-hairline px-3 py-2.5">
         <p className="text-xs leading-relaxed text-muted">
-          New pools start with a TWAP oracle cardinality of 1. A one-time
-          cardinality bump lets the pool record enough price observations for
-          robust TWAP pricing later (used by lending markets and dashboards). It
-          is <span className="text-muted">not</span> required to trade, add
-          liquidity, or quote through the router — those work immediately.
+          Raises the pool's TWAP oracle capacity so integrations (lending
+          markets, dashboards) can read reliable prices. Not needed to trade,
+          add liquidity, or quote — those work now.
         </p>
         <p className="mt-2 text-[11px] leading-snug text-faint">
-          A one-click initialize step is planned for a later OpenPendle update. If
-          you need it now, call{' '}
-          <span className="font-mono">increaseObservationsCardinalityNext</span> on
-          the market contract from a block explorer. It's safe to skip.
+          To do it now, call{' '}
+          <span className="font-mono">increaseObservationsCardinalityNext</span>{' '}
+          on the market from a block explorer. Safe to skip.
         </p>
       </div>
     </details>
@@ -110,15 +107,15 @@ export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
       </p>
 
       {result ? (
-        <div className="mt-3 rounded-lg border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] p-3">
-          <p className="text-xs text-accent-ink/80">New market (PLP) address</p>
+        <div className="mt-3 rounded-lg border border-hairline bg-bg/50 p-3">
+          <p className="text-xs text-muted">New market address</p>
           <p className="mt-0.5 break-all font-mono text-sm text-fg" title={result.market}>
             {result.market}
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <Link
               to={marketPath(result.market, chainId)}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:brightness-110"
             >
               Open the pool →
             </Link>
@@ -131,18 +128,14 @@ export function DeploySuccess({ txHash }: { txHash: `0x${string}` }) {
               View on {explorerName(chainId)}
             </a>
           </div>
-          <p className="mt-2 text-[11px] text-accent-ink/70">
-            Opening the pool loads it live — tick “Remember this pool” there to
-            save it to your local registry.
+          <p className="mt-2 text-[11px] text-faint">
+            Tick “Remember this pool” there to save it for next time.
           </p>
         </div>
       ) : decodeFailed ? (
-        <div className="mt-3 rounded-lg border border-[var(--op-warn-bd)] bg-amber-950/30 p-3">
-          <p className="text-xs text-warn">
-            The transaction confirmed, but the market address couldn't be read
-            from the receipt automatically. Use “Recover a deployment” below with
-            the transaction hash above to retrieve it.
-          </p>
+        <div className="mt-3 rounded-md border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-[12.5px] text-warn">
+          The transaction confirmed but the pool address couldn't be read —
+          use “Recover a deployment” below with the hash above.
         </div>
       ) : (
         <p className="mt-3 text-xs text-accent-ink/70">

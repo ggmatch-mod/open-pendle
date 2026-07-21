@@ -836,7 +836,7 @@ check(
   'registry fallback keeps clean-position management independent from directory enrichment',
   /const candidate = fallbackCandidate\(row\.market\)/.test(loopPositions) &&
     /directoryCandidate=\{directoryCandidate\}/.test(loopPositions) &&
-    /Management remains available from the reviewed registry/.test(loopPositions),
+    /You can still manage this position/.test(loopPositions),
   'A transient catalog or Morpho API failure must not hide the reviewed on-chain exit path or control execution decimals.',
 )
 check(
@@ -882,10 +882,10 @@ check(
   'standard-position warnings, errors, and empty states remain explicitly scoped below loops',
   ordered(positionsPage, [
     '<LoopPositionsSection />',
-    'Pendle Official Pool discovery is temporarily unavailable. Saved Pool positions are',
-    'Couldn&apos;t load your Saved and Official Pool positions.',
+    "Couldn't check official Pendle pools — your saved pool positions are still shown.",
+    'Couldn&apos;t load your saved and official pool positions.',
     'No PT, YT, or LP positions found',
-    'OpenPendle checked your Saved Pools and Pendle Official Pools.',
+    'None found in your saved or official Pendle pools.',
   ]) &&
     !/Couldn(?:'|&apos;)t load your positions\./.test(positionsPage),
   'Saved/Official discovery, error, and empty copy must identify standard positions and remain below the independent loop section.',

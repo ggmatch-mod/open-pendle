@@ -135,19 +135,14 @@ export function SavedPoolCard({
         </div>
         <button
           type="button"
-          title="Click to forget this pool"
+          aria-label={`Forget ${clampLabel(pool.label)}`}
           onClick={(e) => {
             e.stopPropagation()
             forgetWithUndo(pool.chainId, pool.market)
           }}
-          className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink"
+          className="relative z-10 shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-surface-2 hover:text-fg"
         >
-          <span className="inline-flex h-[14px] w-[14px] items-center justify-center rounded-sm bg-accent text-accent-fg">
-            <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M2.5 6.5 5 9l4.5-5.5" />
-            </svg>
-          </span>
-          Remembered
+          Forget
         </button>
       </div>
 
@@ -164,15 +159,6 @@ export function SavedPoolCard({
         <StatLine pool={pool} sweepStatus={sweepStatus} stats={stats} />
       </div>
 
-      {!onActiveChain && (
-        <button
-          type="button"
-          onClick={open}
-          className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-md border border-[rgba(var(--op-accent-rgb),0.4)] bg-[rgba(var(--op-accent-rgb),0.1)] px-2.5 py-1 text-xs font-medium text-accent-ink hover:border-[rgba(var(--op-accent-rgb),0.4)] hover:text-accent-ink"
-        >
-          Open on {chainName} →
-        </button>
-      )}
     </div>
   )
 }

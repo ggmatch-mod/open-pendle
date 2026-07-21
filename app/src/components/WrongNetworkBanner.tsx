@@ -35,8 +35,8 @@ export function WrongNetworkBanner() {
       className="flex flex-wrap items-center justify-center gap-3 border-b border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-4 py-2.5 text-sm text-warn"
     >
       <span>
-        Your wallet is on {walletChainLabel} — switch to {activeChain.name} to
-        transact. (Browsing still works.)
+        Wallet on {walletChainLabel}. Switch to {activeChain.name} to transact — browsing still
+        works.
       </span>
       <button
         onClick={() => switchChain({ chainId: activeChainId })}

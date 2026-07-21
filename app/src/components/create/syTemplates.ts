@@ -20,8 +20,10 @@ export interface SyTemplateMeta {
   id: SyTemplateId
   /** Short picker label. */
   label: string
-  /** One-line explanation for the picker row. */
+  /** One-line plain-language explanation for the picker row. */
   description: string
+  /** Pendle contract class name, shown as a small mono suffix for verification. */
+  contract: string
   /** false → basic (deploySY, simple path); true → advanced (deployUpgradableSY). */
   advanced: boolean
   /** Advanced templates deploy as TransparentUpgradeableProxies under Pendle's proxyAdmin. */
@@ -30,8 +32,6 @@ export interface SyTemplateMeta {
   requiresErc4626: boolean
   /** True when the template accepts an optional IStandardizedYieldAdapter address. */
   takesAdapter: boolean
-  /** Extra disclosure shown when this template is selected (empty → none). */
-  note: string
 }
 
 /**
@@ -42,79 +42,72 @@ export const SY_TEMPLATES: readonly SyTemplateMeta[] = [
   {
     id: 'erc20',
     label: 'Plain ERC-20 (1:1)',
-    description:
-      'PendleERC20SY — wraps a yield-bearing ERC-20 one-to-one. The simplest, most audited template.',
+    description: 'Wraps a yield-bearing ERC-20 one-to-one — the simplest choice.',
+    contract: 'PendleERC20SY',
     advanced: false,
     upgradeable: false,
     requiresErc4626: false,
     takesAdapter: false,
-    note: '',
   },
   {
     id: 'erc4626',
     label: 'ERC-4626 vault',
-    description:
-      'PendleERC4626SYV2 — wraps a standard ERC-4626 vault; deposits/redeems flow through the vault to its underlying asset.',
+    description: 'Wraps a standard ERC-4626 vault; deposits and redeems go through the vault.',
+    contract: 'PendleERC4626SYV2',
     advanced: false,
     upgradeable: false,
     requiresErc4626: true,
     takesAdapter: false,
-    note: '',
   },
   {
     id: 'erc4626-not-redeemable',
     label: 'ERC-4626 (not redeemable to asset)',
-    description:
-      'PendleERC4626NotRedeemableToAssetSYV2 — for 4626 vaults whose shares cannot be redeemed straight back to the underlying asset.',
+    description: "For vaults whose shares can't be redeemed straight back to the underlying asset.",
+    contract: 'PendleERC4626NotRedeemableToAssetSYV2',
     advanced: false,
     upgradeable: false,
     requiresErc4626: true,
     takesAdapter: false,
-    note: 'Choose this only when the vault does not support redeeming shares to its underlying asset. If unsure, the plain ERC-4626 template is safer.',
   },
   {
     id: 'erc20-adapter',
     label: 'ERC-20 with adapter',
-    description:
-      'PendleERC20WithAdapterSY — a plain ERC-20 wrapper routed through a pre-deployed IStandardizedYieldAdapter.',
+    description: 'An ERC-20 wrapper that routes deposits and redeems through an adapter contract.',
+    contract: 'PendleERC20WithAdapterSY',
     advanced: true,
     upgradeable: true,
     requiresErc4626: false,
     takesAdapter: true,
-    note: 'Upgradeable proxy. Its owner can call setAdapter — a live trust vector. Leave the adapter blank for a plain 1:1 wrapper.',
   },
   {
     id: 'erc4626-adapter',
     label: 'ERC-4626 with adapter',
-    description:
-      'PendleERC4626WithAdapterSY — an ERC-4626 wrapper routed through a pre-deployed adapter.',
+    description: 'An ERC-4626 wrapper that routes deposits and redeems through an adapter contract.',
+    contract: 'PendleERC4626WithAdapterSY',
     advanced: true,
     upgradeable: true,
     requiresErc4626: true,
     takesAdapter: true,
-    note: 'Upgradeable proxy. Its owner can call setAdapter — a live trust vector. Leave the adapter blank for a plain 1:1 wrapper.',
   },
   {
     id: 'erc4626-noredeem-adapter',
     label: 'ERC-4626 no-redeem with adapter',
-    description:
-      'PendleERC4626NoRedeemWithAdapterSY — a no-redeem ERC-4626 wrapper routed through an adapter.',
+    description: 'A no-redeem ERC-4626 wrapper routed through an adapter contract.',
+    contract: 'PendleERC4626NoRedeemWithAdapterSY',
     advanced: true,
     upgradeable: true,
     requiresErc4626: true,
     takesAdapter: true,
-    note: 'Upgradeable proxy. Its owner can call setAdapter — a live trust vector. Leave the adapter blank for a plain 1:1 wrapper.',
   },
   {
     id: 'erc4626-noredeem-nodeposit',
     label: 'ERC-4626 no-redeem / no-deposit',
-    description:
-      'PendleERC4626NoRedeemNoDepositUpgSY — an upgradeable 4626 wrapper with neither deposit nor redeem to the underlying asset (no adapter).',
+    description: 'An upgradeable vault wrapper with neither deposit nor redeem to the underlying asset.',
+    contract: 'PendleERC4626NoRedeemNoDepositUpgSY',
     advanced: true,
     upgradeable: true,
     requiresErc4626: true,
     takesAdapter: false,
-    note: 'Upgradeable proxy. Takes no adapter. Its combined SY+market flow routes through a generic deploy path.',
   },
 ] as const
 
