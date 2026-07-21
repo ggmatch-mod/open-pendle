@@ -99,13 +99,16 @@ export default function AboutPage() {
             Cloudflare Web Analytics. The pools you remember live only in your browser's local storage;
             any custom RPC you set stays local too. Explore inventory comes from a same-origin static
             snapshot generated on a schedule from recognized factory events. Pendle's API supplies
-            listing/display data, Alerts history, and the hosted limit-order service. Alerts send no
-            wallet address. Generating, submitting, and reading your limit orders sends Pendle your
-            wallet address, chain, market/YT, token, amount, target rate, expiry, and signed order. A
-            signed order can remain executable until it fills, expires, or an on-chain cancellation is
-            confirmed. Other outbound requests go to configured blockchain RPCs, DefiLlama and CoinGecko
-            for the header ticker, available Blockscout indexes for token lookup, and Merkl when a
-            connected user opens My positions. Merkl receives the wallet address and chain ID.
+            listing/display data, Alerts history, the hosted limit-order service, and Official-pool
+            discovery for My positions. Alerts send no wallet address. Opening My positions sends
+            Pendle the connected wallet address to discover relevant Official markets; balances and
+            claims are then read from the relevant chains. Generating, submitting, and reading your
+            limit orders sends Pendle your wallet address, chain, market/YT, token, amount, target rate,
+            expiry, and signed order. A signed order can remain executable until it fills, expires, or
+            an on-chain cancellation is confirmed. Other outbound requests go to configured blockchain
+            RPCs, DefiLlama and CoinGecko for the header ticker, available Blockscout indexes for token
+            lookup, and Merkl when a connected user opens My positions. Merkl receives the wallet
+            address and supported chain IDs.
           </p>
         </Section>
 

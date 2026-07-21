@@ -1,35 +1,35 @@
 # Positions & rewards
 
-The **Positions** page shows the connected wallet's PT, YT, LP, and SY balances across every pool saved in the current browser. Reads are cross-chain; transaction actions remain bound to the active network.
+The **Positions** page shows the connected wallet's PT, YT, and LP holdings across both local **Saved Pools** and Pendle **Official Pools**. Looped PT positions remain separate. Reads are cross-chain; transaction actions remain bound to the active network.
 
-## Before positions can appear
+## How pools are found
 
-OpenPendle does not run a global wallet indexer. It checks the pools in your local Saved pools registry:
+OpenPendle combines two sources:
 
-1. Open a market.
-2. Enable **Remember this pool**.
-3. Connect the wallet whose balances you want to inspect.
-4. Open **Profile → Positions**.
+- every market in the current browser's Saved Pools registry, including saved community markets; and
+- the connected wallet's market IDs returned by Pendle's Official cross-chain position index.
 
-Saved pools with no balance are omitted from the main list. The page reports how many empty saved pools were not shown.
+The Pendle response is discovery-only. OpenPendle re-loads each relevant market and its balances through that market's own chain RPC before displaying it. It does not scan every Pendle market, and it does not render the API's cached claim amounts as live balances.
+
+Saved Pool positions load independently of Official discovery. If Pendle is unavailable or reports an incomplete chain, the page keeps those Saved results and shows a coverage warning instead of declaring the wallet empty. Markets with no current PT, YT, LP, or claimable balance are omitted.
 
 ## What is included
 
-For every saved market where the wallet holds something, the page can show:
+Standard holdings are separated into three groups on each network:
 
-- wallet PT and YT;
-- LP tokens;
-- SY;
-- claimable Pendle-native interest or rewards; and
-- the network and market needed to act on the position.
+- **PT** — Principal Token balances;
+- **YT** — Yield Token balances; and
+- **LP** — market liquidity-token balances.
 
-This is a portfolio view over saved pools, not proof that no other Pendle position exists elsewhere.
+PT and YT are token positions, so a shared PT/YT pair is shown once even if more than one market uses it. LP positions remain market-specific. Pendle-native interest and rewards are listed separately under the same network, while PT loops keep their own controls and risk information.
+
+Standalone SY balances and bridged cross-chain PT representations are not folded into the PT/YT/LP groups.
 
 ## Claims are grouped by network
 
 Cross-chain balances can be read together, but a transaction can only execute on one network at a time. The active network gets the live claim action. Other groups show **Switch to _network_ to claim** first.
 
-Each Pendle-native claim batches the eligible saved pools on that network into one transaction. OpenPendle simulates the transaction before signing and refreshes the position data after confirmation.
+Each Pendle-native claim batches the eligible Saved and Official markets on that network into one transaction. Shared SY and YT addresses are de-duplicated. A discovered market must still pass OpenPendle's live recognized-factory validation before it is admitted to a claim transaction; an unvalidated result can be displayed read-only with a warning. OpenPendle simulates the transaction before signing and refreshes position data after confirmation.
 
 ## Merkl rewards
 
@@ -40,7 +40,8 @@ If there is nothing claimable, the Merkl section stays hidden. See [Risks & disc
 ## Privacy and limitations
 
 - Saved pools stay in local browser storage unless you explicitly export or share them.
-- Position balances come from RPC reads.
+- Opening Positions sends the connected wallet address to Pendle's Official position-discovery endpoint. The returned market IDs are used only to choose which markets to read.
+- Displayed position balances and Pendle-native claims come from RPC reads, not Pendle's cached claim values.
 - Merkl receives the connected wallet address and supported chain IDs for reward lookup.
 - OpenPendle has no account system and does not synchronize the saved registry between devices.
 

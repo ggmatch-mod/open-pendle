@@ -52,6 +52,16 @@ function isNative(token: Address): boolean {
   return token.toLowerCase() === ZERO_ADDRESS
 }
 
+function uniqueAddresses(addresses: readonly Address[]): Address[] {
+  const seen = new Set<string>()
+  return addresses.filter((address) => {
+    const key = address.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 /** Compact human amount for describe strings: ≤6 fractional digits, trailing zeros trimmed. */
 function fmt(amount: bigint, decimals: number): string {
   const s = formatUnits(amount, decimals)
@@ -338,7 +348,10 @@ export function planClaim(user: Address, snapshot: MarketSnapshot): ActionPlan {
  * client that will simulate/send this — the caller groups by chain first.
  */
 export function planClaimAll(user: Address, snapshots: readonly MarketSnapshot[]): ActionPlan {
-  const n = snapshots.length
+  const sys = uniqueAddresses(snapshots.map((snapshot) => snapshot.sy.address))
+  const yts = uniqueAddresses(snapshots.map((snapshot) => snapshot.yt))
+  const markets = uniqueAddresses(snapshots.map((snapshot) => snapshot.address))
+  const n = markets.length
   return {
     describe: `Claim accrued interest & rewards on ${n} pool${n === 1 ? '' : 's'}`,
     approvals: [],
@@ -346,12 +359,7 @@ export function planClaimAll(user: Address, snapshots: readonly MarketSnapshot[]
       address: ROUTER_V4,
       abi: routerActionsAbi,
       functionName: 'redeemDueInterestAndRewards',
-      args: [
-        user,
-        snapshots.map((s) => s.sy.address),
-        snapshots.map((s) => s.yt),
-        snapshots.map((s) => s.address),
-      ],
+      args: [user, sys, yts, markets],
     },
   }
 }

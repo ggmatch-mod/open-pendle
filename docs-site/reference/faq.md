@@ -44,7 +44,11 @@ Your saved pools and settings are stored in your browser only. OpenPendle operat
 
 ### What outbound requests does the app make?
 
-The app downloads a same-origin static factory-market snapshot and calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public APIs for listed enrichment, PT/YT pool lookup, Yield-alert catalog/history data, and limit-order support, books, generation, placement, and maker-order reads; where available keyless Blockscout log APIs for pool lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Merkl receives the wallet address and chain ID required for its reward lookup. Pendle receives the maker address and complete signed order on placement, and the maker address on order-history reads. Fonts are self-hosted, and the Content-Security-Policy allowlists only the same-origin app code, Cloudflare's analytics script, and the WebAssembly capability used for crypto. More detail is on [Architecture](/reference/architecture).
+The app downloads a same-origin static factory-market snapshot and calls the blockchain RPCs you point it at; DefiLlama and CoinGecko for aggregate header metrics; Pendle's public APIs for listed enrichment, PT/YT pool lookup, Yield-alert catalog/history data, connected-wallet Official-position discovery, and limit-order support, books, generation, placement, and maker-order reads; where available keyless Blockscout log APIs for pool lookup; Merkl when a connected user opens **My positions**; and Cloudflare Web Analytics for page-view and performance metrics. Official-position discovery, maker-order requests, and Merkl reward lookups can include a wallet address. Fonts are self-hosted, and the Content-Security-Policy allowlists only the same-origin app code, Cloudflare's analytics script, and the WebAssembly capability used for crypto. More detail is on [Architecture](/reference/architecture).
+
+### What does My positions show?
+
+It combines local Saved Pools with the connected wallet's market IDs from Pendle Official Pools, then re-reads PT, YT, LP, and claimable balances from the relevant chains. Standard holdings are split into PT, YT, and LP groups. It also requests wallet-wide Merkl rewards across supported chains; those results can include non-Pendle campaigns, and claims go directly to Merkl's distributor.
 
 ### Are PT limit orders available on every officially listed market?
 
