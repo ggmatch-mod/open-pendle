@@ -30,6 +30,7 @@ import {
   buildUnsignedLoopingEntrySimulation,
   buildUnsignedLoopingExitSimulation,
   buildUnsignedLoopingIncreaseSimulation,
+  LoopingExecutionError,
   prepareDirectLoopingRescue,
   prepareLoopingDecreaseExecution,
   prepareLoopingEntryExecution,
@@ -67,6 +68,11 @@ const ORACLE_PRICE_SCALE = 10n ** 36n
 const MORPHO_VIRTUAL_ASSETS = 1n
 const MORPHO_VIRTUAL_SHARES = 1_000_000n
 const INCREASE_STEP_WAD = WAD / 5n
+const PENDLE_PREPARE_RATE_LIMIT_RETRY_DELAYS_MS = Object.freeze([
+  5_000,
+  15_000,
+  45_000,
+])
 
 const COMPILER_FORK_TARGETS = Object.freeze({
   [ETHEREUM_LOOPING_CHAIN_ID]: Object.freeze({
@@ -91,6 +97,46 @@ const COMPILER_FORK_TARGETS = Object.freeze({
 
 function fail(message) {
   throw new Error(message)
+}
+
+function isPendleQuoteRateLimit(error) {
+  return (
+    error instanceof LoopingExecutionError &&
+    error.code === 'INVALID_QUOTE' &&
+    /^Pendle quote returned HTTP 429(?:[.:]|$)/.test(error.message)
+  )
+}
+
+export async function prepareWithPendleQuoteRateLimitRetry(
+  label,
+  prepare,
+  options = {},
+) {
+  const retryDelaysMs =
+    options.retryDelaysMs ?? PENDLE_PREPARE_RATE_LIMIT_RETRY_DELAYS_MS
+  const wait = options.wait ?? (
+    (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+  )
+  const warn = options.warn ?? console.warn
+  for (
+    let attempt = 0;
+    attempt <= retryDelaysMs.length;
+    attempt += 1
+  ) {
+    try {
+      return await prepare()
+    } catch (error) {
+      const retryDelayMs = retryDelaysMs[attempt]
+      if (!isPendleQuoteRateLimit(error) || retryDelayMs === undefined) {
+        throw error
+      }
+      warn(
+        `  Pendle rate-limited ${label}; retrying the complete preparation in ${retryDelayMs / 1_000}s`,
+      )
+      await wait(retryDelayMs)
+    }
+  }
+  fail(`Unreachable Pendle retry state for ${label}`)
 }
 
 function ceilDiv(numerator, denominator) {
@@ -495,13 +541,16 @@ async function executeCompiledEntry({
     amount: initialUsdc,
     localRpcUrl,
   })
-  const preview = await prepareLoopingEntryExecution({
-    client: publicClient,
-    owner: account.address,
-    market,
-    equityAssets: initialUsdc,
-    borrowAssets: loopUsdc,
-  })
+  const preview = await prepareWithPendleQuoteRateLimitRetry(
+    'compiled entry',
+    () => prepareLoopingEntryExecution({
+      client: publicClient,
+      owner: account.address,
+      market,
+      equityAssets: initialUsdc,
+      borrowAssets: loopUsdc,
+    }),
+  )
   const preSignIntent = buildUnsignedLoopingEntrySimulation(preview)
   await simulateUnsignedOnAnvil({
     localRpcUrl,
@@ -561,12 +610,15 @@ async function executeCompiledIncrease({
   targetLeverageWad,
   localRpcUrl,
 }) {
-  const preview = await prepareLoopingIncreaseExecution({
-    client: publicClient,
-    owner: account.address,
-    market,
-    targetLeverageWad,
-  })
+  const preview = await prepareWithPendleQuoteRateLimitRetry(
+    'compiled leverage increase',
+    () => prepareLoopingIncreaseExecution({
+      client: publicClient,
+      owner: account.address,
+      market,
+      targetLeverageWad,
+    }),
+  )
   const preSignIntent = buildUnsignedLoopingIncreaseSimulation(preview)
   await simulateUnsignedOnAnvil({
     localRpcUrl,
@@ -626,12 +678,15 @@ async function executeCompiledDecrease({
   targetLeverageWad,
   localRpcUrl,
 }) {
-  const preview = await prepareLoopingDecreaseExecution({
-    client: publicClient,
-    owner: account.address,
-    market,
-    targetLeverageWad,
-  })
+  const preview = await prepareWithPendleQuoteRateLimitRetry(
+    'compiled partial leverage decrease',
+    () => prepareLoopingDecreaseExecution({
+      client: publicClient,
+      owner: account.address,
+      market,
+      targetLeverageWad,
+    }),
+  )
   const preSignIntent = buildUnsignedLoopingDecreaseSimulation(preview)
   await simulateUnsignedOnAnvil({
     localRpcUrl,
@@ -690,12 +745,15 @@ async function executeCompiledExit({
   market,
   localRpcUrl,
 }) {
-  const preview = await prepareLoopingExitExecution({
-    client: publicClient,
-    owner: account.address,
-    market,
-    minimumReturnedAssets: 1n,
-  })
+  const preview = await prepareWithPendleQuoteRateLimitRetry(
+    'compiled exit',
+    () => prepareLoopingExitExecution({
+      client: publicClient,
+      owner: account.address,
+      market,
+      minimumReturnedAssets: 1n,
+    }),
+  )
   const preSignIntent = buildUnsignedLoopingExitSimulation(preview)
   await simulateUnsignedOnAnvil({
     localRpcUrl,

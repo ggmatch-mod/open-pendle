@@ -85,6 +85,7 @@ import {
 } from '../src/lib/loopingExecution.ts'
 import * as loopingExecution from '../src/lib/loopingExecution.ts'
 import { deriveLoopingBorrowAssets } from '../src/lib/looping.ts'
+import { prepareWithPendleQuoteRateLimitRetry } from './looping-compiler-fork.mjs'
 import { LOOPING_KYBER_EXECUTOR_RUNTIME } from './fixtures/looping-kyber-executor-runtime.ts'
 
 const market = ARBITRUM_LOOPING_CANARY
@@ -3507,6 +3508,81 @@ assert.equal(
   false,
   'signed bundle simulation must not be exposed to the browser',
 )
+
+console.log('Compiler forks retry only complete Pendle preparations rate-limited with HTTP 429')
+let retryAttempts = 0
+const retryWaits = []
+const retryResult = await prepareWithPendleQuoteRateLimitRetry(
+  'deterministic check',
+  async () => {
+    retryAttempts += 1
+    if (retryAttempts < 3) {
+      throw new LoopingExecutionError(
+        'INVALID_QUOTE',
+        'Pendle quote returned HTTP 429.',
+      )
+    }
+    return { attempt: retryAttempts }
+  },
+  {
+    retryDelaysMs: [5, 15],
+    wait: async (delay) => retryWaits.push(delay),
+    warn: () => {},
+  },
+)
+assert.deepEqual(retryResult, { attempt: 3 })
+assert.equal(retryAttempts, 3)
+assert.deepEqual(retryWaits, [5, 15])
+
+for (const nonRetryableError of [
+  new LoopingExecutionError('INVALID_QUOTE', 'Pendle quote returned HTTP 500.'),
+  new LoopingExecutionError('INVALID_QUOTE', 'Pendle route validation failed.'),
+  new TypeError('fetch failed'),
+]) {
+  let nonRetryableAttempts = 0
+  const nonRetryableWaits = []
+  await assert.rejects(
+    prepareWithPendleQuoteRateLimitRetry(
+      'deterministic rejection check',
+      async () => {
+        nonRetryableAttempts += 1
+        throw nonRetryableError
+      },
+      {
+        retryDelaysMs: [5, 15],
+        wait: async (delay) => nonRetryableWaits.push(delay),
+        warn: () => {},
+      },
+    ),
+    (error) => error === nonRetryableError,
+  )
+  assert.equal(nonRetryableAttempts, 1)
+  assert.deepEqual(nonRetryableWaits, [])
+}
+
+const exhaustedRateLimit = new LoopingExecutionError(
+  'INVALID_QUOTE',
+  'Pendle quote returned HTTP 429: quota exhausted',
+)
+let exhaustedAttempts = 0
+const exhaustedWaits = []
+await assert.rejects(
+  prepareWithPendleQuoteRateLimitRetry(
+    'deterministic exhaustion check',
+    async () => {
+      exhaustedAttempts += 1
+      throw exhaustedRateLimit
+    },
+    {
+      retryDelaysMs: [5, 15],
+      wait: async (delay) => exhaustedWaits.push(delay),
+      warn: () => {},
+    },
+  ),
+  (error) => error === exhaustedRateLimit,
+)
+assert.equal(exhaustedAttempts, 3)
+assert.deepEqual(exhaustedWaits, [5, 15])
 
 console.log('The browser-safe compiler contains no wallet write or broadcast primitive')
 const coreSource = readFileSync(
