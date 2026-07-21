@@ -20,7 +20,7 @@
     "check:looping-markets": "node --experimental-strip-types scripts/looping-market-manifest-check.mjs",
     "test:looping-fork": "node --experimental-strip-types ../fork-tests/scripts/run-looping-fork.mjs --chain arbitrum --initial-usdc 1 --loop-usdc 0.5",
     "test:looping-fork:ethereum": "node --experimental-strip-types ../fork-tests/scripts/run-looping-fork.mjs --chain ethereum --compiler-only --initial-usdc 1 --loop-usdc 0.5",
-    "test:looping-fork:monad": "node --experimental-strip-types ../fork-tests/scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.1 --maturity-loop-usdc 0.1",
+    "test:looping-fork:monad": "node --experimental-strip-types ../fork-tests/scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.11 --maturity-loop-usdc 0.11",
     "check:startup": "node --experimental-strip-types scripts/startup-recovery-check.mjs",
     "check:wallet-storage": "node --experimental-strip-types scripts/wagmi-storage-check.mjs",
     "check:catalog": "node --experimental-strip-types scripts/catalog-check.mjs",

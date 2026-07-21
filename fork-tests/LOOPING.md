@@ -174,7 +174,7 @@ node --experimental-strip-types scripts/run-looping-fork.mjs --chain arbitrum --
 node --experimental-strip-types scripts/run-looping-fork.mjs --aggregator kyberswap
 node --experimental-strip-types scripts/run-looping-fork.mjs --chain ethereum --aggregator odos
 node --experimental-strip-types scripts/run-looping-fork.mjs --chain ethereum --aggregator kyberswap --initial-usdc 2 --loop-usdc 1
-node --experimental-strip-types scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.1 --maturity-loop-usdc 0.1
+node --experimental-strip-types scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.11 --maturity-loop-usdc 0.11
 ```
 
 Arbitrum is the default chain. `OPENPENDLE_ARB_RPC_URL` (or `ARB_RPC_URL`),
