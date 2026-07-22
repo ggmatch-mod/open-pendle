@@ -44,7 +44,7 @@ export function Ticker() {
             className="flex items-center gap-[7px] whitespace-nowrap px-[22px] py-[6px] font-mono text-[10px] tracking-[.03em] text-faint"
           >
             {it.label ? <span>{it.label}</span> : null}
-            <span>{it.value}</span>
+            <span className="text-fg">{it.value}</span>
             {it.change !== undefined ? (
               <span className={it.change >= 0 ? 'text-good' : 'text-danger'}>
                 {it.change >= 0 ? '+' : '−'}
