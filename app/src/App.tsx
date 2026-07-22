@@ -199,8 +199,9 @@ export default function App() {
           <div className="flex items-center gap-[11px]">
             <BrandMark className="h-[22px] w-[22px] shrink-0" />
             <p className="max-w-[66ch] text-[12px] leading-relaxed text-faint">
-              Community pools are unreviewed — use at your own risk. Free and open source; no fees
-              of its own. Not affiliated with Pendle Finance.
+              Experimental, unaudited software; community pools are unreviewed —{' '}
+              <span className="text-warn">use at your own risk</span>. Free and open source, no
+              fees. Not affiliated with Pendle Finance.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
