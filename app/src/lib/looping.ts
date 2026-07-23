@@ -126,6 +126,7 @@ export interface PendlePtMatch {
   name: string
   expiry: number
   impliedApy: number | null
+  underlyingApy: number | null
   pendleStatus: PendleListingStatus
 }
 
@@ -362,8 +363,8 @@ export interface LoopingMintPresentationInput extends LoopingEntryHealthInput {
   /** Current Morpho borrow APY as a decimal fraction. */
   borrowApy: number
   /**
-   * Optional APY from a dependable SY/underlying source. PT implied APY is not
-   * an accepted input to this Mint-specific model.
+   * Optional schema-validated APY from the market's SY/underlying enrichment.
+   * PT implied APY is not an accepted input to this Mint-specific model.
    */
   verifiedSyApy?: number | null
   holdingPeriodYears: number
@@ -392,6 +393,16 @@ export interface LoopingMintPresentation {
    */
   estimatedNetApy: number | null
   returnEstimateBasis: 'verified-sy-apy' | 'unavailable'
+}
+
+export interface LoopingMintReturnEstimateInput {
+  /** Gross paired PT+YT exposure per unit of initial equity. */
+  capitalMultiple: number
+  /** Debt exposure per unit of initial equity. */
+  debtMultiple: number
+  /** Current APY for the paired underlying/SY exposure. */
+  underlyingApy: number
+  borrowApy: number
 }
 
 function fail(path: string, message: string): never {
@@ -722,6 +733,7 @@ export function joinMorphoMarketsToPendlePts(
       name: market.name,
       expiry: market.expiry,
       impliedApy: market.impliedApy,
+      underlyingApy: market.underlyingApy,
       pendleStatus: market.pendleStatus,
     }
     const key = ptJoinKey(match.chainId, match.pt)
@@ -861,6 +873,7 @@ export function loopingCatalogFingerprint(catalog: MarketCatalog): Hex {
       market.lifecycle,
       market.pendleStatus,
       market.impliedApy,
+      market.underlyingApy,
       market.name,
     ])
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
@@ -1222,6 +1235,43 @@ function wadToPresentationNumber(value: bigint, path: string): number {
 }
 
 /**
+ * Headline Mint return before one-time costs. PT+YT is one paired underlying
+ * exposure; YT must not be added again as a separate source of yield.
+ */
+export function calculateMintLoopingReturnEstimate(
+  input: LoopingMintReturnEstimateInput,
+): number {
+  const capitalMultiple = scenarioNumber(
+    input.capitalMultiple,
+    'mintReturn.capitalMultiple',
+    1,
+  )
+  const debtMultiple = scenarioNumber(
+    input.debtMultiple,
+    'mintReturn.debtMultiple',
+    0,
+    capitalMultiple,
+  )
+  const underlyingApy = scenarioNumber(
+    input.underlyingApy,
+    'mintReturn.underlyingApy',
+    -1,
+    100,
+  )
+  const borrowApy = scenarioNumber(
+    input.borrowApy,
+    'mintReturn.borrowApy',
+    0,
+  )
+  const estimate =
+    underlyingApy * capitalMultiple - borrowApy * debtMultiple
+  if (!Number.isFinite(estimate)) {
+    return fail('mintReturn', 'inputs produce a non-finite result')
+  }
+  return estimate
+}
+
+/**
  * Convert binding entry-route minima into the only PT collateral the app may
  * promise to Morpho. Mint Mode is the full-mint form: both legs mint PT+YT.
  */
@@ -1494,10 +1544,14 @@ export function calculateMintLoopingPresentation(
   const grossSyYieldOnEquity = verifiedSyApy === null
     ? null
     : verifiedSyApy * capitalMultiple
-  const estimatedNetApy = grossSyYieldOnEquity === null
+  const estimatedNetApy = verifiedSyApy === null
     ? null
-    : grossSyYieldOnEquity -
-      borrowCostOnEquity -
+    : calculateMintLoopingReturnEstimate({
+        capitalMultiple,
+        debtMultiple: maximumDebtMultiple,
+        underlyingApy: verifiedSyApy,
+        borrowApy,
+      }) -
       annualizedOneTimeCosts
   const finiteOutputs = [
     capitalMultiple,

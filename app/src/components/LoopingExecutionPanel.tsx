@@ -16,6 +16,7 @@ import { explorerTxUrl, shortAddress } from './format'
 import {
   requiresLoopingHighRiskConfirmation,
   useLoopingExecution,
+  type LoopingExecutionPreview,
   type LoopingExecutionPhase,
   type UseLoopingExecutionResult,
 } from './useLoopingExecution'
@@ -285,6 +286,15 @@ function LoopingExecutionActionView({
 export function LoopingExecutionAction() {
   const { execution } = useRequiredLoopingExecution()
   return <LoopingExecutionActionView execution={execution} />
+}
+
+/** Read-only quote state for economics UI rendered inside the provider. */
+export function LoopingExecutionPreviewReader({
+  children,
+}: {
+  children: (preview: LoopingExecutionPreview | undefined) => ReactNode
+}) {
+  return children(useRequiredLoopingExecution().execution.preview)
 }
 
 function LoopingExecutionDetails({

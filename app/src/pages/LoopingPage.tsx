@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { formatUnits } from 'viem'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 import { PageHeader } from '../components/PageHeader'
 import {
   LoopingExecutionAction,
   LoopingExecutionPanel,
+  LoopingExecutionPreviewReader,
   LoopingExecutionProvider,
 } from '../components/LoopingExecutionPanel'
+import type { LoopingExecutionPreview } from '../components/useLoopingExecution'
 import { useLoopingMarkets } from '../components/useLoopingMarkets'
 import {
   clampLabel,
@@ -20,6 +23,7 @@ import { useTransactionInFlight } from '../lib/hooks'
 import {
   calculateLoopingLeverageCap,
   calculateLoopingScenario,
+  calculateMintLoopingReturnEstimate,
   type LoopingMarketCandidate,
   type LoopingScenario,
   type LoopingScenarioInput,
@@ -220,6 +224,13 @@ function formatEstimateAmount(value: number, symbol: string): string {
   return `${value.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${symbol}`
 }
 
+function formatExactTokenAmount(value: bigint, decimals: number, symbol: string): string {
+  const formatted = formatUnits(value, decimals)
+  const numeric = Number(formatted)
+  if (!Number.isFinite(numeric)) return `${formatted} ${symbol}`
+  return `${numeric.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${symbol}`
+}
+
 function formatUsd(value: number | null): string {
   return value === null ? 'Unavailable' : `$${formatCompact(value)}`
 }
@@ -246,6 +257,216 @@ function EstimateCard({
       <p className={`mt-1.5 text-lg font-bold tabular-nums ${valueClass}`}>{value}</p>
       <p className="mt-1 text-[11px] leading-4 text-muted">{note}</p>
     </div>
+  )
+}
+
+interface LoopingEstimateCardsProps {
+  acquisitionMode: AcquisitionMode
+  calculator: CalculatorSuccess
+  candidate: LoopingMarketCandidate
+  selectedSpread: number | null
+}
+
+function LoopingEstimateCardsWithPreview({
+  acquisitionMode,
+  calculator,
+  candidate,
+  preview,
+  selectedSpread,
+}: LoopingEstimateCardsProps & {
+  preview: LoopingExecutionPreview | undefined
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (preview === undefined) return
+    setNowMs(Date.now())
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [preview])
+
+  const matchingPreview = preview !== undefined &&
+      (preview.kind === 'entry-preview' || preview.kind === 'increase-preview') &&
+      preview.acquisitionMode === acquisitionMode
+    ? preview
+    : undefined
+  const quoteExpired = matchingPreview !== undefined &&
+    Math.max(nowMs, Date.now()) >= matchingPreview.validUntilMs
+  const currentPreview = quoteExpired ? undefined : matchingPreview
+  const previewIsIncrease = matchingPreview?.kind === 'increase-preview'
+  const entryPreview = currentPreview?.kind === 'entry-preview' &&
+      currentPreview.acquisitionMode === acquisitionMode
+    ? currentPreview
+    : undefined
+  const increasePreview = currentPreview?.kind === 'increase-preview' &&
+      currentPreview.acquisitionMode === acquisitionMode
+    ? currentPreview
+    : undefined
+  const quotedCollateral = entryPreview?.quotes.minimumCollateral ??
+    increasePreview?.conservativePost.collateral
+  const quotedDebt = entryPreview?.borrowAssets ??
+    increasePreview?.conservativePost.debtAssets
+  const quotedCollateralLoanValue = entryPreview?.health.collateralLoanValue ??
+    increasePreview?.conservativePost.collateralLoanValue
+  const quotedLiquidationBufferBps = entryPreview?.health.liquidationBufferBps ??
+    increasePreview?.conservativePost.liquidationBufferBps
+  const hasQuotedLtvInputs =
+    quotedDebt !== undefined && quotedCollateralLoanValue !== undefined
+  const quotedLtv = !hasQuotedLtvInputs
+    ? undefined
+    : quotedCollateralLoanValue === 0n
+      ? null
+      : Number(quotedDebt * 100_000_000n / quotedCollateralLoanValue) / 100_000_000
+
+  let indicativeMintReturnEstimate: number | null = null
+  if (
+    acquisitionMode === 'mint' &&
+    !previewIsIncrease &&
+    candidate.pendle.underlyingApy !== null
+  ) {
+    try {
+      indicativeMintReturnEstimate = calculateMintLoopingReturnEstimate({
+        capitalMultiple: calculator.input.leverage,
+        debtMultiple: calculator.scenario.debt,
+        underlyingApy: candidate.pendle.underlyingApy,
+        borrowApy: candidate.morpho.state.borrowApy,
+      })
+    } catch {
+      indicativeMintReturnEstimate = null
+    }
+  }
+  const displayedMintReturnEstimate =
+    previewIsIncrease ? null : indicativeMintReturnEstimate
+
+  const returnEstimateValue = acquisitionMode === 'market'
+    ? formatPercent(calculator.scenario.headlineLoopApy)
+    : displayedMintReturnEstimate !== null
+      ? formatPercent(displayedMintReturnEstimate)
+      : previewIsIncrease
+        ? 'Unavailable'
+        : 'Unavailable'
+  const returnEstimateNote = acquisitionMode === 'market'
+    ? `${formatPercent(calculator.input.ptApy)} PT APY at 1×; each additional 1× changes the estimate by ${selectedSpread === null ? '—' : formatPercent(selectedSpread)}.`
+    : previewIsIncrease
+      ? 'A position-wide return cannot reconstruct YT already held outside Morpho.'
+        : candidate.pendle.underlyingApy === null
+          ? 'Pendle does not report a current underlying APY for this market.'
+          : `Rate-only: ${formatPercent(candidate.pendle.underlyingApy)} Pendle-reported underlying APY on paired PT+YT exposure, less borrow cost; excludes route conversion, fees, slippage, and gas.`
+  const returnTone = acquisitionMode === 'market'
+    ? calculator.scenario.headlineLoopApy >= 0 ? 'good' : 'warn'
+    : displayedMintReturnEstimate === null
+      ? 'neutral'
+      : displayedMintReturnEstimate >= 0 ? 'good' : 'warn'
+
+  const debtValue = quotedDebt === undefined
+    ? previewIsIncrease
+      ? quoteExpired ? 'Quote expired · refresh' : 'Live quote required'
+      : formatEstimateAmount(
+          calculator.equityNumber * calculator.scenario.debt,
+          candidate.morpho.loanAsset.symbol,
+        )
+    : formatExactTokenAmount(
+        quotedDebt,
+        candidate.morpho.loanAsset.decimals,
+        candidate.morpho.loanAsset.symbol,
+      )
+  const debtNote = quotedDebt === undefined
+    ? previewIsIncrease
+      ? 'Refresh the quote to recover position-wide debt after the increase.'
+      : 'Estimated from the selected multiple; exact debt is rechecked before execution.'
+    : increasePreview === undefined
+      ? 'Exact requested debt from the current live quote.'
+      : 'Conservative total debt after the quoted increase.'
+
+  const collateralValue = quotedCollateral !== undefined
+    ? formatExactTokenAmount(
+        quotedCollateral,
+        candidate.morpho.collateralAsset.decimals,
+        candidate.morpho.collateralAsset.symbol,
+      )
+    : previewIsIncrease
+      ? quoteExpired ? 'Quote expired · refresh' : 'Live quote required'
+      : acquisitionMode === 'market'
+        ? formatEstimateAmount(
+            calculator.equityNumber * calculator.scenario.collateralExposure,
+            `${candidate.morpho.loanAsset.symbol} equiv.`,
+          )
+        : quoteExpired ? 'Quote expired · refresh' : 'Live quote required'
+  const collateralNote = quotedCollateral !== undefined
+    ? `${quotedLtv === null || quotedLtv === undefined ? 'LTV unavailable' : `${formatPercent(quotedLtv)} quoted LTV`}; only guaranteed PT counts as collateral.`
+    : previewIsIncrease
+      ? 'Refresh the quote to recover position-wide PT collateral after the increase.'
+      : acquisitionMode === 'market'
+        ? 'Modeled gross PT exposure before fees, slippage, and the live route.'
+        : 'The quote sets guaranteed minted PT; YT is never counted as collateral.'
+
+  const dropToLiquidation = quotedLiquidationBufferBps !== undefined
+    ? Number(quotedLiquidationBufferBps) / 10_000
+    : previewIsIncrease
+      ? undefined
+      : acquisitionMode === 'market'
+        ? calculator.scenario.priceDropToLiquidation
+        : undefined
+  const dropValue = dropToLiquidation === undefined
+    ? quoteExpired ? 'Quote expired · refresh' : 'Live quote required'
+    : dropToLiquidation === null
+      ? 'No debt'
+      : formatPercent(dropToLiquidation)
+  const dropNote = quotedLiquidationBufferBps === undefined
+    ? previewIsIncrease
+      ? 'Refresh the quote to recover position-wide liquidation distance.'
+      : acquisitionMode === 'market'
+        ? 'Simplified constant-debt estimate; not an oracle guarantee.'
+        : 'Calculated from guaranteed PT, debt, LLTV, and the latest Morpho oracle.'
+    : 'Quote-backed distance using guaranteed PT only; not an oracle guarantee.'
+  const currentLtv = quotedLtv !== undefined
+    ? quotedLtv
+    : !previewIsIncrease && acquisitionMode === 'market'
+      ? calculator.scenario.currentLtv
+      : undefined
+  const currentLtvValue = currentLtv === undefined
+    ? quoteExpired ? 'Quote expired · refresh' : 'Live quote required'
+    : currentLtv === null
+      ? 'Unavailable'
+      : formatPercent(currentLtv)
+  const currentLtvNote = hasQuotedLtvInputs
+    ? `Quote-backed using guaranteed PT; Morpho LLTV is ${formatPercent(calculator.scenario.lltv)}.`
+    : previewIsIncrease
+      ? 'Refresh the quote to recover position-wide LTV after the increase.'
+      : acquisitionMode === 'market'
+        ? `Modeled before execution; Morpho LLTV is ${formatPercent(calculator.scenario.lltv)}.`
+        : 'Calculated from guaranteed PT and the latest Morpho oracle.'
+
+  return (
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <EstimateCard
+        label="Estimated loop APY"
+        value={returnEstimateValue}
+        note={returnEstimateNote}
+        tone={returnTone}
+      />
+      <EstimateCard label="Estimated debt" value={debtValue} note={debtNote} />
+      <EstimateCard label="PT collateral" value={collateralValue} note={collateralNote} />
+      <EstimateCard label="Current LTV" value={currentLtvValue} note={currentLtvNote} />
+      <EstimateCard
+        label="Drop to liquidation"
+        value={dropValue}
+        note={dropNote}
+        tone={dropToLiquidation !== undefined &&
+          dropToLiquidation !== null &&
+          dropToLiquidation < 0.15
+          ? 'warn'
+          : 'neutral'}
+      />
+    </div>
+  )
+}
+
+function LoopingEstimateCards(props: LoopingEstimateCardsProps) {
+  return (
+    <LoopingExecutionPreviewReader>
+      {(preview) => <LoopingEstimateCardsWithPreview {...props} preview={preview} />}
+    </LoopingExecutionPreviewReader>
   )
 }
 
@@ -955,15 +1176,11 @@ export default function LoopingPage() {
 
                   <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div className="rounded-lg bg-surface-2 p-3">
-                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">
-                        {acquisitionMode === 'mint' ? 'Mint output' : 'PT APY'}
-                      </dt>
+                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">PT APY</dt>
                       <dd className="mt-1 text-lg font-bold tabular-nums text-accent-ink">
-                        {acquisitionMode === 'mint'
-                          ? 'PT + YT'
-                          : selectedCandidate.pendle.impliedApy === null
-                            ? '—'
-                            : formatPercent(selectedCandidate.pendle.impliedApy)}
+                        {selectedCandidate.pendle.impliedApy === null
+                          ? '—'
+                          : formatPercent(selectedCandidate.pendle.impliedApy)}
                       </dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
@@ -971,15 +1188,11 @@ export default function LoopingPage() {
                       <dd className="mt-1 text-lg font-bold tabular-nums text-fg">{formatPercent(selectedCandidate.morpho.state.borrowApy)}</dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
-                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">
-                        {acquisitionMode === 'mint' ? 'YT destination' : 'Raw spread'}
-                      </dt>
-                      <dd className={`mt-1 text-lg font-bold tabular-nums ${acquisitionMode === 'mint' || selectedSpread === null ? 'text-fg' : selectedSpread >= 0 ? 'text-good' : 'text-danger'}`}>
-                        {acquisitionMode === 'mint'
-                          ? 'Wallet'
-                          : selectedSpread === null
-                            ? '—'
-                            : formatPercent(selectedSpread)}
+                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">Raw spread</dt>
+                      <dd className={`mt-1 text-lg font-bold tabular-nums ${selectedSpread === null ? 'text-fg' : selectedSpread >= 0 ? 'text-good' : 'text-danger'}`}>
+                        {selectedSpread === null
+                          ? '—'
+                          : formatPercent(selectedSpread)}
                       </dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
@@ -1128,52 +1341,22 @@ export default function LoopingPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {acquisitionMode === 'mint' ? (
-                        <>
-                          <EstimateCard
-                            label="Return estimate"
-                            value="Not shown"
-                            note="Mint Mode needs a verified SY yield source. PT APY is not used."
-                          />
-                          <EstimateCard
-                            label="Estimated debt"
-                            value={formatEstimateAmount(
-                              calculator.equityNumber * calculator.scenario.debt,
-                              selectedCandidate.morpho.loanAsset.symbol,
-                            )}
-                            note="Exact debt is rechecked before execution."
-                          />
-                          <EstimateCard
-                            label="PT collateral"
-                            value="Set by live quote"
-                            note="Only guaranteed minted PT is supplied to Morpho."
-                          />
-                          <EstimateCard
-                            label="YT to wallet"
-                            value="Set by live quote"
-                            note="YT stays in your wallet and is never counted as collateral."
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <EstimateCard label="Estimated loop APY" value={formatPercent(calculator.scenario.headlineLoopApy)} note={`${formatPercent(calculator.input.ptApy)} at 1×; each additional 1× changes APY by ${selectedSpread === null ? '—' : formatPercent(selectedSpread)}.`} tone={calculator.scenario.headlineLoopApy >= 0 ? 'good' : 'warn'} />
-                          <EstimateCard label="Estimated debt" value={formatEstimateAmount(calculator.equityNumber * calculator.scenario.debt, selectedCandidate.morpho.loanAsset.symbol)} note={`${formatEstimateAmount(calculator.equityNumber * calculator.scenario.collateralExposure, `${selectedCandidate.morpho.loanAsset.symbol} equiv.`)} gross PT exposure.`} />
-                          <EstimateCard label="Current LTV" value={formatPercent(calculator.scenario.currentLtv)} note={`Morpho LLTV is ${formatPercent(calculator.scenario.lltv)}.`} />
-                          <EstimateCard label="Drop to liquidation" value={calculator.scenario.priceDropToLiquidation === null ? 'No debt' : formatPercent(calculator.scenario.priceDropToLiquidation)} note="Simplified constant-debt estimate; not an oracle guarantee." tone={calculator.scenario.priceDropToLiquidation !== null && calculator.scenario.priceDropToLiquidation < 0.15 ? 'warn' : 'neutral'} />
-                        </>
-                      )}
-                    </div>
+                    <LoopingEstimateCards
+                      acquisitionMode={acquisitionMode}
+                      calculator={calculator}
+                      candidate={selectedCandidate}
+                      selectedSpread={selectedSpread}
+                    />
 
                     <LoopingExecutionPanel />
 
                     {acquisitionMode === 'mint' ? (
                       <div className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
-                        <p className="text-sm font-semibold text-fg">Mint Mode estimates come from the live quote</p>
+                        <p className="text-sm font-semibold text-fg">Mint Mode keeps the same economics fields</p>
                         <p className="mt-1 text-[10.5px] leading-4 text-muted">
-                          Review the guaranteed PT collateral, minimum YT sent to your wallet,
-                          actual LTV, and liquidation buffer in the execution preview. A return
-                          APY is intentionally omitted until a verified SY yield source is available.
+                          Return is a rate-only estimate using Pendle's reported underlying APY.
+                          PT collateral and liquidation distance count only guaranteed PT at the
+                          latest Morpho oracle. YT remains a separate wallet output below.
                         </p>
                       </div>
                     ) : (
