@@ -320,14 +320,29 @@ gross underlying/SY return on E + D
 In the hybrid, the equity leg still earns fixed PT economics while the borrowed
 leg has combined PT+YT economics.
 
-Use a dependable SY yield source before displaying a Mint Mode headline APY. If
-one is unavailable, omit that number and instead show:
+Use Pendle's current `details.underlyingApy` enrichment as the displayed
+underlying/SY yield reference. The Mint return estimate is a rate-only
+projection at the selected capital multiple. Label it as an estimate based on
+Pendle-reported underlying APY and explicitly exclude route conversion, fees,
+slippage, and gas. If that field is unavailable, keep the Estimated loop APY
+card visible and mark it unavailable rather than falling back to PT implied
+APY.
 
-- gross minted exposure;
+Keep the same five economics fields in both modes:
+
+- Estimated loop APY;
+- estimated debt;
 - PT supplied as collateral;
-- minimum YT delivered to the wallet;
-- debt and borrow APY;
-- actual LTV and liquidation buffer; and
+- current LTV;
+- drop to liquidation.
+
+For Mint Mode, PT collateral and drop to liquidation must come from the
+binding quote's guaranteed PT, current Morpho oracle, debt, and LLTV. Keep
+minimum YT delivered to the wallet as an additional execution-preview detail;
+YT never contributes to LTV or liquidation distance.
+
+The selected-market PT APY and raw PT-minus-borrow spread remain visible in
+both modes as market context. They are not the Mint strategy return.
 - conversion price impact and gas.
 
 Do not silently substitute PT implied APY. Rewards and points embedded in YT
@@ -546,9 +561,13 @@ Work:
 
 1. Add conservative Mint sizing and a quote-dependent maximum-capital solver.
 2. Add the mode switch and explanatory copy.
-3. Show separate PT collateral and YT-to-wallet outputs.
-4. Show actual LTV, liquidation buffer, maturity runway, and borrow cost.
-5. Do not show the Market Mode PT APY calculation in Mint Mode.
+3. Keep Estimated loop APY, estimated debt, PT collateral, current LTV, and
+   drop to liquidation visible in both modes; use quote-backed Mint risk
+   values.
+4. Show actual LTV, liquidation buffer, maturity runway, borrow cost, and
+   separate YT-to-wallet output.
+5. Keep PT APY and raw spread visible as market context, but calculate Mint
+   return from Pendle-reported underlying APY rather than PT implied APY.
 6. Keep the selected mode through preview/execution and invalidate stale
    cross-mode previews.
 7. Clarify that close/reduce leaves YT in the wallet.

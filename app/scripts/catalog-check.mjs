@@ -39,7 +39,11 @@ function pendleRow(overrides = {}) {
     pt: `42161-${A.pt}`,
     yt: `42161-${A.yt}`,
     sy: `42161-${A.sy}`,
-    details: { totalTvl: 123_456.78, impliedApy: 0.071 },
+    details: {
+      totalTvl: 123_456.78,
+      impliedApy: 0.071,
+      underlyingApy: 0.052,
+    },
     ...overrides,
   }
 }
@@ -174,6 +178,7 @@ assert.equal(normalized.sy, A.sy)
 assert.equal(normalized.expiry, Date.parse('2027-02-25T00:00:00.000Z') / 1_000)
 assert.equal(normalized.tvl, 123_456.78)
 assert.equal(normalized.impliedApy, 0.071)
+assert.equal(normalized.underlyingApy, 0.052)
 assert.equal(normalized.lifecycle, 'live')
 assert.equal(normalized.pendleStatus, 'active')
 assert.deepEqual(normalized.sources, ['pendle-listed'])
@@ -209,15 +214,41 @@ const malformed = normalizeCatalogMarket(
     yt: `1-${A.yt}`,
     sy: {},
     icon: '',
-    details: { totalTvl: -1, impliedApy: 'NaN' },
+    details: { totalTvl: -1, impliedApy: 'NaN', underlyingApy: 'NaN' },
   }),
   'active',
   NOW,
 )
 assert(malformed !== null)
 assert.deepEqual(
-  [malformed.expiry, malformed.createdAt, malformed.pt, malformed.yt, malformed.sy, malformed.icon, malformed.tvl, malformed.impliedApy],
-  [null, null, null, null, null, null, null, null],
+  [
+    malformed.expiry,
+    malformed.createdAt,
+    malformed.pt,
+    malformed.yt,
+    malformed.sy,
+    malformed.icon,
+    malformed.tvl,
+    malformed.impliedApy,
+    malformed.underlyingApy,
+  ],
+  [null, null, null, null, null, null, null, null, null],
+)
+assert.equal(
+  normalizeCatalogMarket(
+    pendleRow({ details: { underlyingApy: -1.01 } }),
+    'active',
+    NOW,
+  )?.underlyingApy,
+  null,
+)
+assert.equal(
+  normalizeCatalogMarket(
+    pendleRow({ details: { underlyingApy: 100.01 } }),
+    'active',
+    NOW,
+  )?.underlyingApy,
+  null,
 )
 assert.equal(normalizeCatalogMarket(pendleRow({ chainId: 10 }), 'active', NOW), null)
 assert.equal(normalizeCatalogMarket(pendleRow({ address: 'bad' }), 'active', NOW), null)
@@ -307,6 +338,7 @@ assert.equal(merged.markets.length, 2)
 assert.equal(merged.byKey[listedArbitrumOnly.key], undefined)
 assert.deepEqual(merged.byKey[listedMatch.key].sources, ['factory-indexed', 'pendle-listed'])
 assert.equal(merged.byKey[listedMatch.key].pendleStatus, 'active')
+assert.equal(merged.byKey[listedMatch.key].underlyingApy, 0.052)
 assert.deepEqual(merged.byKey[listedBaseBootstrap.key].sources, ['pendle-listed'])
 assert.equal(merged.coverage.complete, false)
 assert.equal(merged.coverage.membership, 'partial')
@@ -333,6 +365,7 @@ const factoryOnly = buildMarketCatalog({
 })
 assert.equal(factoryOnly.markets[0].pendleStatus, null)
 assert.equal(factoryOnly.markets[0].lifecycle, 'unknown')
+assert.equal(factoryOnly.markets[0].underlyingApy, null)
 assert.deepEqual(factoryOnly.markets[0].sources, ['factory-indexed'])
 
 console.log('Snapshot fetcher handles valid, absent, and invalid snapshots')
