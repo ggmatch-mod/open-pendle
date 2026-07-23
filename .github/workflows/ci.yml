@@ -83,12 +83,35 @@ jobs:
       - name: Run the Monad production-compiler looping fixture
         run: npm run test:looping-fork:monad
         working-directory: app
-      - name: Run the Ethereum Mint production-compiler fixture
-        run: npm run test:looping-fork:mint:ethereum
+
+  mint-fork-tests:
+    name: mint-fork-tests (${{ matrix.chain }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - chain: ethereum
+            command: test:looping-fork:mint:ethereum
+          - chain: monad
+            command: test:looping-fork:mint:monad
+          - chain: arbitrum
+            command: test:looping-fork:mint:arbitrum
+    env:
+      OPENPENDLE_ARB_RPC_URL: ${{ secrets.ARB_RPC_URL != '' && secrets.ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc' }}
+      OPENPENDLE_ETH_RPC_URL: ${{ secrets.ETH_RPC_URL != '' && secrets.ETH_RPC_URL || 'https://ethereum-rpc.publicnode.com' }}
+      OPENPENDLE_MONAD_RPC_URL: ${{ secrets.MONAD_RPC_URL != '' && secrets.MONAD_RPC_URL || 'https://rpc.monad.xyz' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
         working-directory: app
-      - name: Run the Monad Mint production-compiler fixture
-        run: npm run test:looping-fork:mint:monad
-        working-directory: app
-      - name: Run the Arbitrum Mint production-compiler fixture
-        run: npm run test:looping-fork:mint:arbitrum
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Run the ${{ matrix.chain }} Mint production-compiler fixture
+        run: npm run ${{ matrix.command }}
         working-directory: app
