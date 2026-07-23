@@ -98,10 +98,7 @@ const CHAINS = {
       pt: '0xc9d24ad0bb25f34098e226a8c5192dea7bacccae',
       yt: '0xaf67341456151ab8c270e0962966092181c2eb80',
       router: '0x888888888889758f76e7103c6cbf23abbf58f946',
-      mintSyTokens: [
-        '0x46850ad61c2b7d64d08c9c754f45254596696984',
-        '0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef',
-      ],
+      mintSyTokens: ['0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef'],
       redeemSyTokens: ['0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef'],
       kyberswapRouter: '0x6131b5fae19ea4f9d964eac0408e4408b66337b5',
       usdc: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
@@ -400,9 +397,26 @@ function validatePendleRoute(route, { method, aggregator, chain }) {
   return route
 }
 
-async function pendleQuote(args) {
-  const routes = await pendleQuoteRoutes(args)
-  return validatePendleRoute(routes[0], args)
+async function pendleBuyQuote({ onchainTokensIn, ...quoteArgs }) {
+  const routes = await pendleQuoteRoutes(quoteArgs)
+  const failures = []
+  for (const candidate of routes) {
+    try {
+      const route = validatePendleRoute(candidate, quoteArgs)
+      return {
+        route,
+        validated: validateBuy(
+          route,
+          quoteArgs.amountIn,
+          quoteArgs.chain,
+          onchainTokensIn,
+        ),
+      }
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error))
+    }
+  }
+  fail(`Pendle returned no strictly valid buy route: ${failures.join(' | ')}`)
 }
 
 async function pendleExitQuote({
@@ -549,25 +563,25 @@ async function main() {
     return
   }
 
-  const initialRoute = await pendleQuote({
+  const { route: initialRoute, validated: initial } = await pendleBuyQuote({
     tokenIn: addresses.usdc,
     tokenOut: addresses.pt,
     amountIn: options.initialUsdc,
     method: 'swapExactTokenForPt',
     aggregator: options.aggregator,
     chain,
+    onchainTokensIn: liveSyTokens.tokensIn,
   })
-  const initial = validateBuy(initialRoute, options.initialUsdc, chain, liveSyTokens.tokensIn)
 
-  const loopRoute = await pendleQuote({
+  const { route: loopRoute, validated: loop } = await pendleBuyQuote({
     tokenIn: addresses.usdc,
     tokenOut: addresses.pt,
     amountIn: options.loopUsdc,
     method: 'swapExactTokenForPt',
     aggregator: options.aggregator,
     chain,
+    onchainTokensIn: liveSyTokens.tokensIn,
   })
-  const loop = validateBuy(loopRoute, options.loopUsdc, chain, liveSyTokens.tokensIn)
 
   // The position promises only the two slippage-protected minimums. Any PT
   // received above those values is swept back to the user as harmless dust.
