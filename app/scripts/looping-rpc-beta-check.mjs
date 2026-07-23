@@ -8,6 +8,8 @@ import { arbitrum, base, bsc } from 'viem/chains'
 import {
   OPENPENDLE_CLOUDFLARE_HOST,
   resolveLoopingReleaseFlags,
+  resolveLocalLoopingMintPolicyMarket,
+  resolveLocalLoopingMintPolicyMarkets,
 } from '../vite.config.ts'
 import { morphoBlueAbi } from '../src/lib/loopingAbi.ts'
 import {
@@ -72,29 +74,38 @@ assert.match(
   betaSource,
   /LOOPING_EXIT_BETA_ENABLED\s*=\s*\n?\s*import\.meta\.env\.VITE_LOOPING_EXIT_BETA_ENABLED === 'true'/,
 )
+assert.match(
+  betaSource,
+  /LOOPING_MINT_BETA_ENABLED\s*=\s*\n?\s*import\.meta\.env\.VITE_LOOPING_MINT_BETA_ENABLED === 'true'/,
+)
 assert.doesNotMatch(betaSource, /import\.meta\.env\.DEV/)
 assert.doesNotMatch(betaSource, /VITE_LOOPING_EXECUTION_BETA_ENABLED\s*!==\s*'false'/)
 assert.doesNotMatch(betaSource, /VITE_LOOPING_EXIT_BETA_ENABLED\s*!==\s*'false'/)
+assert.doesNotMatch(betaSource, /VITE_LOOPING_MINT_BETA_ENABLED\s*!==\s*'false'/)
 assert.match(
   betaSource,
   /same-origin, no-store runtime policy[\s\S]*?already-open tab can be stopped/,
 )
 assert.deepEqual(
-  envExample.match(/^VITE_LOOPING_(?:EXECUTION|EXIT)_BETA_ENABLED=.*$/gm),
+  envExample.match(/^VITE_LOOPING_(?:EXECUTION|MINT|EXIT)_BETA_ENABLED=.*$/gm),
   [
     'VITE_LOOPING_EXECUTION_BETA_ENABLED=false',
+    'VITE_LOOPING_MINT_BETA_ENABLED=false',
     'VITE_LOOPING_EXIT_BETA_ENABLED=false',
   ],
 )
 assert.deepEqual(resolveLoopingReleaseFlags({}), {
   entry: false,
+  mint: false,
   exit: false,
 })
 assert.deepEqual(resolveLoopingReleaseFlags({
   VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_MINT_BETA_ENABLED: 'true',
   VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
 }), {
   entry: true,
+  mint: true,
   exit: true,
 })
 assert.match(
@@ -105,14 +116,20 @@ assert.match(
   viteConfigSource,
   /'import\.meta\.env\.VITE_LOOPING_EXIT_BETA_ENABLED': JSON\.stringify\([\s\S]*?loopingReleaseFlags\.exit/,
 )
+assert.match(
+  viteConfigSource,
+  /'import\.meta\.env\.VITE_LOOPING_MINT_BETA_ENABLED': JSON\.stringify\([\s\S]*?loopingReleaseFlags\.mint/,
+)
 assert.deepEqual(resolveLoopingReleaseFlags({
   CF_PAGES: '1',
   CF_PAGES_BRANCH: 'preview-branch',
   CF_PAGES_URL: `https://preview.${OPENPENDLE_CLOUDFLARE_HOST}`,
   VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_MINT_BETA_ENABLED: 'true',
   VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
 }), {
   entry: false,
+  mint: false,
   exit: false,
 })
 assert.deepEqual(resolveLoopingReleaseFlags({
@@ -120,9 +137,11 @@ assert.deepEqual(resolveLoopingReleaseFlags({
   CF_PAGES_BRANCH: 'main',
   CF_PAGES_URL: 'https://preview.self-hosted-fork.pages.dev',
   VITE_LOOPING_EXECUTION_BETA_ENABLED: 'true',
+  VITE_LOOPING_MINT_BETA_ENABLED: 'true',
   VITE_LOOPING_EXIT_BETA_ENABLED: 'true',
 }), {
   entry: false,
+  mint: false,
   exit: false,
 })
 assert.deepEqual(resolveLoopingReleaseFlags({
@@ -130,11 +149,73 @@ assert.deepEqual(resolveLoopingReleaseFlags({
   CF_PAGES_BRANCH: 'main',
   CF_PAGES_URL: `https://production.${OPENPENDLE_CLOUDFLARE_HOST}`,
   VITE_LOOPING_EXECUTION_BETA_ENABLED: 'false',
+  VITE_LOOPING_MINT_BETA_ENABLED: 'true',
   VITE_LOOPING_EXIT_BETA_ENABLED: 'false',
 }), {
   entry: true,
+  mint: false,
   exit: true,
 })
+assert.equal(resolveLocalLoopingMintPolicyMarket(undefined), null)
+assert.deepEqual(
+  resolveLocalLoopingMintPolicyMarket(
+    '1:0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64',
+  ),
+  {
+    chainId: 1,
+    morphoMarketId:
+      '0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64',
+  },
+)
+assert.throws(
+  () => resolveLocalLoopingMintPolicyMarket('1:not-a-market-id'),
+  /must be <chainId>:<marketId>/,
+)
+assert.deepEqual(
+  resolveLocalLoopingMintPolicyMarkets({
+    OPENPENDLE_LOCAL_MINT_POLICY_ALL: 'true',
+  }),
+  LOOPING_ENTRY_EXECUTION_REGISTRY.map((market) => ({
+    chainId: market.chainId,
+    morphoMarketId: market.marketId.toLowerCase(),
+  })),
+)
+assert.deepEqual(
+  resolveLocalLoopingMintPolicyMarkets({
+    OPENPENDLE_LOCAL_MINT_POLICY_ALL: 'false',
+  }),
+  [],
+)
+assert.throws(
+  () => resolveLocalLoopingMintPolicyMarkets({
+    OPENPENDLE_LOCAL_MINT_POLICY_ALL: 'yes',
+  }),
+  /must be true, false, or empty/,
+)
+assert.throws(
+  () => resolveLocalLoopingMintPolicyMarkets({
+    OPENPENDLE_LOCAL_MINT_POLICY_ALL: 'true',
+    OPENPENDLE_LOCAL_MINT_POLICY_MARKET:
+      '1:0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64',
+  }),
+  /Set only one/,
+)
+assert.match(
+  viteConfigSource,
+  /command === 'serve'[\s\S]*?resolveLocalLoopingMintPolicyMarkets/,
+)
+assert.match(
+  viteConfigSource,
+  /apply: 'serve'[\s\S]*?isLoopbackRequest\(request\)[\s\S]*?Cache-Control[\s\S]*?no-store/,
+)
+assert.match(
+  envExample,
+  /OPENPENDLE_LOCAL_MINT_POLICY_MARKET=/,
+)
+assert.match(
+  envExample,
+  /OPENPENDLE_LOCAL_MINT_POLICY_ALL=false/,
+)
 assert.doesNotMatch(envExample, /VITE_LOOPING_UNCAPPED_TESTING_ENABLED/)
 assert.doesNotMatch(hookSource, /LOOPING_UNCAPPED_TESTING_ENABLED/)
 assert.doesNotMatch(hookSource, /betaCaps|enforceBetaCaps/)

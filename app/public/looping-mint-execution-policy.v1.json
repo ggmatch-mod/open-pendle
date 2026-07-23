@@ -1,0 +1,16 @@
+{
+  "schema": "openpendle.looping-mint-execution-policy.v1",
+  "revision": 1,
+  "mint": {
+    "entry": {
+      "enabled": false,
+      "validUntil": null,
+      "markets": []
+    },
+    "increase": {
+      "enabled": false,
+      "validUntil": null,
+      "markets": []
+    }
+  }
+}

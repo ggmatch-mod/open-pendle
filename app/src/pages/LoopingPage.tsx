@@ -51,6 +51,7 @@ const EMPTY_CANDIDATES: LoopingMarketCandidate[] = []
 
 type ChainFilter = SupportedChainId | 'all'
 type SortKey = 'spread' | 'liquidity' | 'pt-apy' | 'borrow-apy' | 'expiry'
+type AcquisitionMode = 'market' | 'mint'
 
 interface CalculatorForm {
   equity: string
@@ -119,6 +120,10 @@ function sortFromParam(value: string | null): SortKey {
     return value
   }
   return 'liquidity'
+}
+
+function acquisitionModeFromParam(value: string | null): AcquisitionMode {
+  return value === 'mint' ? 'mint' : 'market'
 }
 
 function minimumLiquidityFromParam(value: string | null): number {
@@ -420,6 +425,7 @@ export default function LoopingPage() {
       ? ''
       : String(minimumLiquidityUsd)
   const sort = sortFromParam(searchParams.get('sort'))
+  const acquisitionMode = acquisitionModeFromParam(searchParams.get('mode'))
   const selectedKey = searchParams.get('selected')
   const candidates = marketsQuery.data?.candidates ?? EMPTY_CANDIDATES
 
@@ -435,6 +441,16 @@ export default function LoopingPage() {
     if (value === String(DEFAULT_MIN_BORROW_LIQUIDITY_USD)) next.delete('minLiquidity')
     else next.set('minLiquidity', value)
     setSearchParams(next, { replace: true })
+  }
+
+  const setAcquisitionMode = (nextMode: AcquisitionMode) => {
+    if (transactionInFlight) return
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      if (nextMode === 'market') next.delete('mode')
+      else next.set('mode', 'mint')
+      return next
+    }, { replace: true })
   }
 
   const setSelectedMarket = (marketKey: string | null) => {
@@ -534,7 +550,9 @@ export default function LoopingPage() {
   const calculator = useMemo<CalculatorSuccess | CalculatorFailure | null>(() => {
     if (selectedCandidate === undefined) return null
     try {
-      const ptApy = selectedCandidate.pendle.impliedApy
+      const ptApy = acquisitionMode === 'market'
+        ? selectedCandidate.pendle.impliedApy
+        : 0
       if (ptApy === null) {
         throw new Error('The selected market has no current PT APY estimate.')
       }
@@ -557,7 +575,7 @@ export default function LoopingPage() {
     } catch (error) {
       return { ok: false, error: readableError(error) }
     }
-  }, [form.equity, form.leverage, leverageMaximum, selectedCandidate])
+  }, [acquisitionMode, form.equity, form.leverage, leverageMaximum, selectedCandidate])
 
   const advancedCalculator = useMemo<AdvancedCalculatorSuccess | CalculatorFailure | null>(() => {
     if (selectedCandidate === undefined || calculator === null || !calculator.ok) return null
@@ -662,7 +680,9 @@ export default function LoopingPage() {
     <div className="space-y-6 pb-8 sm:pb-10">
       <PageHeader
         title="PT looping"
-        lede="Leverage Pendle PT collateral against Morpho borrow markets, with modeled APY and liquidation distance."
+        lede={acquisitionMode === 'mint'
+          ? 'Mint PT+YT, supply only PT as Morpho collateral, and keep YT in your wallet.'
+          : 'Leverage Pendle PT collateral against Morpho borrow markets, with modeled APY and liquidation distance.'}
         actions={
           <button
             type="button"
@@ -871,7 +891,9 @@ export default function LoopingPage() {
               </h2>
               <p className="mt-2 text-sm text-muted">
                 {selectedKey === null
-                  ? 'Choose a market from the directory to model its leverage and estimated APY.'
+                  ? acquisitionMode === 'mint'
+                    ? 'Choose a market to preview PT collateral and YT sent to your wallet.'
+                    : 'Choose a market from the directory to model its leverage and estimated APY.'
                   : 'This saved market is no longer present in the current directory data.'}
                 </p>
                 {selectedKey !== null && (
@@ -933,17 +955,31 @@ export default function LoopingPage() {
 
                   <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div className="rounded-lg bg-surface-2 p-3">
-                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">PT APY</dt>
-                      <dd className="mt-1 text-lg font-bold tabular-nums text-accent-ink">{selectedCandidate.pendle.impliedApy === null ? '—' : formatPercent(selectedCandidate.pendle.impliedApy)}</dd>
+                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">
+                        {acquisitionMode === 'mint' ? 'Mint output' : 'PT APY'}
+                      </dt>
+                      <dd className="mt-1 text-lg font-bold tabular-nums text-accent-ink">
+                        {acquisitionMode === 'mint'
+                          ? 'PT + YT'
+                          : selectedCandidate.pendle.impliedApy === null
+                            ? '—'
+                            : formatPercent(selectedCandidate.pendle.impliedApy)}
+                      </dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
                       <dt className="text-[9px] uppercase tracking-[.06em] text-faint">Borrow APY</dt>
                       <dd className="mt-1 text-lg font-bold tabular-nums text-fg">{formatPercent(selectedCandidate.morpho.state.borrowApy)}</dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
-                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">Raw spread</dt>
-                      <dd className={`mt-1 text-lg font-bold tabular-nums ${selectedSpread === null ? 'text-fg' : selectedSpread >= 0 ? 'text-good' : 'text-danger'}`}>
-                        {selectedSpread === null ? '—' : formatPercent(selectedSpread)}
+                      <dt className="text-[9px] uppercase tracking-[.06em] text-faint">
+                        {acquisitionMode === 'mint' ? 'YT destination' : 'Raw spread'}
+                      </dt>
+                      <dd className={`mt-1 text-lg font-bold tabular-nums ${acquisitionMode === 'mint' || selectedSpread === null ? 'text-fg' : selectedSpread >= 0 ? 'text-good' : 'text-danger'}`}>
+                        {acquisitionMode === 'mint'
+                          ? 'Wallet'
+                          : selectedSpread === null
+                            ? '—'
+                            : formatPercent(selectedSpread)}
                       </dd>
                     </div>
                     <div className="rounded-lg bg-surface-2 p-3">
@@ -971,10 +1007,46 @@ export default function LoopingPage() {
 
               <section className="rounded-xl border border-hairline bg-surface p-5 sm:p-6" aria-labelledby="risk-calculator-title">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-[.08em] text-accent-ink">Current-rate estimate</p>
-                  <h2 id="risk-calculator-title" className="mt-1 text-lg font-semibold text-fg">Leverage and estimated APY</h2>
+                  <p className="text-[10px] font-medium uppercase tracking-[.08em] text-accent-ink">
+                    {acquisitionMode === 'mint' ? 'Mint path' : 'Current-rate estimate'}
+                  </p>
+                  <h2 id="risk-calculator-title" className="mt-1 text-lg font-semibold text-fg">
+                    {acquisitionMode === 'mint'
+                      ? 'Capital multiple and live mint quote'
+                      : 'Leverage and estimated APY'}
+                  </h2>
                   <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">
-                    Holds today's rates constant; excludes fees and slippage.
+                    {acquisitionMode === 'mint'
+                      ? 'Final PT collateral, YT output, and health are set by the live mint quote.'
+                      : "Holds today's rates constant; excludes fees and slippage."}
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-hairline bg-surface-2 p-1.5">
+                  <div
+                    className="grid grid-cols-2 gap-1"
+                    role="group"
+                    aria-label="Loop acquisition mode"
+                  >
+                    {(['market', 'mint'] as const).map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={transactionInFlight}
+                        aria-pressed={acquisitionMode === option}
+                        onClick={() => setAcquisitionMode(option)}
+                        className={`rounded-[8px] px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${acquisitionMode === option
+                          ? 'bg-[rgba(var(--op-accent-rgb),0.12)] text-accent-ink'
+                          : 'text-muted hover:text-fg'}`}
+                      >
+                        {option === 'market' ? 'Market Mode' : 'Mint Mode'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="px-2 pb-1 pt-2 text-[10.5px] leading-4 text-muted">
+                    {acquisitionMode === 'mint'
+                      ? 'Your funds and borrowed capital mint equal PT+YT. PT is supplied as Morpho collateral; YT stays in your wallet and does not support the loan.'
+                      : 'Your funds and borrowed capital buy PT on the market. All acquired PT is supplied as Morpho collateral.'}
                   </p>
                 </div>
 
@@ -982,6 +1054,7 @@ export default function LoopingPage() {
                   candidate={selectedCandidate}
                   equityAssets={calculator !== null && calculator.ok ? calculator.equityAssets : 0n}
                   leverage={form.leverage}
+                  acquisitionMode={acquisitionMode}
                 >
                 <div className="mt-5 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
                   <div>
@@ -992,11 +1065,13 @@ export default function LoopingPage() {
                   </div>
                   <div className="rounded-xl border border-hairline bg-surface-2 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <label htmlFor="loop-leverage" className="text-sm font-semibold text-fg">Leverage</label>
+                      <label htmlFor="loop-leverage" className="text-sm font-semibold text-fg">
+                        {acquisitionMode === 'mint' ? 'Capital multiple' : 'Leverage'}
+                      </label>
                       <output
                         htmlFor="loop-leverage"
                         aria-live="polite"
-                        className={`text-xl font-bold tabular-nums ${beyondLeverageWarning ? 'text-danger' : 'text-accent-ink'}`}
+                        className={`text-xl font-bold tabular-nums ${acquisitionMode === 'market' && beyondLeverageWarning ? 'text-danger' : 'text-accent-ink'}`}
                       >
                         {Number(form.leverage).toFixed(2)}×
                       </output>
@@ -1012,27 +1087,34 @@ export default function LoopingPage() {
                         disabled={transactionInFlight}
                         onChange={(event) => setFormField('leverage', event.target.value)}
                         aria-describedby="loop-leverage-help"
-                        aria-valuetext={`${Number(form.leverage).toFixed(2)} times leverage${beyondLeverageWarning ? ', below the 10% liquidation buffer' : ''}`}
+                        aria-valuetext={`${Number(form.leverage).toFixed(2)} times ${acquisitionMode === 'mint' ? 'capital multiple' : 'leverage'}${acquisitionMode === 'market' && beyondLeverageWarning ? ', below the 10% liquidation buffer' : ''}`}
                         className="block h-2 w-full cursor-pointer accent-[var(--op-accent)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-full bg-danger shadow-[0_0_0_2px_var(--op-surface-2)]"
-                        style={{ left: `${leverageWarningPosition}%` }}
-                      />
+                      {acquisitionMode === 'market' && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded-full bg-danger shadow-[0_0_0_2px_var(--op-surface-2)]"
+                          style={{ left: `${leverageWarningPosition}%` }}
+                        />
+                      )}
                     </div>
                     <div className="mt-2 flex items-center justify-between text-[10.5px] text-faint">
                       <span>1× · no borrowing</span>
-                      <span>{leverageMaximum.toFixed(2)}× · 1% liquidation buffer</span>
+                      <span>
+                        {leverageMaximum.toFixed(2)}× · {acquisitionMode === 'mint'
+                          ? 'rechecked with live quote'
+                          : '1% liquidation buffer'}
+                      </span>
                     </div>
                     <div id="loop-leverage-help" className="mt-3 flex items-start gap-2 text-[10.5px] leading-4 text-muted">
                       <span aria-hidden className="mt-0.5 h-3 w-0.5 shrink-0 rounded-full bg-danger" />
                       <p>
-                        Past the red mark ({leverageWarningThreshold.toFixed(2)}×), the liquidation
-                        buffer drops below 10%.
+                        {acquisitionMode === 'mint'
+                          ? 'The preview values only guaranteed minted PT as collateral and rechecks the liquidation buffer.'
+                          : `Past the red mark (${leverageWarningThreshold.toFixed(2)}×), the liquidation buffer drops below 10%.`}
                       </p>
                     </div>
-                    {beyondLeverageWarning && (
+                    {acquisitionMode === 'market' && beyondLeverageWarning && (
                       <p role="status" aria-live="polite" className="mt-2 text-[10.5px] font-medium text-danger">
                         High liquidation risk: this leverage is past the 10% buffer marker.
                       </p>
@@ -1047,14 +1129,54 @@ export default function LoopingPage() {
                 ) : (
                   <>
                     <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <EstimateCard label="Estimated loop APY" value={formatPercent(calculator.scenario.headlineLoopApy)} note={`${formatPercent(calculator.input.ptApy)} at 1×; each additional 1× changes APY by ${selectedSpread === null ? '—' : formatPercent(selectedSpread)}.`} tone={calculator.scenario.headlineLoopApy >= 0 ? 'good' : 'warn'} />
-                      <EstimateCard label="Estimated debt" value={formatEstimateAmount(calculator.equityNumber * calculator.scenario.debt, selectedCandidate.morpho.loanAsset.symbol)} note={`${formatEstimateAmount(calculator.equityNumber * calculator.scenario.collateralExposure, `${selectedCandidate.morpho.loanAsset.symbol} equiv.`)} gross PT exposure.`} />
-                      <EstimateCard label="Current LTV" value={formatPercent(calculator.scenario.currentLtv)} note={`Morpho LLTV is ${formatPercent(calculator.scenario.lltv)}.`} />
-                      <EstimateCard label="Drop to liquidation" value={calculator.scenario.priceDropToLiquidation === null ? 'No debt' : formatPercent(calculator.scenario.priceDropToLiquidation)} note="Simplified constant-debt estimate; not an oracle guarantee." tone={calculator.scenario.priceDropToLiquidation !== null && calculator.scenario.priceDropToLiquidation < 0.15 ? 'warn' : 'neutral'} />
+                      {acquisitionMode === 'mint' ? (
+                        <>
+                          <EstimateCard
+                            label="Return estimate"
+                            value="Not shown"
+                            note="Mint Mode needs a verified SY yield source. PT APY is not used."
+                          />
+                          <EstimateCard
+                            label="Estimated debt"
+                            value={formatEstimateAmount(
+                              calculator.equityNumber * calculator.scenario.debt,
+                              selectedCandidate.morpho.loanAsset.symbol,
+                            )}
+                            note="Exact debt is rechecked before execution."
+                          />
+                          <EstimateCard
+                            label="PT collateral"
+                            value="Set by live quote"
+                            note="Only guaranteed minted PT is supplied to Morpho."
+                          />
+                          <EstimateCard
+                            label="YT to wallet"
+                            value="Set by live quote"
+                            note="YT stays in your wallet and is never counted as collateral."
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <EstimateCard label="Estimated loop APY" value={formatPercent(calculator.scenario.headlineLoopApy)} note={`${formatPercent(calculator.input.ptApy)} at 1×; each additional 1× changes APY by ${selectedSpread === null ? '—' : formatPercent(selectedSpread)}.`} tone={calculator.scenario.headlineLoopApy >= 0 ? 'good' : 'warn'} />
+                          <EstimateCard label="Estimated debt" value={formatEstimateAmount(calculator.equityNumber * calculator.scenario.debt, selectedCandidate.morpho.loanAsset.symbol)} note={`${formatEstimateAmount(calculator.equityNumber * calculator.scenario.collateralExposure, `${selectedCandidate.morpho.loanAsset.symbol} equiv.`)} gross PT exposure.`} />
+                          <EstimateCard label="Current LTV" value={formatPercent(calculator.scenario.currentLtv)} note={`Morpho LLTV is ${formatPercent(calculator.scenario.lltv)}.`} />
+                          <EstimateCard label="Drop to liquidation" value={calculator.scenario.priceDropToLiquidation === null ? 'No debt' : formatPercent(calculator.scenario.priceDropToLiquidation)} note="Simplified constant-debt estimate; not an oracle guarantee." tone={calculator.scenario.priceDropToLiquidation !== null && calculator.scenario.priceDropToLiquidation < 0.15 ? 'warn' : 'neutral'} />
+                        </>
+                      )}
                     </div>
 
                     <LoopingExecutionPanel />
 
+                    {acquisitionMode === 'mint' ? (
+                      <div className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
+                        <p className="text-sm font-semibold text-fg">Mint Mode estimates come from the live quote</p>
+                        <p className="mt-1 text-[10.5px] leading-4 text-muted">
+                          Review the guaranteed PT collateral, minimum YT sent to your wallet,
+                          actual LTV, and liquidation buffer in the execution preview. A return
+                          APY is intentionally omitted until a verified SY yield source is available.
+                        </p>
+                      </div>
+                    ) : (
                     <details className="mt-5 rounded-xl border border-hairline bg-surface-2 p-4">
                       <summary className="cursor-pointer text-sm font-semibold text-fg">Advanced stress assumptions</summary>
                       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
@@ -1093,6 +1215,7 @@ export default function LoopingPage() {
                         </div>
                       )}
                     </details>
+                    )}
                   </>
                 )}
                 </LoopingExecutionProvider>

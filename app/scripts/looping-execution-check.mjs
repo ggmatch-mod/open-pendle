@@ -58,6 +58,7 @@ import {
   LoopingExecutionError,
   fetchPendleLoopingBuyRoute,
   fetchPendleLoopingExitRoute,
+  fetchPendleLoopingMintRoute,
   getLoopingAuthorizationStorageSlot,
   prepareLoopingEntryExecution,
   prepareLoopingExitExecution,
@@ -69,6 +70,7 @@ import {
   prepareLoopingAuthorizationNonceBurn,
   readExposedLoopingAuthorizationRecoveryState,
   readExposedLoopingAuthorizationPairFromTransaction,
+  readPersistedLoopingMintDeliveryFromTransaction,
   readLoopingPositionInventory,
   revalidateSignedLoopingEntry,
   revalidateSignedLoopingExit,
@@ -77,6 +79,7 @@ import {
   simulateUnsignedLoopingIntent,
   validateLoopingBuyRoute,
   validateLoopingExitRoute,
+  validateLoopingMintRoute,
   validateLoopingMaturedExitRoute,
   verifyLoopingEntryReceiptState,
   verifyLoopingExitReceiptState,
@@ -92,6 +95,7 @@ const market = ARBITRUM_LOOPING_CANARY
 const contracts = market.contracts
 const policy = market.routePolicy
 const upgradePolicy = market.routeUpgradePolicy
+const mintUpgradePolicy = market.mintRouteUpgradePolicy.pendleRouter
 const USDC = market.morphoMarketParams.loanToken
 const PT = market.morphoMarketParams.collateralToken
 const MINT_SY = policy.mintSyTokenAllowlist[0]
@@ -100,10 +104,14 @@ const KYBER_EXECUTOR = policy.kyber.executorAllowlist[0]
 const DYNAMIC_KYBER_RECEIVER = getAddress(
   '0xFC43aAF89A71AcAa644842EE4219E8eB77657427',
 )
+const ALTERNATE_ADDRESS = getAddress(
+  '0x2222222222222222222222222222222222222222',
+)
 const ROUTER_IMPLEMENTATION = upgradePolicy.pendleRouter.implementation
 const ROUTER_REDEEM_IMPLEMENTATION =
   upgradePolicy.pendleRouter.redeemImplementation
 const PENDLE_SWAP_IMPLEMENTATION = upgradePolicy.pendleSwap.implementation
+const MINT_YT = market.yieldToken
 const YT = getAddress('0x1111111111111111111111111111111111111111')
 const routeWiring = {
   tokensIn: [...policy.mintSyTokenAllowlist],
@@ -244,6 +252,76 @@ function buyRoute(amountIn, overrides = {}) {
     requiredApprovals: [],
     contractParamInfo: { method: 'swapExactTokenForPt' },
     data: { aggregatorType: 'kyberswap' },
+    tx: {
+      from: contracts.generalAdapter1,
+      to: contracts.pendleRouter,
+      data,
+      ...overrides.tx,
+    },
+  }
+}
+
+function mintRoute(amountIn, overrides = {}) {
+  const direct = overrides.direct === true
+  const minPyOut =
+    overrides.minPyOut ?? amountIn * 1_000_000_000_000n * 99n / 100n
+  const expectedPtOut =
+    overrides.expectedPtOut ?? amountIn * 1_000_000_000_000n
+  const expectedYtOut = overrides.expectedYtOut ?? expectedPtOut
+  const yieldToken = overrides.calldataYieldToken ?? MINT_YT
+  const defaultSwapData = direct
+    ? {
+        swapType: 0,
+        extRouter: zeroAddress,
+        extCalldata: '0x',
+        needScale: false,
+      }
+    : {
+        swapType: policy.swapType,
+        extRouter: KYBER_ROUTER,
+        extCalldata: nestedKyberCalldata({ amountIn, ...overrides.kyber }),
+        needScale: policy.entryNeedScale,
+      }
+  const input = {
+    tokenIn: USDC,
+    netTokenIn: amountIn,
+    tokenMintSy: direct ? USDC : MINT_SY,
+    pendleSwap: direct ? zeroAddress : contracts.pendleSwap,
+    swapData: {
+      ...defaultSwapData,
+      ...overrides.swapData,
+    },
+    ...overrides.input,
+  }
+  const data = encodeFunctionData({
+    abi: pendleLoopingRouterAbi,
+    functionName: 'mintPyFromToken',
+    args: [
+      overrides.receiver ?? contracts.generalAdapter1,
+      yieldToken,
+      minPyOut,
+      input,
+    ],
+  })
+  return {
+    action: 'mint-py',
+    inputs: [{ token: USDC, amount: amountIn.toString() }],
+    outputs: overrides.outputs ?? [
+      {
+        token: overrides.ptOutputToken ?? PT,
+        amount: expectedPtOut.toString(),
+      },
+      {
+        token: overrides.ytOutputToken ?? MINT_YT,
+        amount: expectedYtOut.toString(),
+      },
+    ],
+    requiredApprovals: [],
+    contractParamInfo: { method: 'mintPyFromToken' },
+    data: {
+      aggregatorType:
+        overrides.aggregatorType ?? (direct ? 'VOID' : 'kyberswap'),
+    },
     tx: {
       from: contracts.generalAdapter1,
       to: contracts.pendleRouter,
@@ -473,6 +551,7 @@ assert.equal(
 )
 assert.equal(ETHEREUM_LOOPING_REUSD.loanTokenDecimals, 6)
 assert.equal(ETHEREUM_LOOPING_REUSD.collateralTokenDecimals, 6)
+assert.equal(ETHEREUM_LOOPING_REUSD.yieldTokenDecimals, 6)
 assert.notEqual(
   ETHEREUM_LOOPING_REUSD.runtimeCodePolicy.morpho,
   market.runtimeCodePolicy.morpho,
@@ -502,6 +581,8 @@ assert.equal(
 )
 assert.equal(MONAD_LOOPING_AUSD.loanTokenDecimals, 6)
 assert.equal(MONAD_LOOPING_AUSD.collateralTokenDecimals, 6)
+assert.equal(MONAD_LOOPING_AUSD.yieldTokenDecimals, 6)
+assert.equal(market.yieldTokenDecimals, market.collateralTokenDecimals)
 assert.equal(
   MONAD_LOOPING_AUSD.contracts.morpho,
   getAddress('0xD5D960E8C380B724a48AC59E2DfF1b2CB4a1eAee'),
@@ -804,6 +885,115 @@ const directWiring = {
   tokensOut: [USDC],
   kyberExecutorCodeHashes: {},
 }
+const validatedMint = validateLoopingMintRoute({
+  route: mintRoute(1_000_000n),
+  market,
+  wiring: routeWiring,
+  amountIn: 1_000_000n,
+  yieldToken: MINT_YT,
+})
+assert.equal(validatedMint.kind, 'mint-pt-yt')
+assert.equal(validatedMint.minPyOut, 990_000_000_000_000_000n)
+assert.equal(validatedMint.expectedPyOut, 1_000_000_000_000_000_000n)
+assert.equal(validatedMint.yieldToken, MINT_YT)
+assert.equal(validatedMint.mintSyToken, MINT_SY)
+assert.equal(validatedMint.kyberExecutor, KYBER_EXECUTOR.address)
+
+const validatedDirectMint = validateLoopingMintRoute({
+  route: mintRoute(1_000_000n, { direct: true }),
+  market: directMarket,
+  wiring: directWiring,
+  amountIn: 1_000_000n,
+  yieldToken: MINT_YT,
+})
+assert.equal(validatedDirectMint.kind, 'mint-pt-yt')
+assert.equal(validatedDirectMint.mintSyToken, USDC)
+assert.equal(validatedDirectMint.kyberExecutor, null)
+assert.equal(validatedDirectMint.kyberMinReturn, 0n)
+
+for (const invalidMint of [
+  {
+    route: mintRoute(1_000_000n, {
+      receiver: ALTERNATE_ADDRESS,
+    }),
+    code: 'ROUTE_NOT_ALLOWED',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      calldataYieldToken: getAddress(
+        '0x4444444444444444444444444444444444444444',
+      ),
+    }),
+    code: 'ROUTE_NOT_ALLOWED',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      input: {
+        tokenIn: getAddress('0x5555555555555555555555555555555555555555'),
+      },
+    }),
+    code: 'ROUTE_NOT_ALLOWED',
+  },
+  {
+    route: mintRoute(1_000_000n, { input: { netTokenIn: 999_999n } }),
+    code: 'ROUTE_NOT_ALLOWED',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      ytOutputToken: getAddress(
+        '0x6666666666666666666666666666666666666666',
+      ),
+    }),
+    code: 'INVALID_QUOTE',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      expectedYtOut: 999_999_999_999_999_999n,
+    }),
+    code: 'INVALID_QUOTE',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      outputs: [
+        { token: MINT_YT, amount: '1000000000000000000' },
+        { token: PT, amount: '1000000000000000000' },
+      ],
+    }),
+    code: 'INVALID_QUOTE',
+  },
+  {
+    route: mintRoute(1_000_000n, {
+      tx: { from: ALTERNATE_ADDRESS },
+    }),
+    code: 'ROUTE_NOT_ALLOWED',
+  },
+]) {
+  expectExecutionError(
+    () =>
+      validateLoopingMintRoute({
+        route: invalidMint.route,
+        market,
+        wiring: routeWiring,
+        amountIn: 1_000_000n,
+        yieldToken: MINT_YT,
+      }),
+    invalidMint.code,
+  )
+}
+expectExecutionError(
+  () =>
+    validateLoopingMintRoute({
+      route: mintRoute(1_000_000n, {
+        direct: true,
+        swapData: { extCalldata: '0x1234' },
+      }),
+      market: directMarket,
+      wiring: directWiring,
+      amountIn: 1_000_000n,
+      yieldToken: MINT_YT,
+    }),
+  'ROUTE_NOT_ALLOWED',
+)
 const validatedDirectBuy = validateLoopingBuyRoute({
   route: directBuyRoute(1_000_000n),
   market: directMarket,
@@ -1411,6 +1601,59 @@ assert.deepEqual(buyBody, {
   useLimitOrder: false,
 })
 
+let capturedMintBody
+const fetchedMint = await fetchPendleLoopingMintRoute({
+  market,
+  wiring: routeWiring,
+  amountIn: 1_000_000n,
+  yieldToken: MINT_YT,
+  fetcher: async (_url, init) => {
+    capturedMintBody = JSON.parse(init.body)
+    return new Response(
+      JSON.stringify({
+        action: 'mint-py',
+        inputs: [{ token: USDC, amount: '1000000' }],
+        requiredApprovals: [{ token: USDC, amount: '1000000' }],
+        routes: [mintRoute(1_000_000n)],
+      }),
+      { status: 201, headers: { 'content-type': 'application/json' } },
+    )
+  },
+  now: () => 1_784_400_000_500,
+})
+assert.equal(fetchedMint.quotedAtMs, 1_784_400_000_500)
+assert.equal(fetchedMint.route.kind, 'mint-pt-yt')
+assert.equal(capturedMintBody.enableAggregator, true)
+assert.deepEqual(capturedMintBody.aggregators, ['kyberswap'])
+assert.deepEqual(capturedMintBody.outputs, [PT, MINT_YT])
+
+const directMintBodies = []
+const fetchedDirectMint = await fetchPendleLoopingMintRoute({
+  market: directMarket,
+  wiring: directWiring,
+  amountIn: 1_000_000n,
+  yieldToken: MINT_YT,
+  fetcher: async (_url, init) => {
+    const body = JSON.parse(init.body)
+    directMintBodies.push(body)
+    return new Response(
+      JSON.stringify({
+        action: 'mint-py',
+        inputs: [{ token: USDC, amount: '1000000' }],
+        requiredApprovals: [{ token: USDC, amount: '1000000' }],
+        routes: [mintRoute(1_000_000n, { direct: true })],
+      }),
+      { status: 201, headers: { 'content-type': 'application/json' } },
+    )
+  },
+})
+assert.equal(fetchedDirectMint.route.kind, 'mint-pt-yt')
+assert.equal(fetchedDirectMint.route.kyberExecutor, null)
+assert.equal(directMintBodies.length, 1)
+assert.equal(directMintBodies[0].enableAggregator, false)
+assert.equal('aggregators' in directMintBodies[0], false)
+assert.deepEqual(directMintBodies[0].outputs, [PT, MINT_YT])
+
 const originalGlobalFetch = globalThis.fetch
 let boundDefaultFetchCalls = 0
 globalThis.fetch = async function boundFetch(_url, _init) {
@@ -1545,6 +1788,24 @@ const PINNED_BLOCK_NUMBER = 321_000_000n
 const PINNED_BLOCK_HASH = `0x${'ab'.repeat(32)}`
 const TEST_TRANSACTION_HASH = `0x${'cd'.repeat(32)}`
 const SMALL_RUNTIME_CODE = '0x60006000'
+const transferEventTopic = keccak256(
+  toHex('Transfer(address,address,uint256)'),
+)
+
+function mintYtTransferLog(value, overrides = {}) {
+  const from = overrides.from ?? contracts.generalAdapter1
+  const to = overrides.to ?? OWNER_ACCOUNT.address
+  return {
+    address: overrides.address ?? MINT_YT,
+    topics: [
+      transferEventTopic,
+      encodeAbiParameters(parseAbiParameters('address'), [from]),
+      encodeAbiParameters(parseAbiParameters('address'), [to]),
+    ],
+    data: encodeAbiParameters(parseAbiParameters('uint256'), [value]),
+  }
+}
+
 assert.equal(
   keccak256(LOOPING_KYBER_EXECUTOR_RUNTIME),
   KYBER_EXECUTOR.runtimeCodeHash,
@@ -1572,6 +1833,7 @@ function createPreflightClient({
   pendingTimestamp = PENDING_TIMESTAMP,
   exchangeRate = 1_000_000_000_000_000_000n,
   pyIndexStored = 1_000_000_000_000_000_000n,
+  yieldTokenDecimals = market.yieldTokenDecimals,
   transactionData = '0x',
   transactionHash = TEST_TRANSACTION_HASH,
   transactionStatus = 'success',
@@ -1584,6 +1846,7 @@ function createPreflightClient({
   receiptTo = transactionTo,
   receiptBlockNumber = PINNED_BLOCK_NUMBER,
   receiptBlockHash = PINNED_BLOCK_HASH,
+  receiptLogs = [],
   rejectOracleCall = false,
   morphoRuntimeHash = market.runtimeCodePolicy.morpho,
   pendleRouterRuntimeHash = market.runtimeCodePolicy.pendleRouter,
@@ -1594,6 +1857,7 @@ function createPreflightClient({
   pendleRouterBuyImplementation = ROUTER_IMPLEMENTATION,
   pendleRouterSellImplementation = ROUTER_IMPLEMENTATION,
   pendleRouterRedeemImplementation = ROUTER_REDEEM_IMPLEMENTATION,
+  pendleRouterMintImplementation = mintUpgradePolicy.facet,
   pendleSwapRuntimeHash = market.runtimeCodePolicy.pendleSwap,
   pendleSwapImplementationRuntimeHash =
     market.runtimeCodePolicy.pendleSwapImplementation,
@@ -1716,6 +1980,14 @@ function createPreflightClient({
             [pendleRouterRedeemImplementation],
           )
         }
+        if (
+          normalizedSlot === mintUpgradePolicy.selectorStorageSlot.toLowerCase()
+        ) {
+          return encodeAbiParameters(
+            parseAbiParameters('address'),
+            [pendleRouterMintImplementation],
+          )
+        }
       }
       if (
         normalizedAddress === contracts.pendleSwap.toLowerCase() &&
@@ -1746,7 +2018,7 @@ function createPreflightClient({
           return [
             market.standardizedYield,
             market.morphoMarketParams.collateralToken,
-            getAddress('0x3333333333333333333333333333333333333333'),
+            MINT_YT,
           ]
         case 'expiry':
           return market.pendleMarketExpiry
@@ -1767,9 +2039,13 @@ function createPreflightClient({
             market.morphoMarketParams.lltv,
           ]
         case 'decimals':
-          return address.toLowerCase() === USDC.toLowerCase()
-            ? market.loanTokenDecimals
-            : market.collateralTokenDecimals
+          if (address.toLowerCase() === USDC.toLowerCase()) {
+            return market.loanTokenDecimals
+          }
+          if (address.toLowerCase() === MINT_YT.toLowerCase()) {
+            return yieldTokenDecimals
+          }
+          return market.collateralTokenDecimals
         case 'DOMAIN_SEPARATOR':
           return domainSeparator
         case 'nonce':
@@ -1878,6 +2154,7 @@ function createPreflightClient({
         to: receiptTo,
         blockNumber: receiptBlockNumber,
         blockHash: receiptBlockHash,
+        logs: receiptLogs,
       }
     },
     async getTransaction({ hash }) {
@@ -1914,14 +2191,38 @@ function createEntryFetcher({
   }
 }
 
+function createMintEntryFetcher(counter = { calls: 0 }) {
+  return async (_url, init) => {
+    counter.calls += 1
+    const body = JSON.parse(init.body)
+    const amountIn = BigInt(body.inputs[0].amount)
+    assert.deepEqual(body.outputs, [PT, MINT_YT])
+    return new Response(
+      JSON.stringify({
+        action: 'mint-py',
+        inputs: [{ token: USDC, amount: amountIn.toString() }],
+        requiredApprovals: [{ token: USDC, amount: amountIn.toString() }],
+        routes: [mintRoute(amountIn)],
+      }),
+      { status: 201, headers: { 'content-type': 'application/json' } },
+    )
+  }
+}
+
 function prepareEntry(overrides = {}) {
   return prepareLoopingEntryExecution({
     client: overrides.client ?? createPreflightClient(),
     owner: OWNER_ACCOUNT.address,
     market,
+    ...(overrides.acquisitionMode === undefined
+      ? {}
+      : { acquisitionMode: overrides.acquisitionMode }),
     equityAssets: overrides.equityAssets ?? 1_000_000n,
     borrowAssets: overrides.borrowAssets ?? 500_000n,
-    fetcher: overrides.fetcher ?? createEntryFetcher(),
+    fetcher: overrides.fetcher ??
+      (overrides.acquisitionMode === 'mint'
+        ? createMintEntryFetcher()
+        : createEntryFetcher()),
     now: overrides.now ?? (() => PREFLIGHT_NOW_MS),
   })
 }
@@ -1994,6 +2295,24 @@ function createAdjustmentBuyFetcher(counter = { calls: 0 }) {
         inputs: [{ token: USDC, amount: amountIn.toString() }],
         requiredApprovals: [{ token: USDC, amount: amountIn.toString() }],
         routes: [buyRoute(amountIn, { minPtOut, expectedPtOut })],
+      }),
+      { status: 201, headers: { 'content-type': 'application/json' } },
+    )
+  }
+}
+
+function createAdjustmentMintFetcher(counter = { calls: 0 }) {
+  return async (_url, init) => {
+    counter.calls += 1
+    const body = JSON.parse(init.body)
+    const amountIn = BigInt(body.inputs[0].amount)
+    assert.deepEqual(body.outputs, [PT, MINT_YT])
+    return new Response(
+      JSON.stringify({
+        action: 'mint-py',
+        inputs: [{ token: USDC, amount: amountIn.toString() }],
+        requiredApprovals: [{ token: USDC, amount: amountIn.toString() }],
+        routes: [mintRoute(amountIn)],
       }),
       { status: 201, headers: { 'content-type': 'application/json' } },
     )
@@ -2220,6 +2539,10 @@ await prepareEntry({ client: boundedWalletReads.client })
 assert.equal(boundedWalletReads.peak(), 4)
 console.log('Preflight derives finite debt-share, health, and authorization bounds')
 assert.equal(preview.kind, 'entry-preview')
+assert.equal(preview.acquisitionMode, 'market')
+assert.equal(preview.yieldToken, null)
+assert.equal(preview.minimumYtOut, 0n)
+assert.equal(preview.expectedYtOut, 0n)
 assert.equal(Object.isFrozen(preview), true)
 assert.equal(preview.equityAssets, 1_000_000n)
 assert.equal(preview.borrowAssets, 500_000n)
@@ -2316,6 +2639,7 @@ const entryIntent = buildUnsignedLoopingEntrySimulation(
 )
 assert.equal(entryIntent.account, OWNER_ACCOUNT.address)
 assert.equal(entryIntent.chainId, market.chainId)
+assert.equal(entryIntent.acquisitionMode, 'market')
 assert.equal(entryIntent.calls.length, 8)
 assert.equal(
   entryIntent.calls.some((call) =>
@@ -2483,6 +2807,10 @@ const bundle = await buildSignedLoopingEntryBundle(
   () => PREFLIGHT_NOW_MS,
 )
 assert.equal(bundle.kind, 'signed-entry-bundle')
+assert.equal(bundle.acquisitionMode, 'market')
+assert.equal(bundle.yieldToken, null)
+assert.equal(bundle.minimumYtOut, 0n)
+assert.equal(bundle.expectedYtOut, 0n)
 assert.equal(bundle.to, contracts.bundler3)
 assert.equal(bundle.value, 0n)
 assert.equal(bundle.calls.length, 10)
@@ -2650,6 +2978,10 @@ const entryReceiptCheck = await verifyLoopingEntryReceiptState({
   transactionHash: TEST_TRANSACTION_HASH,
 })
 assert.equal(entryReceiptCheck.kind, 'entry-receipt-verified')
+assert.equal(entryReceiptCheck.acquisitionMode, 'market')
+assert.equal(entryReceiptCheck.yieldToken, null)
+assert.equal(entryReceiptCheck.minimumYtOut, 0n)
+assert.equal(entryReceiptCheck.deliveredYtOut, 0n)
 assert.equal(entryReceiptCheck.position.collateral, bundle.minimumCollateral)
 assert.equal(entryReceiptCheck.adapterAuthorized, false)
 for (const identityMismatch of [
@@ -2723,6 +3055,263 @@ const belowFloorEntryReceipt = await verifyLoopingEntryReceiptState({
 assert.equal(belowFloorEntryReceipt.belowEntryValueFloor, true)
 assert.equal(belowFloorEntryReceipt.belowModelBuffer, true)
 
+console.log('Mint Mode entry mints equal PT/YT, supplies PT, and delivers YT')
+const mintEntryQuoteCounter = { calls: 0 }
+const mintPreview = await prepareEntry({
+  acquisitionMode: 'mint',
+  fetcher: createMintEntryFetcher(mintEntryQuoteCounter),
+})
+assert.equal(mintEntryQuoteCounter.calls, 2)
+assert.equal(mintPreview.kind, 'entry-preview')
+assert.equal(mintPreview.acquisitionMode, 'mint')
+assert.equal(mintPreview.yieldToken, MINT_YT)
+assert.equal(mintPreview.quotes.initial.kind, 'mint-pt-yt')
+assert.equal(mintPreview.quotes.loop.kind, 'mint-pt-yt')
+assert.equal(
+  mintPreview.minimumYtOut,
+  mintPreview.quotes.initial.minPyOut + mintPreview.quotes.loop.minPyOut,
+)
+assert.equal(
+  mintPreview.expectedYtOut,
+  mintPreview.quotes.initial.expectedPyOut +
+    mintPreview.quotes.loop.expectedPyOut,
+)
+assert.equal(mintPreview.minimumYtOut, mintPreview.quotes.minimumCollateral)
+await expectExecutionRejection(
+  prepareEntry({
+    acquisitionMode: 'mint',
+    client: createPreflightClient({
+      pendleRouterMintImplementation: OTHER_ACCOUNT.address,
+    }),
+  }),
+  'UNSAFE_WIRING',
+)
+await expectExecutionRejection(
+  prepareEntry({
+    acquisitionMode: 'mint',
+    client: createPreflightClient({
+      yieldTokenDecimals: market.yieldTokenDecimals + 1,
+    }),
+  }),
+  'UNSAFE_WIRING',
+  /token decimals changed/i,
+)
+
+const mintEntryIntent = buildUnsignedLoopingEntrySimulation(
+  mintPreview,
+  () => PREFLIGHT_NOW_MS,
+)
+assert.equal(mintEntryIntent.acquisitionMode, 'mint')
+assert.equal(mintEntryIntent.calls.length, 9)
+const mintInitialRouteCall = decodeFunctionData({
+  abi: pendleLoopingRouterAbi,
+  data: mintEntryIntent.calls[2].data,
+})
+assert.equal(mintInitialRouteCall.functionName, 'mintPyFromToken')
+assert.equal(mintInitialRouteCall.args[0], contracts.generalAdapter1)
+assert.equal(mintInitialRouteCall.args[1], MINT_YT)
+assert.equal(mintInitialRouteCall.args[3].netTokenIn, mintPreview.equityAssets)
+const mintUnsignedSupplyCall = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintEntryIntent.calls[4].data,
+})
+assert.equal(mintUnsignedSupplyCall.functionName, 'morphoSupplyCollateral')
+assert.equal(
+  mintUnsignedSupplyCall.args[1],
+  mintPreview.quotes.minimumCollateral,
+)
+const [mintUnsignedCallbackCalls] = decodeAbiParameters(
+  bundler3CallArrayParameters,
+  mintUnsignedSupplyCall.args[3],
+)
+assert.equal(mintUnsignedCallbackCalls.length, 4)
+const mintLoopRouteCall = decodeFunctionData({
+  abi: pendleLoopingRouterAbi,
+  data: mintUnsignedCallbackCalls[2].data,
+})
+assert.equal(mintLoopRouteCall.functionName, 'mintPyFromToken')
+assert.equal(mintLoopRouteCall.args[1], MINT_YT)
+assert.equal(mintLoopRouteCall.args[3].netTokenIn, mintPreview.borrowAssets)
+const mintUnsignedYtSweep = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintEntryIntent.calls[5].data,
+})
+assert.equal(mintUnsignedYtSweep.functionName, 'erc20Transfer')
+assert.deepEqual(mintUnsignedYtSweep.args, [
+  MINT_YT,
+  OWNER_ACCOUNT.address,
+  (1n << 256n) - 1n,
+])
+
+const mintEntrySimulation = await simulateUnsignedLoopingIntent({
+  client: createPreflightClient(),
+  intent: mintEntryIntent,
+})
+const mintAuthorizeSignature = await OWNER_ACCOUNT.sign({
+  hash: mintPreview.authorizationRequests[0].digest,
+})
+const mintRevokeSignature = await OWNER_ACCOUNT.sign({
+  hash: mintPreview.authorizationRequests[1].digest,
+})
+const mintBundle = await buildSignedLoopingEntryBundle(
+  mintPreview,
+  mintAuthorizeSignature,
+  mintRevokeSignature,
+  () => PREFLIGHT_NOW_MS,
+)
+assert.equal(mintBundle.acquisitionMode, 'mint')
+assert.equal(mintBundle.yieldToken, MINT_YT)
+assert.equal(mintBundle.minimumYtOut, mintPreview.minimumYtOut)
+assert.equal(mintBundle.expectedYtOut, mintPreview.expectedYtOut)
+assert.equal(mintBundle.calls.length, 11)
+assert.deepEqual(
+  mintBundle.calls.map((item) => item.to),
+  [
+    contracts.morpho,
+    contracts.generalAdapter1,
+    USDC,
+    contracts.pendleRouter,
+    USDC,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    PT,
+    contracts.morpho,
+  ],
+)
+const mintSignedYtSweep = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintBundle.calls[6].data,
+})
+assert.equal(mintSignedYtSweep.functionName, 'erc20Transfer')
+assert.deepEqual(mintSignedYtSweep.args, mintUnsignedYtSweep.args)
+const persistedMintDelivery =
+  await readPersistedLoopingMintDeliveryFromTransaction({
+    client: createPreflightClient({ transactionData: mintBundle.data }),
+    market,
+    owner: OWNER_ACCOUNT.address,
+    transactionHash: TEST_TRANSACTION_HASH,
+  })
+assert.equal(persistedMintDelivery.operation, 'entry')
+assert.equal(persistedMintDelivery.yieldToken, MINT_YT)
+assert.equal(persistedMintDelivery.minimumYtOut, mintBundle.minimumYtOut)
+await expectExecutionRejection(
+  readPersistedLoopingMintDeliveryFromTransaction({
+    client: createPreflightClient({ transactionData: bundle.data }),
+    market,
+    owner: OWNER_ACCOUNT.address,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'UNSAFE_WIRING',
+  /not a Mint Mode entry or increase/i,
+)
+
+const mintEntryReadiness = await revalidateSignedLoopingEntry({
+  client: createPreflightClient(),
+  preview: mintPreview,
+  bundle: mintBundle,
+  simulation: mintEntrySimulation,
+  now: () => PREFLIGHT_NOW_MS,
+})
+assert.equal(mintEntryReadiness.kind, 'entry-broadcast-ready')
+await expectExecutionRejection(
+  revalidateSignedLoopingEntry({
+    client: createPreflightClient({
+      yieldTokenDecimals: market.yieldTokenDecimals + 1,
+    }),
+    preview: mintPreview,
+    bundle: mintBundle,
+    simulation: mintEntrySimulation,
+    now: () => PREFLIGHT_NOW_MS,
+  }),
+  'UNSAFE_WIRING',
+  /token decimals changed/i,
+)
+await expectExecutionRejection(
+  revalidateSignedLoopingEntry({
+    client: createPreflightClient(),
+    preview: mintPreview,
+    bundle: { ...mintBundle, acquisitionMode: 'market' },
+    simulation: mintEntrySimulation,
+    now: () => PREFLIGHT_NOW_MS,
+  }),
+  'STATE_CONFLICT',
+)
+await expectExecutionRejection(
+  revalidateSignedLoopingEntry({
+    client: createPreflightClient(),
+    preview,
+    bundle: { ...bundle, acquisitionMode: 'mint' },
+    simulation: entrySimulation,
+    now: () => PREFLIGHT_NOW_MS,
+  }),
+  'STATE_CONFLICT',
+)
+
+const mintEntryReceiptPosition = [
+  0n,
+  mintPreview.bounds.observedBorrowShares,
+  mintBundle.minimumCollateral,
+]
+const mintEntryReceiptState = {
+  nonce: mintBundle.startingNonce + 2n,
+  adapterAllowance: 0n,
+  ownerPosition: mintEntryReceiptPosition,
+  accruedPosition: mintEntryReceiptPosition,
+  transactionData: mintBundle.data,
+}
+const mintEntryReceipt = await verifyLoopingEntryReceiptState({
+  client: createPreflightClient({
+    ...mintEntryReceiptState,
+    receiptLogs: [
+      mintYtTransferLog(mintBundle.minimumYtOut - 1n),
+      mintYtTransferLog(1n),
+      mintYtTransferLog(mintBundle.minimumYtOut, {
+        from: OTHER_ACCOUNT.address,
+      }),
+    ],
+  }),
+  preview: mintPreview,
+  bundle: mintBundle,
+  readiness: mintEntryReadiness,
+  transactionHash: TEST_TRANSACTION_HASH,
+})
+assert.equal(mintEntryReceipt.acquisitionMode, 'mint')
+assert.equal(mintEntryReceipt.yieldToken, MINT_YT)
+assert.equal(mintEntryReceipt.minimumYtOut, mintBundle.minimumYtOut)
+assert.equal(mintEntryReceipt.deliveredYtOut, mintBundle.minimumYtOut)
+assert.equal(mintEntryReceipt.belowEntryValueFloor, undefined)
+await expectExecutionRejection(
+  verifyLoopingEntryReceiptState({
+    client: createPreflightClient({
+      ...mintEntryReceiptState,
+      yieldTokenDecimals: market.yieldTokenDecimals + 1,
+      receiptLogs: [mintYtTransferLog(mintBundle.minimumYtOut)],
+    }),
+    preview: mintPreview,
+    bundle: mintBundle,
+    readiness: mintEntryReadiness,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'UNSAFE_WIRING',
+  /YT decimals changed/i,
+)
+await expectExecutionRejection(
+  verifyLoopingEntryReceiptState({
+    client: createPreflightClient({
+      ...mintEntryReceiptState,
+      receiptLogs: [mintYtTransferLog(mintBundle.minimumYtOut - 1n)],
+    }),
+    preview: mintPreview,
+    bundle: mintBundle,
+    readiness: mintEntryReadiness,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'STATE_CONFLICT',
+  /less YT than guaranteed/i,
+)
+
 console.log('Full exit binds exact shares, exact collateral, and net-return floor')
 const exitPosition = [0n, 500_000n, COLLATERAL]
 const maturedTimestamp = market.pendleMarketExpiry + 1n
@@ -2760,7 +3349,7 @@ assert.equal(maturedExitPreview.quote.exactPtIn, exitPosition[2])
 assert.equal(maturedExitPreview.quote.estimatedSyIn, exitPosition[2])
 assert.equal(
   maturedExitPreview.quote.yieldToken,
-  getAddress('0x3333333333333333333333333333333333333333'),
+  MINT_YT,
 )
 const exitPreview = await prepareExit({
   position: exitPosition,
@@ -2941,6 +3530,10 @@ const increasePreview = await prepareLoopingIncreaseExecution({
   now: () => PREFLIGHT_NOW_MS,
 })
 assert.equal(increasePreview.kind, 'increase-preview')
+assert.equal(increasePreview.acquisitionMode, 'market')
+assert.equal(increasePreview.yieldToken, null)
+assert.equal(increasePreview.minimumYtOut, 0n)
+assert.equal(increasePreview.expectedYtOut, 0n)
 assert.ok(increaseQuoteCounter.calls > 0 && increaseQuoteCounter.calls <= 4)
 assert.ok(
   increasePreview.conservativePost.leverageWad > increasePreview.current.leverageWad,
@@ -2971,6 +3564,10 @@ const increaseBundle = await buildSignedLoopingIncreaseBundle(
   () => PREFLIGHT_NOW_MS,
 )
 assert.equal(increaseBundle.kind, 'signed-increase-bundle')
+assert.equal(increaseBundle.acquisitionMode, 'market')
+assert.equal(increaseBundle.yieldToken, null)
+assert.equal(increaseBundle.minimumYtOut, 0n)
+assert.equal(increaseBundle.expectedYtOut, 0n)
 assert.equal(increaseBundle.calls.length, 6)
 const decodedIncreaseBundle = decodeFunctionData({
   abi: bundler3Abi,
@@ -3009,6 +3606,7 @@ const increaseIntent = buildUnsignedLoopingIncreaseSimulation(
   () => PREFLIGHT_NOW_MS,
 )
 assert.equal(increaseIntent.operation, 'entry')
+assert.equal(increaseIntent.acquisitionMode, 'market')
 assert.equal(increaseIntent.calls.length, 4)
 const increaseSimulation = await simulateUnsignedLoopingIntent({
   client: createPreflightClient({
@@ -3050,7 +3648,206 @@ const increaseReceiptCheck = await verifyLoopingIncreaseReceiptState({
   transactionHash: TEST_TRANSACTION_HASH,
 })
 assert.equal(increaseReceiptCheck.kind, 'increase-receipt-verified')
+assert.equal(increaseReceiptCheck.acquisitionMode, 'market')
+assert.equal(increaseReceiptCheck.yieldToken, null)
+assert.equal(increaseReceiptCheck.minimumYtOut, 0n)
+assert.equal(increaseReceiptCheck.deliveredYtOut, 0n)
 assert.ok(increaseReceiptCheck.achieved.leverageWad <= increaseTargetLeverageWad)
+
+console.log('Mint Mode increase supplies minted PT and atomically sweeps YT')
+const mintIncreaseQuoteCounter = { calls: 0 }
+const mintIncreasePreview = await prepareLoopingIncreaseExecution({
+  client: createPreflightClient({
+    ownerPosition: adjustmentPosition,
+    accruedPosition: adjustmentPosition,
+  }),
+  owner: OWNER_ACCOUNT.address,
+  market,
+  acquisitionMode: 'mint',
+  targetLeverageWad: increaseTargetLeverageWad,
+  fetcher: createAdjustmentMintFetcher(mintIncreaseQuoteCounter),
+  now: () => PREFLIGHT_NOW_MS,
+})
+assert.equal(mintIncreasePreview.kind, 'increase-preview')
+assert.equal(mintIncreasePreview.acquisitionMode, 'mint')
+assert.equal(mintIncreasePreview.yieldToken, MINT_YT)
+assert.equal(mintIncreasePreview.quote.kind, 'mint-pt-yt')
+assert.equal(mintIncreasePreview.minimumYtOut, mintIncreasePreview.quote.minPyOut)
+assert.equal(
+  mintIncreasePreview.expectedYtOut,
+  mintIncreasePreview.quote.expectedPyOut,
+)
+assert.ok(
+  mintIncreaseQuoteCounter.calls > 0 && mintIncreaseQuoteCounter.calls <= 4,
+)
+const mintIncreaseIntent = buildUnsignedLoopingIncreaseSimulation(
+  mintIncreasePreview,
+  () => PREFLIGHT_NOW_MS,
+)
+assert.equal(mintIncreaseIntent.operation, 'entry')
+assert.equal(mintIncreaseIntent.acquisitionMode, 'mint')
+assert.equal(mintIncreaseIntent.calls.length, 5)
+const mintIncreaseSupplyCall = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintIncreaseIntent.calls[0].data,
+})
+assert.equal(mintIncreaseSupplyCall.functionName, 'morphoSupplyCollateral')
+assert.equal(mintIncreaseSupplyCall.args[1], mintIncreasePreview.quote.minPyOut)
+const [mintIncreaseCallbackCalls] = decodeAbiParameters(
+  bundler3CallArrayParameters,
+  mintIncreaseSupplyCall.args[3],
+)
+assert.equal(mintIncreaseCallbackCalls.length, 4)
+const mintIncreaseRouteCall = decodeFunctionData({
+  abi: pendleLoopingRouterAbi,
+  data: mintIncreaseCallbackCalls[2].data,
+})
+assert.equal(mintIncreaseRouteCall.functionName, 'mintPyFromToken')
+assert.equal(mintIncreaseRouteCall.args[1], MINT_YT)
+assert.equal(
+  mintIncreaseRouteCall.args[3].netTokenIn,
+  mintIncreasePreview.borrowAssets,
+)
+const mintIncreaseYtSweep = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintIncreaseIntent.calls[1].data,
+})
+assert.equal(mintIncreaseYtSweep.functionName, 'erc20Transfer')
+assert.deepEqual(mintIncreaseYtSweep.args, [
+  MINT_YT,
+  OWNER_ACCOUNT.address,
+  (1n << 256n) - 1n,
+])
+
+const mintIncreaseAuthorizeSignature = await OWNER_ACCOUNT.sign({
+  hash: mintIncreasePreview.authorizationRequests[0].digest,
+})
+const mintIncreaseRevokeSignature = await OWNER_ACCOUNT.sign({
+  hash: mintIncreasePreview.authorizationRequests[1].digest,
+})
+const mintIncreaseBundle = await buildSignedLoopingIncreaseBundle(
+  mintIncreasePreview,
+  mintIncreaseAuthorizeSignature,
+  mintIncreaseRevokeSignature,
+  () => PREFLIGHT_NOW_MS,
+)
+assert.equal(mintIncreaseBundle.acquisitionMode, 'mint')
+assert.equal(mintIncreaseBundle.yieldToken, MINT_YT)
+assert.equal(
+  mintIncreaseBundle.minimumYtOut,
+  mintIncreasePreview.minimumYtOut,
+)
+assert.equal(
+  mintIncreaseBundle.expectedYtOut,
+  mintIncreasePreview.expectedYtOut,
+)
+assert.equal(mintIncreaseBundle.calls.length, 7)
+assert.deepEqual(
+  mintIncreaseBundle.calls.map((item) => item.to),
+  [
+    contracts.morpho,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    contracts.generalAdapter1,
+    PT,
+    contracts.morpho,
+  ],
+)
+const mintIncreaseSignedYtSweep = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: mintIncreaseBundle.calls[2].data,
+})
+assert.deepEqual(mintIncreaseSignedYtSweep.args, mintIncreaseYtSweep.args)
+const persistedMintIncreaseDelivery =
+  await readPersistedLoopingMintDeliveryFromTransaction({
+    client: createPreflightClient({
+      transactionData: mintIncreaseBundle.data,
+    }),
+    market,
+    owner: OWNER_ACCOUNT.address,
+    transactionHash: TEST_TRANSACTION_HASH,
+  })
+assert.equal(persistedMintIncreaseDelivery.operation, 'increase')
+assert.equal(persistedMintIncreaseDelivery.yieldToken, MINT_YT)
+assert.equal(
+  persistedMintIncreaseDelivery.minimumYtOut,
+  mintIncreaseBundle.minimumYtOut,
+)
+
+const mintIncreaseSimulation = await simulateUnsignedLoopingIntent({
+  client: createPreflightClient({
+    ownerPosition: adjustmentPosition,
+    accruedPosition: adjustmentPosition,
+  }),
+  intent: mintIncreaseIntent,
+})
+const mintIncreaseReadiness = await revalidateSignedLoopingIncrease({
+  client: createPreflightClient({
+    ownerPosition: adjustmentPosition,
+    accruedPosition: adjustmentPosition,
+  }),
+  preview: mintIncreasePreview,
+  bundle: mintIncreaseBundle,
+  simulation: mintIncreaseSimulation,
+  now: () => PREFLIGHT_NOW_MS,
+})
+assert.equal(mintIncreaseReadiness.operation, 'entry')
+await expectExecutionRejection(
+  revalidateSignedLoopingIncrease({
+    client: createPreflightClient({
+      ownerPosition: adjustmentPosition,
+      accruedPosition: adjustmentPosition,
+    }),
+    preview: mintIncreasePreview,
+    bundle: {
+      ...mintIncreaseBundle,
+      yieldToken: OTHER_ACCOUNT.address,
+    },
+    simulation: mintIncreaseSimulation,
+    now: () => PREFLIGHT_NOW_MS,
+  }),
+  'STATE_CONFLICT',
+)
+
+const mintAddedBorrowShares =
+  mintIncreasePreview.bounds.observedBorrowShares
+const mintIncreasedPosition = [
+  0n,
+  adjustmentPosition[1] + mintAddedBorrowShares,
+  adjustmentPosition[2] + mintIncreasePreview.quote.minPyOut,
+]
+const mintIncreaseReceipt = await verifyLoopingIncreaseReceiptState({
+  client: createPreflightClient({
+    nonce: mintIncreaseBundle.startingNonce + 2n,
+    adapterAllowance: mintIncreasePreview.wiring.adapterAllowance,
+    ownerPosition: mintIncreasedPosition,
+    accruedPosition: mintIncreasedPosition,
+    totalBorrowAssets: 5_000_000n + mintIncreasePreview.borrowAssets,
+    totalBorrowShares: 5_000_000n + mintAddedBorrowShares,
+    transactionData: mintIncreaseBundle.data,
+    receiptLogs: [
+      mintYtTransferLog(mintIncreaseBundle.minimumYtOut),
+    ],
+  }),
+  preview: mintIncreasePreview,
+  bundle: mintIncreaseBundle,
+  readiness: mintIncreaseReadiness,
+  transactionHash: TEST_TRANSACTION_HASH,
+})
+assert.equal(mintIncreaseReceipt.acquisitionMode, 'mint')
+assert.equal(mintIncreaseReceipt.yieldToken, MINT_YT)
+assert.equal(
+  mintIncreaseReceipt.minimumYtOut,
+  mintIncreaseBundle.minimumYtOut,
+)
+assert.equal(
+  mintIncreaseReceipt.deliveredYtOut,
+  mintIncreaseBundle.minimumYtOut,
+)
+assert.ok(
+  mintIncreaseReceipt.achieved.leverageWad <= increaseTargetLeverageWad,
+)
 
 console.log('The adjustment selector reads one pinned state and rejects no-op targets')
 const adjustmentSelectorClient = createPreflightClient({
@@ -3484,6 +4281,29 @@ assert.equal(completedRescue.phase, 'complete')
 assert.equal(completedRescue.intents.length, 0)
 
 console.log('Forged markets and unbranded previews fail before RPC or signing')
+await expectExecutionRejection(
+  prepareLoopingEntryExecution({
+    client: noRpcClient,
+    owner: OWNER_ACCOUNT.address,
+    market,
+    acquisitionMode: 'unexpected-mode',
+    equityAssets: 1n,
+    borrowAssets: 1n,
+  }),
+  'INVALID_INPUT',
+  /exactly "market" or "mint"/i,
+)
+await expectExecutionRejection(
+  prepareLoopingIncreaseExecution({
+    client: noRpcClient,
+    owner: OWNER_ACCOUNT.address,
+    market,
+    acquisitionMode: 'unexpected-mode',
+    targetLeverageWad: 2n * 10n ** 18n,
+  }),
+  'INVALID_INPUT',
+  /exactly "market" or "mint"/i,
+)
 await expectExecutionRejection(
   prepareLoopingEntryExecution({
     client: noRpcClient,

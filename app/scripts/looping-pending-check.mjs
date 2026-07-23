@@ -21,6 +21,7 @@ const OTHER_OWNER = '0x2222222222222222222222222222222222222222'
 const MARKET = `0x${'aa'.repeat(32)}`
 const OTHER_MARKET = `0x${'bb'.repeat(32)}`
 const HASH = `0x${'cc'.repeat(32)}`
+const YT = '0x3333333333333333333333333333333333333333'
 
 const valid = {
   version: LOOPING_PENDING_VERSION,
@@ -50,6 +51,15 @@ const increaseFamily = {
     maxBorrowShares: '650000',
     minCollateral: '1100000000000000000',
     maxCollateral: '1100000000000000000',
+  },
+}
+const mintIncreaseFamily = {
+  ...increaseFamily,
+  acquisitionMode: 'mint',
+  mintDelivery: {
+    yieldToken: YT,
+    minimumYtOut: '123456789',
+    transactionHash: HASH,
   },
 }
 const decreaseFamily = {
@@ -86,7 +96,7 @@ assert.deepEqual(
   readLoopingPendingOperation(valid, { storage: memory.storage, nowMs: NOW }),
   valid,
 )
-for (const adjustmentRecord of [increaseFamily, decreaseFamily]) {
+for (const adjustmentRecord of [increaseFamily, mintIncreaseFamily, decreaseFamily]) {
   const serializedRecord = serializeLoopingPendingOperation(adjustmentRecord)
   assert.deepEqual(JSON.parse(serializedRecord), adjustmentRecord)
   assert.deepEqual(parseLoopingPendingOperation(JSON.parse(serializedRecord)), adjustmentRecord)
@@ -128,6 +138,30 @@ const malformedValues = [
   { ...valid, expectedPosition: { ...valid.expectedPosition, maxBorrowShares: `${1n << 256n}` } },
   { ...valid, expectedPosition: { ...valid.expectedPosition, maxCollateral: `${1n << 256n}` } },
   { ...valid, expectedPosition: { ...valid.expectedPosition, signature: `0x${'11'.repeat(65)}` } },
+  { ...valid, acquisitionMode: 'hybrid' },
+  { ...valid, acquisitionMode: 'mint' },
+  { ...valid, acquisitionMode: 'market', mintDelivery: mintIncreaseFamily.mintDelivery },
+  { ...valid, mintDelivery: mintIncreaseFamily.mintDelivery },
+  {
+    ...valid,
+    acquisitionMode: 'mint',
+    mintDelivery: { ...mintIncreaseFamily.mintDelivery, yieldToken: '0xdead' },
+  },
+  {
+    ...valid,
+    acquisitionMode: 'mint',
+    mintDelivery: { ...mintIncreaseFamily.mintDelivery, minimumYtOut: '0' },
+  },
+  {
+    ...valid,
+    acquisitionMode: 'mint',
+    mintDelivery: { ...mintIncreaseFamily.mintDelivery, transactionHash: '0xdead' },
+  },
+  {
+    ...valid,
+    acquisitionMode: 'mint',
+    mintDelivery: { ...mintIncreaseFamily.mintDelivery, calldata: '0x1234' },
+  },
 ]
 for (const malformed of malformedValues) {
   assert.equal(parseLoopingPendingOperation(malformed), undefined)
@@ -195,6 +229,9 @@ assert.equal(
   /signature|calldata|signedBundle|transactionRequest|privateKey|previewKind|targetLeverageWad|repayShares|collateralToSell|borrowAssets|quote/.test(serialized),
   false,
 )
+const serializedMint = serializeLoopingPendingOperation(mintIncreaseFamily)
+assert.deepEqual(parseLoopingPendingOperation(JSON.parse(serializedMint)), mintIncreaseFamily)
+assert.equal(/calldata|signature|quote|transactionRequest/.test(serializedMint), false)
 
 console.log('Optional fields remain optional and storage failures are non-fatal')
 const minimal = {

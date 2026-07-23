@@ -18,5 +18,9 @@
 export const LOOPING_EXECUTION_BETA_ENABLED =
   import.meta.env.VITE_LOOPING_EXECUTION_BETA_ENABLED === 'true'
 
+/** Independent fail-closed build gate for Mint Mode entry and leverage increase. */
+export const LOOPING_MINT_BETA_ENABLED =
+  import.meta.env.VITE_LOOPING_MINT_BETA_ENABLED === 'true'
+
 export const LOOPING_EXIT_BETA_ENABLED =
   import.meta.env.VITE_LOOPING_EXIT_BETA_ENABLED === 'true'

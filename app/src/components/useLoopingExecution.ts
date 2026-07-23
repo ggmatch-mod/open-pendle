@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import {
+  decodeEventLog,
+  parseAbi,
   type Address,
   type Hash,
   type Hex,
@@ -24,7 +26,9 @@ import { loopingErc20Abi } from '../lib/loopingAbi'
 import {
   LOOPING_EXECUTION_BETA_ENABLED,
   LOOPING_EXIT_BETA_ENABLED,
+  LOOPING_MINT_BETA_ENABLED,
 } from '../lib/loopingBeta'
+import { assertLoopingMintRuntimeActionEnabled } from '../lib/loopingMintRuntimePolicy'
 import { assertLoopingRuntimeEntryEnabled } from '../lib/loopingRuntimePolicy'
 import {
   buildLoopingAuthorizationRecoveryIntent,
@@ -47,6 +51,7 @@ import {
   prepareLoopingExitExecution,
   readExposedLoopingAuthorizationRecoveryState,
   readExposedLoopingAuthorizationPairFromTransaction,
+  readPersistedLoopingMintDeliveryFromTransaction,
   readLoopingExecutionPosition,
   revalidateSignedLoopingDecrease,
   revalidateSignedLoopingEntry,
@@ -59,6 +64,7 @@ import {
   verifyLoopingIncreaseReceiptState,
   type ExposedLoopingAuthorizationPair,
   type LoopingDecreaseExecutionPreview,
+  type LoopingAcquisitionMode,
   type LoopingEntryExecutionPreview,
   type LoopingBroadcastReadiness,
   type LoopingExitExecutionPreview,
@@ -78,6 +84,8 @@ import {
   readLoopingPendingOperation,
   writeLoopingPendingOperation,
   type LoopingExpectedPositionBounds,
+  type LoopingPendingAcquisitionMode,
+  type LoopingPendingMintDelivery,
   type LoopingPendingOperation,
   type LoopingPendingOperationKind,
 } from '../lib/loopingPending'
@@ -170,6 +178,7 @@ interface InMemoryRecovery {
 export interface UseLoopingExecutionResult {
   phase: LoopingExecutionPhase
   intent: LoopingExecutionIntent
+  acquisitionMode: LoopingAcquisitionMode
   operation?: LoopingExecutionOperation
   supported: boolean
   entryEnabled: boolean
@@ -198,6 +207,9 @@ const EXIT_QUOTE_DISCOVERY_FLOOR = 1n
 const LOOPING_RECEIPT_CONFIRMATIONS = 2
 const MIN_QUOTE_FRESHNESS_BEFORE_SIGNATURE_MS = 30_000
 const MIN_QUOTE_FRESHNESS_BEFORE_SUBMISSION_MS = 10_000
+const LOOPING_TRANSFER_EVENT_ABI = parseAbi([
+  'event Transfer(address indexed from,address indexed to,uint256 value)',
+])
 const LEASE_STORAGE_PREFIX = 'openpendle.looping.execution-lease.v1'
 const LEASE_CHANNEL_NAME = 'openpendle.looping.execution-lease.v1'
 const LEASE_TTL_MS = 30 * 60 * 1_000
@@ -464,6 +476,29 @@ function isRiskIncreasingPreview(
   preview: Readonly<LoopingExecutionPreview>,
 ): preview is LoopingEntryExecutionPreview | LoopingIncreaseExecutionPreview {
   return preview.kind === 'entry-preview' || preview.kind === 'increase-preview'
+}
+
+function riskIncreaseBuildEnabled(
+  preview: Readonly<LoopingEntryExecutionPreview | LoopingIncreaseExecutionPreview>,
+): boolean {
+  return LOOPING_EXECUTION_BETA_ENABLED &&
+    (preview.acquisitionMode === 'market' || LOOPING_MINT_BETA_ENABLED)
+}
+
+async function assertRiskIncreaseRuntimeEnabled(
+  preview: Readonly<LoopingEntryExecutionPreview | LoopingIncreaseExecutionPreview>,
+): Promise<void> {
+  await assertLoopingRuntimeEntryEnabled({
+    chainId: preview.market.chainId,
+    marketId: preview.market.marketId,
+  })
+  if (preview.acquisitionMode === 'mint') {
+    await assertLoopingMintRuntimeActionEnabled({
+      action: preview.kind === 'entry-preview' ? 'entry' : 'increase',
+      chainId: preview.market.chainId,
+      marketId: preview.market.marketId,
+    })
+  }
 }
 
 export function requiresLoopingHighRiskConfirmation(
@@ -782,6 +817,151 @@ function expectedPostPreviewBounds(
   throw new LoopingUiSafetyError('STATE_CONFLICT', 'Prepared preview kind is unsupported.')
 }
 
+interface LoopingPendingAcquisitionMetadata {
+  acquisitionMode?: LoopingPendingAcquisitionMode
+  mintDelivery?: LoopingPendingMintDelivery
+}
+
+function pendingAcquisitionMetadataForPreview(
+  preview: Readonly<LoopingExecutionPreview>,
+  transactionHash?: Hash,
+): LoopingPendingAcquisitionMetadata {
+  if (!isRiskIncreasingPreview(preview)) return {}
+  if (preview.acquisitionMode === 'market') {
+    return { acquisitionMode: 'market' }
+  }
+  return {
+    acquisitionMode: 'mint',
+    mintDelivery: {
+      yieldToken: preview.yieldToken,
+      minimumYtOut: preview.minimumYtOut.toString(),
+      ...(transactionHash === undefined ? {} : { transactionHash }),
+    },
+  }
+}
+
+function pendingAcquisitionMetadataForRecord(
+  record: Readonly<LoopingPendingOperation> | undefined,
+): LoopingPendingAcquisitionMetadata {
+  if (record?.acquisitionMode === undefined) return {}
+  if (record.acquisitionMode === 'market') {
+    return { acquisitionMode: 'market' }
+  }
+  return {
+    acquisitionMode: 'mint',
+    mintDelivery: record.mintDelivery,
+  }
+}
+
+async function verifyPersistedMintDelivery(args: {
+  client: PublicClient
+  delivery: Readonly<LoopingPendingMintDelivery>
+  transactionHash?: Hash
+  owner: Address
+  market: Readonly<LoopingExecutionMarket>
+}): Promise<void> {
+  if (
+    args.delivery.transactionHash !== undefined &&
+    args.transactionHash !== undefined &&
+    args.delivery.transactionHash.toLowerCase() !==
+      args.transactionHash.toLowerCase()
+  ) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'The persisted Mint Mode transaction hashes do not match.',
+    )
+  }
+  const transactionHash = args.delivery.transactionHash ?? args.transactionHash
+  if (transactionHash === undefined) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'The Mint Mode transaction hash or YT delivery bound is unavailable.',
+    )
+  }
+  const [receipt, transactionEvidence] = await Promise.all([
+    args.client.getTransactionReceipt({
+      hash: transactionHash,
+    }),
+    readPersistedLoopingMintDeliveryFromTransaction({
+      client: args.client,
+      transactionHash,
+      owner: args.owner,
+      market: args.market,
+    }),
+  ])
+  if (
+    receipt.status !== 'success' ||
+    receipt.transactionHash.toLowerCase() !== transactionHash.toLowerCase() ||
+    receipt.from.toLowerCase() !== args.owner.toLowerCase() ||
+    receipt.to === null ||
+    receipt.to.toLowerCase() !== args.market.contracts.bundler3.toLowerCase()
+  ) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'The persisted Mint Mode transaction could not be matched to a successful bundle.',
+    )
+  }
+  const yieldTokenDecimals = await args.client.readContract({
+    address: args.market.yieldToken,
+    abi: loopingErc20Abi,
+    functionName: 'decimals',
+    blockNumber: receipt.blockNumber,
+  })
+  if (
+    yieldTokenDecimals !== args.market.yieldTokenDecimals ||
+    yieldTokenDecimals !== args.market.collateralTokenDecimals
+  ) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'The persisted Mint Mode YT decimals no longer match the reviewed market.',
+    )
+  }
+  if (
+    args.delivery.yieldToken.toLowerCase() !==
+      args.market.yieldToken.toLowerCase() ||
+    args.delivery.yieldToken.toLowerCase() !==
+      transactionEvidence.yieldToken.toLowerCase() ||
+    BigInt(args.delivery.minimumYtOut) !== transactionEvidence.minimumYtOut
+  ) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'Browser recovery metadata does not match the original Mint Mode bundle.',
+    )
+  }
+  let deliveredYt = 0n
+  for (const log of receipt.logs) {
+    if (
+      log.address.toLowerCase() !==
+        transactionEvidence.yieldToken.toLowerCase()
+    ) {
+      continue
+    }
+    try {
+      const decoded = decodeEventLog({
+        abi: LOOPING_TRANSFER_EVENT_ABI,
+        data: log.data,
+        topics: log.topics,
+      })
+      if (
+        decoded.eventName === 'Transfer' &&
+        decoded.args.from.toLowerCase() ===
+          args.market.contracts.generalAdapter1.toLowerCase() &&
+        decoded.args.to.toLowerCase() === args.owner.toLowerCase()
+      ) {
+        deliveredYt += decoded.args.value
+      }
+    } catch {
+      // Ignore unrelated events emitted by the reviewed YT contract.
+    }
+  }
+  if (deliveredYt < transactionEvidence.minimumYtOut) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'The persisted Mint Mode transaction delivered less YT than guaranteed.',
+    )
+  }
+}
+
 function makePendingRecord(args: {
   operation: LoopingPendingOperationKind
   owner: Address
@@ -791,6 +971,8 @@ function makePendingRecord(args: {
   expectedPosition?: LoopingExpectedPositionBounds
   txHash?: Hash
   walletTxNonce?: number
+  acquisitionMode?: LoopingPendingAcquisitionMode
+  mintDelivery?: LoopingPendingMintDelivery
 }): LoopingPendingOperation {
   return {
     version: LOOPING_PENDING_VERSION,
@@ -808,6 +990,12 @@ function makePendingRecord(args: {
     ...(args.expectedPosition === undefined
       ? {}
       : { expectedPosition: args.expectedPosition }),
+    ...(args.acquisitionMode === undefined
+      ? {}
+      : { acquisitionMode: args.acquisitionMode }),
+    ...(args.mintDelivery === undefined
+      ? {}
+      : { mintDelivery: args.mintDelivery }),
   }
 }
 
@@ -816,11 +1004,13 @@ export function useLoopingExecution({
   equityAssets,
   leverage,
   intent = 'auto',
+  acquisitionMode = 'market',
 }: {
   candidate: LoopingMarketCandidate
   equityAssets: bigint
   leverage: string
   intent?: LoopingExecutionIntent
+  acquisitionMode?: LoopingAcquisitionMode
 }): UseLoopingExecutionResult {
   const { address: owner, chainId: walletChainId, isConnected } = useAccount()
   const market = useMemo(() => resolveMarket(candidate), [candidate])
@@ -880,6 +1070,7 @@ export function useLoopingExecution({
     candidate.morpho.marketId.toLowerCase(),
     candidate.pendle.market.toLowerCase(),
     intent,
+    acquisitionMode,
     equityAssets.toString(),
     leverage,
     borrowAssets?.toString() ?? '',
@@ -1037,6 +1228,7 @@ export function useLoopingExecution({
           market,
           equityAssets,
           borrowAssets,
+          acquisitionMode,
         }),
       )
       return {
@@ -1052,6 +1244,7 @@ export function useLoopingExecution({
           owner,
           market,
           targetLeverageWad,
+          acquisitionMode,
         }),
       )
       if (isRiskIncreasingPreview(prepared.value)) assertRiskIncreaseEligible()
@@ -1072,8 +1265,8 @@ export function useLoopingExecution({
       preview: prepared.value,
       position,
     }
-  }, [assertRiskIncreaseEligible, borrowAssets, entryInputBlock, equityAssets, intent,
-    leverage, market, owner, withWalletRead])
+  }, [acquisitionMode, assertRiskIncreaseEligible, borrowAssets, entryInputBlock,
+    equityAssets, intent, leverage, market, owner, withWalletRead])
 
   const beginRun = useCallback((): number | undefined => {
     if (activeRunRef.current !== null) return undefined
@@ -1173,17 +1366,16 @@ export function useLoopingExecution({
     operationContext: Readonly<OperationContext>
     onBeforeWrite?: () => void
   }): Promise<Hash> => {
-    if (!LOOPING_EXECUTION_BETA_ENABLED) {
-      throw new LoopingUiSafetyError('STATE_CONFLICT', 'New-loop entry is disabled in this build.')
+    if (!riskIncreaseBuildEnabled(args.preview)) {
+      throw new LoopingUiSafetyError(
+        'STATE_CONFLICT',
+        args.preview.acquisitionMode === 'mint'
+          ? 'Mint Mode entry is disabled in this build.'
+          : 'New-loop entry is disabled in this build.',
+      )
     }
     if (args.amount > 0n) {
-      if (market === undefined) {
-        throw new LoopingUiSafetyError('STATE_CONFLICT', 'The selected looping market is unavailable.')
-      }
-      await assertLoopingRuntimeEntryEnabled({
-        chainId: market.chainId,
-        marketId: market.marketId,
-      })
+      await assertRiskIncreaseRuntimeEnabled(args.preview)
     }
     args.onBeforeWrite?.()
     assertContext(args.operationContext)
@@ -1197,7 +1389,7 @@ export function useLoopingExecution({
     })
     assertContext(args.operationContext)
     return waitForApprovalReceipt(hash, args.operationContext)
-  }, [assertContext, market, waitForApprovalReceipt, writeContractAsync])
+  }, [assertContext, waitForApprovalReceipt, writeContractAsync])
 
   const refreshSameOperation = useCallback(async (
     previewKind: LoopingExecutionPreview['kind'],
@@ -1233,6 +1425,7 @@ export function useLoopingExecution({
       expectedPosition: expectedPostOperationBounds(args.preview, args.bundle),
       txHash: args.txHash,
       walletTxNonce: args.walletTxNonce,
+      ...pendingAcquisitionMetadataForPreview(args.preview, args.txHash),
     })
     if (!writeLoopingPendingOperation(record)) {
       throw new LoopingUiSafetyError(
@@ -1302,9 +1495,11 @@ export function useLoopingExecution({
       })
       return
     }
-    const operationEnabled = operation === 'entry'
-      ? LOOPING_EXECUTION_BETA_ENABLED
-      : operation === 'exit' && LOOPING_EXIT_BETA_ENABLED
+    const operationEnabled = initialPreview === undefined
+      ? false
+      : isRiskIncreasingPreview(initialPreview)
+        ? riskIncreaseBuildEnabled(initialPreview)
+        : LOOPING_EXIT_BETA_ENABLED
     if (
       !operationEnabled ||
       initialPreview === undefined ||
@@ -1446,6 +1641,7 @@ export function useLoopingExecution({
         deadline: authorizeRequest.message.deadline,
         expectedPosition: expectedPostPreviewBounds(preview),
         walletTxNonce,
+        ...pendingAcquisitionMetadataForPreview(preview),
       })
       if (!writeLoopingPendingOperation(partialPendingRecord)) {
         throw new LoopingUiSafetyError(
@@ -1457,14 +1653,11 @@ export function useLoopingExecution({
       lease.assertOwned()
       assertContext(operationContext)
       if (isRiskIncreasingPreview(preview)) {
-        await assertLoopingRuntimeEntryEnabled({
-          chainId: market.chainId,
-          marketId: market.marketId,
-        })
+        await assertRiskIncreaseRuntimeEnabled(preview)
         if (!runIsCurrent(run)) {
           throw new LoopingUiSafetyError(
             'STATE_CONFLICT',
-            'Wallet context changed during the live entry-policy check.',
+            'Wallet context changed during the live risk-increase policy check.',
           )
         }
         lease.assertOwned()
@@ -1573,14 +1766,11 @@ export function useLoopingExecution({
       persistMainPending({ preview, bundle, walletTxNonce })
       unresolvedRef.current = true
       if (isRiskIncreasingPreview(preview)) {
-        await assertLoopingRuntimeEntryEnabled({
-          chainId: market.chainId,
-          marketId: market.marketId,
-        })
+        await assertRiskIncreaseRuntimeEnabled(preview)
         if (!runIsCurrent(run)) {
           throw new LoopingUiSafetyError(
             'STATE_CONFLICT',
-            'Wallet context changed during the final live entry-policy check.',
+            'Wallet context changed during the final live risk-increase policy check.',
           )
         }
         lease.assertOwned()
@@ -1763,6 +1953,7 @@ export function useLoopingExecution({
           deadline: authorizeRequest.message.deadline,
           expectedPosition: exactPositionBounds(preview.position),
           walletTxNonce,
+          ...pendingAcquisitionMetadataForPreview(preview),
         })
         const persisted = writeLoopingPendingOperation(cleanupRecord)
         recoveryRef.current = undefined
@@ -1882,6 +2073,25 @@ export function useLoopingExecution({
     const cleanupOnly = storedPending?.operation === 'allowance-cleanup'
     const metadataOnly = storedPending?.operation === 'metadata-cleanup'
     const recoveryPreview = inMemoryRecovery?.preview
+    const baseRecoveryAcquisitionMetadata =
+      storedPending?.acquisitionMode === undefined
+        ? recoveryPreview === undefined
+          ? {}
+          : pendingAcquisitionMetadataForPreview(recoveryPreview)
+        : pendingAcquisitionMetadataForRecord(storedPending)
+    const recoveryAcquisitionMetadata =
+      baseRecoveryAcquisitionMetadata.acquisitionMode === 'mint' &&
+      baseRecoveryAcquisitionMetadata.mintDelivery !== undefined &&
+      baseRecoveryAcquisitionMetadata.mintDelivery.transactionHash === undefined &&
+      boundState.txHash !== undefined
+        ? {
+            acquisitionMode: 'mint' as const,
+            mintDelivery: {
+              ...baseRecoveryAcquisitionMetadata.mintDelivery,
+              transactionHash: boundState.txHash,
+            },
+          }
+        : baseRecoveryAcquisitionMetadata
     const expectedRecoveryPosition = storedPending?.expectedPosition ??
       (inMemoryRecovery === undefined
         ? undefined
@@ -1973,6 +2183,7 @@ export function useLoopingExecution({
           deadline: pair.deadline,
           expectedPosition: expectedRecoveryPosition,
           walletTxNonce,
+          ...recoveryAcquisitionMetadata,
         })
         if (!writeLoopingPendingOperation(recoveryRecord)) {
           throw new LoopingUiSafetyError('STATE_CONFLICT', 'Could not persist rescue metadata.')
@@ -2077,6 +2288,7 @@ export function useLoopingExecution({
                 deadline: exposedDeadline,
                 expectedPosition: pending.expectedPosition,
                 walletTxNonce,
+                ...pendingAcquisitionMetadataForRecord(pending),
               })
               if (!writeLoopingPendingOperation(revokeRecord)) {
                 throw new LoopingUiSafetyError('STATE_CONFLICT', 'Could not persist revoke metadata.')
@@ -2163,6 +2375,7 @@ export function useLoopingExecution({
             deadline: burnIntent.deadline,
             expectedPosition: pending.expectedPosition,
             walletTxNonce,
+            ...pendingAcquisitionMetadataForRecord(pending),
           })
           if (!writeLoopingPendingOperation(burnRecord)) {
             throw new LoopingUiSafetyError('STATE_CONFLICT', 'Could not persist nonce-burn metadata.')
@@ -2291,6 +2504,7 @@ export function useLoopingExecution({
           deadline: BigInt(latestPending.authorizationDeadline),
           expectedPosition: latestPending.expectedPosition,
           walletTxNonce,
+          ...pendingAcquisitionMetadataForRecord(latestPending),
         })
         if (!writeLoopingPendingOperation(cleanupRecord)) {
           throw new LoopingUiSafetyError('STATE_CONFLICT', 'Could not persist allowance-cleanup metadata.')
@@ -2347,6 +2561,22 @@ export function useLoopingExecution({
       const expectedPosition = expectedRecoveryPosition ?? latestPending?.expectedPosition
       const expectedPositionMatches = expectedPosition !== undefined &&
         positionMatchesBounds(reconciledPosition, expectedPosition)
+      if (
+        expectedPositionMatches &&
+        !cleanupOnly &&
+        recoveryAcquisitionMetadata.acquisitionMode === 'mint' &&
+        recoveryAcquisitionMetadata.mintDelivery !== undefined
+      ) {
+        await withWalletRead((client) => verifyPersistedMintDelivery({
+          client,
+          delivery: recoveryAcquisitionMetadata.mintDelivery!,
+          transactionHash: boundState.txHash,
+          owner,
+          market,
+        }))
+        lease.assertOwned()
+        assertContext(operationContext)
+      }
 
       if (!expectedPositionMatches && reconciledPosition.classification === 'open-loop') {
         const exitPrepared = await withWalletRead(
@@ -2443,6 +2673,8 @@ export function useLoopingExecution({
     return boundState.phase
   })()
   const quoteFresh = boundState.preview !== undefined && Date.now() < boundState.preview.validUntilMs
+  const selectedEntryBuildEnabled = LOOPING_EXECUTION_BETA_ENABLED &&
+    (acquisitionMode === 'market' || LOOPING_MINT_BETA_ENABLED)
 
   const riskIncreaseMessage = boundState.preview !== undefined &&
     isRiskIncreasingPreview(boundState.preview) &&
@@ -2453,9 +2685,10 @@ export function useLoopingExecution({
   return {
     phase: externalPhase,
     intent,
+    acquisitionMode,
     operation: boundState.operation,
     supported: market !== undefined,
-    entryEnabled: LOOPING_EXECUTION_BETA_ENABLED && riskIncreaseEligibility.eligible,
+    entryEnabled: selectedEntryBuildEnabled && riskIncreaseEligibility.eligible,
     exitEnabled: LOOPING_EXIT_BETA_ENABLED,
     market,
     borrowAssets,
@@ -2475,10 +2708,10 @@ export function useLoopingExecution({
     ),
     canExecute: Boolean(
       (boundState.operation === 'entry'
-        ? LOOPING_EXECUTION_BETA_ENABLED &&
-          (boundState.preview === undefined ||
-            !isRiskIncreasingPreview(boundState.preview) ||
-            riskIncreaseEligibility.eligible)
+        ? boundState.preview !== undefined &&
+          isRiskIncreasingPreview(boundState.preview) &&
+          riskIncreaseBuildEnabled(boundState.preview) &&
+          riskIncreaseEligibility.eligible
         : boundState.operation === 'exit' && LOOPING_EXIT_BETA_ENABLED) &&
       boundState.phase === 'ready' &&
       boundState.preview && walletReadClient && quoteFresh && !busy,

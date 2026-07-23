@@ -43,6 +43,8 @@ const POSITION_SLIDER_WARNING_POLICY = {
   lltvBuffer: 0.1,
 } as const
 
+type AcquisitionMode = 'market' | 'mint'
+
 const EXECUTION_CHAIN_IDS = Object.freeze(
   [...new Set(LOOPING_EXECUTION_REGISTRY.map((market) => market.chainId))]
     .sort((left, right) => left - right),
@@ -243,6 +245,7 @@ function LoopPositionManager({
   const [mode, setMode] = useState<'adjust' | 'full-exit'>(
     matured ? 'full-exit' : 'adjust',
   )
+  const [acquisitionMode, setAcquisitionMode] = useState<AcquisitionMode>('market')
   const [target, setTarget] = useState(() => initialTarget.toFixed(2))
   const targetLeverage = Number(target)
   const targetChanged = currentLeverage !== null &&
@@ -287,6 +290,7 @@ function LoopPositionManager({
           equityAssets={0n}
           leverage="1"
           intent="full-exit"
+          acquisitionMode="market"
           onConfirmed={onConfirmed}
         />
       </div>
@@ -388,12 +392,45 @@ function LoopPositionManager({
             </>
           )}
 
+          {currentLeverage !== null && targetChanged && increasingRisk && (
+            <div className="mt-3 rounded-[10px] border border-hairline bg-surface p-1.5">
+              <div
+                className="grid grid-cols-2 gap-1"
+                role="group"
+                aria-label="Added collateral acquisition mode"
+              >
+                {(['market', 'mint'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={transactionInFlight}
+                    aria-pressed={acquisitionMode === option}
+                    onClick={() => {
+                      if (!transactionInFlight) setAcquisitionMode(option)
+                    }}
+                    className={`rounded-[7px] px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${acquisitionMode === option
+                      ? 'bg-[rgba(var(--op-accent-rgb),0.12)] text-accent-ink'
+                      : 'text-muted hover:text-fg'}`}
+                  >
+                    {option === 'market' ? 'Market Mode' : 'Mint Mode'}
+                  </button>
+                ))}
+              </div>
+              <p className="px-2 pb-1 pt-2 text-[10.5px] leading-4 text-muted">
+                {acquisitionMode === 'mint'
+                  ? 'Borrowed capital mints PT+YT. Added PT becomes Morpho collateral; YT goes to your wallet.'
+                  : 'Borrowed capital buys added PT on the market for Morpho collateral.'}
+              </p>
+            </div>
+          )}
+
           {adjustmentAvailable ? (
             <LoopingExecutionPanel
               candidate={candidate}
               equityAssets={0n}
               leverage={target}
               intent="adjust"
+              acquisitionMode={increasingRisk ? acquisitionMode : 'market'}
               onConfirmed={onConfirmed}
             />
           ) : (
@@ -416,6 +453,7 @@ function LoopPositionManager({
           equityAssets={0n}
           leverage="1"
           intent="full-exit"
+          acquisitionMode="market"
           onConfirmed={onConfirmed}
         />
       )}

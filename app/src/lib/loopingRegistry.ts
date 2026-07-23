@@ -17,6 +17,9 @@ import {
 export const ETHEREUM_LOOPING_CHAIN_ID = 1 as const
 export const MONAD_LOOPING_CHAIN_ID = 143 as const
 export const ARBITRUM_LOOPING_CHAIN_ID = 42_161 as const
+export const PENDLE_MINT_PY_FROM_TOKEN_SELECTOR = '0xd0f42385' as const
+export const PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT =
+  '0x7f86a9c321f3eb737fe8243595d7a235abf983d29bf98a292bb98f2856e4e47a' as const
 export type LoopingExecutionChainId =
   | typeof ETHEREUM_LOOPING_CHAIN_ID
   | typeof MONAD_LOOPING_CHAIN_ID
@@ -73,6 +76,19 @@ export interface LoopingRouteUpgradePolicy {
   }>
 }
 
+/**
+ * Mint Mode's Router facet is isolated from Market Mode's reviewed selector
+ * tuple so adding the capability cannot change current entry/exit validation.
+ */
+export interface LoopingMintRouteUpgradePolicy {
+  pendleRouter: Readonly<{
+    selector: typeof PENDLE_MINT_PY_FROM_TOKEN_SELECTOR
+    facet: Address
+    selectorStorageSlot: typeof PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT
+    facetRuntimeCodeHash: Hex
+  }>
+}
+
 export interface LoopingKyberExecutorPolicy {
   address: Address
   /** `keccak256` of the reviewed chain's live runtime bytecode. */
@@ -125,14 +141,17 @@ export interface LoopingExecutionMarket {
   pendleMarket: Address
   pendleMarketExpiry: bigint
   standardizedYield: Address
+  yieldToken: Address
   morphoMarketParams: Readonly<LoopingMorphoMarketParams>
   contracts: Readonly<LoopingExecutionContracts>
   runtimeCodePolicy: Readonly<LoopingRuntimeCodePolicy>
   routeUpgradePolicy: Readonly<LoopingRouteUpgradePolicy>
+  mintRouteUpgradePolicy: Readonly<LoopingMintRouteUpgradePolicy>
   routePolicy: Readonly<LoopingRoutePolicy>
   launchPolicy: Readonly<LoopingLaunchPolicy>
   loanTokenDecimals: number
   collateralTokenDecimals: number
+  yieldTokenDecimals: number
 }
 
 /** Security-relevant directory fields required before a reviewed market can execute. */
@@ -235,6 +254,17 @@ const ARBITRUM_LOOPING_ROUTE_UPGRADE_POLICY: Readonly<LoopingRouteUpgradePolicy>
       address: '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5',
     }),
   })
+
+const ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY:
+Readonly<LoopingMintRouteUpgradePolicy> = Object.freeze({
+  pendleRouter: Object.freeze({
+    selector: PENDLE_MINT_PY_FROM_TOKEN_SELECTOR,
+    facet: '0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44',
+    selectorStorageSlot: PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT,
+    facetRuntimeCodeHash:
+      '0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9',
+  }),
+})
 
 const ARBITRUM_KYBER_ROUTER_ALLOWLIST = Object.freeze([
   '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5',
@@ -474,6 +504,17 @@ const MONAD_LOOPING_ROUTE_UPGRADE_POLICY: Readonly<LoopingRouteUpgradePolicy> =
     }),
   })
 
+const MONAD_LOOPING_MINT_ROUTE_UPGRADE_POLICY:
+Readonly<LoopingMintRouteUpgradePolicy> = Object.freeze({
+  pendleRouter: Object.freeze({
+    selector: PENDLE_MINT_PY_FROM_TOKEN_SELECTOR,
+    facet: '0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97',
+    selectorStorageSlot: PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT,
+    facetRuntimeCodeHash:
+      '0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8',
+  }),
+})
+
 const MONAD_AUSD_SY_TOKEN_ALLOWLIST = Object.freeze([
   '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
 ] as const satisfies readonly Address[])
@@ -527,6 +568,7 @@ export const ETHEREUM_LOOPING_REUSD: Readonly<LoopingExecutionMarket> =
     pendleMarket: '0x13285bCbc27F92b47B4EDB99D744C07B48C977c0',
     pendleMarketExpiry: 1_796_860_800n,
     standardizedYield: '0x9487Bd5A3b16Ecb5F3184453E3ee75B800141648',
+    yieldToken: '0xA8bD3B21291AcE53927b35563fc80615919E63D7',
     morphoMarketParams: Object.freeze({
       loanToken: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
       collateralToken: '0xeCfaFdC7741323a945A163ed068B5a3C43483957',
@@ -537,10 +579,13 @@ export const ETHEREUM_LOOPING_REUSD: Readonly<LoopingExecutionMarket> =
     contracts: ETHEREUM_LOOPING_CONTRACTS,
     runtimeCodePolicy: ETHEREUM_LOOPING_RUNTIME_CODE_POLICY,
     routeUpgradePolicy: ETHEREUM_LOOPING_ROUTE_UPGRADE_POLICY,
+    mintRouteUpgradePolicy:
+      ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
     routePolicy: ETHEREUM_REUSD_ROUTE_POLICY,
     launchPolicy: ETHEREUM_REUSD_LAUNCH_POLICY,
     loanTokenDecimals: 6,
     collateralTokenDecimals: 6,
+    yieldTokenDecimals: 6,
   })
 
 export const MONAD_LOOPING_AUSD: Readonly<LoopingExecutionMarket> =
@@ -556,6 +601,7 @@ export const MONAD_LOOPING_AUSD: Readonly<LoopingExecutionMarket> =
     pendleMarket: '0x6f99CF00ee7290aE78a072Bb6910eF72D1129fE7',
     pendleMarketExpiry: 1_791_417_600n,
     standardizedYield: '0xBA3d60f5000f472aef947FB8020a3E6319F9a0B7',
+    yieldToken: '0xEdDeE9C0B56248d70A9BFdD103f8bD97C35DfD89',
     morphoMarketParams: Object.freeze({
       loanToken: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
       collateralToken: '0x9FC74f8Ed616B5BaF52a170caa97d6d3898602d1',
@@ -566,10 +612,12 @@ export const MONAD_LOOPING_AUSD: Readonly<LoopingExecutionMarket> =
     contracts: MONAD_LOOPING_CONTRACTS,
     runtimeCodePolicy: MONAD_LOOPING_RUNTIME_CODE_POLICY,
     routeUpgradePolicy: MONAD_LOOPING_ROUTE_UPGRADE_POLICY,
+    mintRouteUpgradePolicy: MONAD_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
     routePolicy: MONAD_AUSD_ROUTE_POLICY,
     launchPolicy: MONAD_AUSD_LAUNCH_POLICY,
     loanTokenDecimals: 6,
     collateralTokenDecimals: 6,
+    yieldTokenDecimals: 6,
   })
 
 export const ARBITRUM_LOOPING_CANARY: Readonly<LoopingExecutionMarket> =
@@ -585,14 +633,18 @@ export const ARBITRUM_LOOPING_CANARY: Readonly<LoopingExecutionMarket> =
     pendleMarket: '0xA8a0DEA40174CfC30fEA9e3A77f182aB33f46E25',
     pendleMarketExpiry: 1_792_022_400n,
     standardizedYield: '0x5edCBC20Cac67AdC2e724d4348Ff85132B085b82',
+    yieldToken: '0xAF67341456151Ab8c270E0962966092181c2Eb80',
     morphoMarketParams: ARBITRUM_CANARY_MORPHO_MARKET_PARAMS,
     contracts: ARBITRUM_LOOPING_CONTRACTS,
     runtimeCodePolicy: ARBITRUM_LOOPING_RUNTIME_CODE_POLICY,
     routeUpgradePolicy: ARBITRUM_LOOPING_ROUTE_UPGRADE_POLICY,
+    mintRouteUpgradePolicy:
+      ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
     routePolicy: ARBITRUM_USDAI_ROUTE_POLICY,
     launchPolicy: ARBITRUM_USDAI_LAUNCH_POLICY,
     loanTokenDecimals: 6,
     collateralTokenDecimals: 18,
+    yieldTokenDecimals: 18,
   })
 
 /** Reviewed USDT0 debt tuple for the same USDai Pendle PT. */
@@ -609,6 +661,7 @@ export const ARBITRUM_LOOPING_USDT0_USDAI: Readonly<LoopingExecutionMarket> =
     pendleMarket: '0xA8a0DEA40174CfC30fEA9e3A77f182aB33f46E25',
     pendleMarketExpiry: 1_792_022_400n,
     standardizedYield: '0x5edCBC20Cac67AdC2e724d4348Ff85132B085b82',
+    yieldToken: '0xAF67341456151Ab8c270E0962966092181c2Eb80',
     morphoMarketParams: Object.freeze({
       loanToken: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
       collateralToken: '0xC9d24aD0bB25F34098e226a8C5192Dea7bacccaE',
@@ -619,16 +672,20 @@ export const ARBITRUM_LOOPING_USDT0_USDAI: Readonly<LoopingExecutionMarket> =
     contracts: ARBITRUM_LOOPING_CONTRACTS,
     runtimeCodePolicy: ARBITRUM_LOOPING_RUNTIME_CODE_POLICY,
     routeUpgradePolicy: ARBITRUM_LOOPING_ROUTE_UPGRADE_POLICY,
+    mintRouteUpgradePolicy:
+      ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
     routePolicy: ARBITRUM_USDAI_ROUTE_POLICY,
     launchPolicy: ARBITRUM_USDAI_LAUNCH_POLICY,
     loanTokenDecimals: 6,
     collateralTokenDecimals: 18,
+    yieldTokenDecimals: 18,
   })
 
 function chainExecutionResources(chainId: LoopingExecutionChainId): Readonly<{
   contracts: Readonly<LoopingExecutionContracts>
   runtimeCodePolicy: Readonly<LoopingRuntimeCodePolicy>
   routeUpgradePolicy: Readonly<LoopingRouteUpgradePolicy>
+  mintRouteUpgradePolicy: Readonly<LoopingMintRouteUpgradePolicy>
   routePolicyTemplate: Readonly<LoopingRoutePolicy>
   launchPolicyTemplate: Readonly<LoopingLaunchPolicy>
 }> {
@@ -638,6 +695,8 @@ function chainExecutionResources(chainId: LoopingExecutionChainId): Readonly<{
         contracts: ETHEREUM_LOOPING_CONTRACTS,
         runtimeCodePolicy: ETHEREUM_LOOPING_RUNTIME_CODE_POLICY,
         routeUpgradePolicy: ETHEREUM_LOOPING_ROUTE_UPGRADE_POLICY,
+        mintRouteUpgradePolicy:
+          ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
         routePolicyTemplate: ETHEREUM_REUSD_ROUTE_POLICY,
         launchPolicyTemplate: ETHEREUM_REUSD_LAUNCH_POLICY,
       }
@@ -646,6 +705,7 @@ function chainExecutionResources(chainId: LoopingExecutionChainId): Readonly<{
         contracts: MONAD_LOOPING_CONTRACTS,
         runtimeCodePolicy: MONAD_LOOPING_RUNTIME_CODE_POLICY,
         routeUpgradePolicy: MONAD_LOOPING_ROUTE_UPGRADE_POLICY,
+        mintRouteUpgradePolicy: MONAD_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
         routePolicyTemplate: MONAD_AUSD_ROUTE_POLICY,
         launchPolicyTemplate: MONAD_AUSD_LAUNCH_POLICY,
       }
@@ -654,6 +714,8 @@ function chainExecutionResources(chainId: LoopingExecutionChainId): Readonly<{
         contracts: ARBITRUM_LOOPING_CONTRACTS,
         runtimeCodePolicy: ARBITRUM_LOOPING_RUNTIME_CODE_POLICY,
         routeUpgradePolicy: ARBITRUM_LOOPING_ROUTE_UPGRADE_POLICY,
+        mintRouteUpgradePolicy:
+          ETHEREUM_ARBITRUM_LOOPING_MINT_ROUTE_UPGRADE_POLICY,
         routePolicyTemplate: ARBITRUM_USDAI_ROUTE_POLICY,
         launchPolicyTemplate: ARBITRUM_USDAI_LAUNCH_POLICY,
       }
@@ -677,10 +739,12 @@ function reviewedCandidateToExecutionMarket(
     pendleMarket: candidate.pendleMarket,
     pendleMarketExpiry: candidate.pendleMarketExpiry,
     standardizedYield: candidate.standardizedYield,
+    yieldToken: candidate.yieldToken,
     morphoMarketParams: candidate.morphoMarketParams,
     contracts: resources.contracts,
     runtimeCodePolicy: resources.runtimeCodePolicy,
     routeUpgradePolicy: resources.routeUpgradePolicy,
+    mintRouteUpgradePolicy: resources.mintRouteUpgradePolicy,
     routePolicy: Object.freeze({
       ...resources.routePolicyTemplate,
       mintSyTokenAllowlist: Object.freeze([...candidate.syTokensIn]),
@@ -689,6 +753,7 @@ function reviewedCandidateToExecutionMarket(
     launchPolicy: resources.launchPolicyTemplate,
     loanTokenDecimals: candidate.loanTokenDecimals,
     collateralTokenDecimals: candidate.collateralTokenDecimals,
+    yieldTokenDecimals: candidate.yieldTokenDecimals,
   })
 }
 
@@ -908,9 +973,15 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
     market.loanTokenDecimals > 255 ||
     !Number.isInteger(market.collateralTokenDecimals) ||
     market.collateralTokenDecimals < 0 ||
-    market.collateralTokenDecimals > 255
+    market.collateralTokenDecimals > 255 ||
+    !Number.isInteger(market.yieldTokenDecimals) ||
+    market.yieldTokenDecimals < 0 ||
+    market.yieldTokenDecimals > 255
   ) {
     throw new Error('Looping registry token decimals must be integers from 0 to 255.')
+  }
+  if (market.yieldTokenDecimals !== market.collateralTokenDecimals) {
+    throw new Error('Looping registry PT and YT decimals must match.')
   }
   const addressEntries: readonly (readonly [string, Address])[] = [
     ...Object.entries(market.contracts).map(
@@ -918,6 +989,7 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
     ),
     ['pendleMarket', market.pendleMarket],
     ['standardizedYield', market.standardizedYield],
+    ['yieldToken', market.yieldToken],
     ...Object.entries(market.morphoMarketParams)
       .filter((entry): entry is [string, Address] => entry[0] !== 'lltv')
       .map(([label, address]) => [`morphoMarketParams.${label}`, address] as const),
@@ -949,6 +1021,10 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
       'routeUpgradePolicy.kyberRouter.address',
       market.routeUpgradePolicy.kyberRouter.address,
     ],
+    [
+      'mintRouteUpgradePolicy.pendleRouter.facet',
+      market.mintRouteUpgradePolicy.pendleRouter.facet,
+    ],
   ]
   for (const [label, address] of addressEntries) {
     assertChecksummedAddress(label, address)
@@ -963,6 +1039,20 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
     if (!MARKET_ID_PATTERN.test(runtimeCodeHash)) {
       throw new Error('Looping contract runtime code hash must be exactly 32 bytes.')
     }
+  }
+  if (
+    !MARKET_ID_PATTERN.test(
+      market.mintRouteUpgradePolicy.pendleRouter.facetRuntimeCodeHash,
+    )
+  ) {
+    throw new Error('Looping Mint Router facet runtime code hash must be exactly 32 bytes.')
+  }
+  if (
+    market.yieldToken.toLowerCase() === market.standardizedYield.toLowerCase() ||
+    market.yieldToken.toLowerCase() ===
+      market.morphoMarketParams.collateralToken.toLowerCase()
+  ) {
+    throw new Error('Looping registry YT must be distinct from its SY and PT.')
   }
   const [buySlot, sellSlot, redeemSlot] =
     market.routeUpgradePolicy.pendleRouter.selectorImplementationSlots
@@ -980,6 +1070,14 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
       '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
   ) {
     throw new Error('Looping route implementation slots changed without review.')
+  }
+  const mintRouterPolicy = market.mintRouteUpgradePolicy.pendleRouter
+  if (
+    mintRouterPolicy.selector !== PENDLE_MINT_PY_FROM_TOKEN_SELECTOR ||
+    mintRouterPolicy.selectorStorageSlot !==
+      PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT
+  ) {
+    throw new Error('Looping Mint Router selector pin changed without review.')
   }
   if (
     market.routePolicy.externalRouterAllowlist.length !== 1 ||

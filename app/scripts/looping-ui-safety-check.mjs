@@ -218,6 +218,30 @@ check(
     !/\bisLoopingExecutionMarketSupported\s*\(/.test(loopingPage),
   'UI code must not bypass the exact Pendle market, PT, expiry, Morpho tuple, token-address, and decimal checks.',
 )
+check(
+  'Mint YT decimals are explicit reviewed registry pins',
+  /yieldTokenDecimals: number/.test(registry) &&
+    /market\.yieldTokenDecimals !== market\.collateralTokenDecimals/.test(registry),
+  'Every executable PY pair must pin matching PT/YT units before Mint Mode can execute.',
+)
+check(
+  'Mint preflight and receipt verification re-read the YT decimal pin',
+  count(compiler, /address: market\.yieldToken,[\s\S]{0,120}?functionName: 'decimals'/g) >= 2 &&
+    /yieldTokenDecimals !== market\.yieldTokenDecimals/.test(compiler) &&
+    /yieldTokenDecimals !== market\.collateralTokenDecimals/.test(compiler),
+  'Mint prepare, signed revalidation, and mined receipt verification must fail closed if YT decimals drift.',
+)
+check(
+  'Mint recovery checks YT decimals at the mined receipt block',
+  /const yieldTokenDecimals = await args\.client\.readContract\(\{[\s\S]*?address: args\.market\.yieldToken[\s\S]*?functionName: 'decimals'[\s\S]*?blockNumber: receipt\.blockNumber/.test(hook) &&
+    /yieldTokenDecimals !== args\.market\.yieldTokenDecimals/.test(hook),
+  'Persisted recovery must not accept YT delivery logs under unreviewed token units.',
+)
+check(
+  'Mint YT amounts use the dedicated YT decimal pin',
+  count(panel, /market\.yieldTokenDecimals/g) === 4,
+  'Entry and increase previews must format minimum and expected YT with the reviewed YT decimals.',
+)
 
 console.log('# beta write gates')
 check(
@@ -230,8 +254,11 @@ check(
 )
 check(
   'the exact-approval write has an explicit new-entry gate',
-  ordered(sendExact, ['if (!LOOPING_EXECUTION_BETA_ENABLED)', 'writeContractAsync({']),
-  'Token approval must throw when new entry is disabled before invoking the wallet write.',
+  ordered(sendExact, [
+    'if (!riskIncreaseBuildEnabled(args.preview))',
+    'writeContractAsync({',
+  ]),
+  'Token approval must pass the selected Market/Mint build gate before invoking the wallet write.',
 )
 check(
   'existing-position adjustments never enter the user token-approval branch',
@@ -241,19 +268,21 @@ check(
 )
 check(
   'a fresh runtime policy check immediately precedes every nonzero approval',
-  /if \(args\.amount > 0n\) \{[\s\S]*?await assertLoopingRuntimeEntryEnabled\(\{[\s\S]*?chainId: market\.chainId,[\s\S]*?marketId: market\.marketId,[\s\S]*?\}\)[\s\S]*?args\.onBeforeWrite\?\.\(\)[\s\S]*?writeContractAsync\(\{/.test(sendExact),
-  'A paused or unavailable live policy must stop a new allowance before the wallet sees it, while approve(0) remains available.',
+  /if \(args\.amount > 0n\) \{[\s\S]*?await assertRiskIncreaseRuntimeEnabled\(args\.preview\)[\s\S]*?\}[\s\S]*?args\.onBeforeWrite\?\.\(\)[\s\S]*?writeContractAsync\(\{/.test(sendExact),
+  'A paused or unavailable base or Mint policy must stop a new allowance before the wallet sees it, while approve(0) remains available.',
 )
 check(
   'main execution selects an independent entry or exit gate before submission',
   ordered(execute, [
-    "const operationEnabled = operation === 'entry'",
-    '? LOOPING_EXECUTION_BETA_ENABLED',
-    ": operation === 'exit' && LOOPING_EXIT_BETA_ENABLED",
+    'const operationEnabled = initialPreview === undefined',
+    '? false',
+    ': isRiskIncreasingPreview(initialPreview)',
+    '? riskIncreaseBuildEnabled(initialPreview)',
+    ': LOOPING_EXIT_BETA_ENABLED',
     '!operationEnabled',
     'sendTransactionAsync({',
   ]),
-  'Entry and exit bundle submission must use their own static launch flags.',
+  'Risk increases must use the selected Market/Mint build gate while exits retain their independent launch flag.',
 )
 check(
   'preview kind and operation must agree before any launch gate or write',
@@ -289,14 +318,24 @@ check(
 )
 check(
   'intent and leverage target invalidate stale prepared state',
-  /const fingerprint = \[[\s\S]*?candidate\.morpho\.marketId\.toLowerCase\(\),[\s\S]*?intent,[\s\S]*?equityAssets\.toString\(\),[\s\S]*?leverage,/.test(hook) &&
+  /const fingerprint = \[[\s\S]*?candidate\.morpho\.marketId\.toLowerCase\(\),[\s\S]*?intent,[\s\S]*?acquisitionMode,[\s\S]*?equityAssets\.toString\(\),[\s\S]*?leverage,/.test(hook) &&
     /const refreshSameOperation = useCallback\(async \([\s\S]*?prepared\.preview\.kind !== previewKind/.test(hook),
-  'Changing manager mode or target must discard the old preview, and a refresh must not flip increase into decrease.',
+  'Changing manager mode, acquisition mode, or target must discard the old preview, and a refresh must not flip increase into decrease.',
 )
 check(
   'the execution fingerprint binds the exact Pendle market as well as the Morpho market',
-  /const fingerprint = \[[\s\S]*?candidate\.morpho\.chainId,[\s\S]*?candidate\.morpho\.marketId\.toLowerCase\(\),[\s\S]*?candidate\.pendle\.market\.toLowerCase\(\),[\s\S]*?intent,[\s\S]*?equityAssets\.toString\(\),[\s\S]*?leverage,/.test(hook),
-  'Switching between Pendle pools that share a PT or Morpho tuple must invalidate all prepared and recovery-bound UI state.',
+  /const fingerprint = \[[\s\S]*?candidate\.morpho\.chainId,[\s\S]*?candidate\.morpho\.marketId\.toLowerCase\(\),[\s\S]*?candidate\.pendle\.market\.toLowerCase\(\),[\s\S]*?intent,[\s\S]*?acquisitionMode,[\s\S]*?equityAssets\.toString\(\),[\s\S]*?leverage,/.test(hook),
+  'Switching Pendle pools or acquisition modes must invalidate all prepared and recovery-bound UI state.',
+)
+check(
+  'Mint risk increases require both base entry and Mint build flags',
+  /function riskIncreaseBuildEnabled\([\s\S]*?return LOOPING_EXECUTION_BETA_ENABLED &&[\s\S]*?\(preview\.acquisitionMode === 'market' \|\| LOOPING_MINT_BETA_ENABLED\)[\s\S]*?\}/.test(hook),
+  'Market Mode may use the base entry flag alone, but Mint Mode must additionally pass its dedicated build flag.',
+)
+check(
+  'Mint risk increases require the base runtime policy before the Mint runtime policy',
+  /async function assertRiskIncreaseRuntimeEnabled\([\s\S]*?await assertLoopingRuntimeEntryEnabled\(\{[\s\S]*?chainId: preview\.market\.chainId,[\s\S]*?marketId: preview\.market\.marketId,[\s\S]*?\}\)[\s\S]*?if \(preview\.acquisitionMode === 'mint'\) \{[\s\S]*?await assertLoopingMintRuntimeActionEnabled\(\{[\s\S]*?action: preview\.kind === 'entry-preview' \? 'entry' : 'increase',[\s\S]*?chainId: preview\.market\.chainId,[\s\S]*?marketId: preview\.market\.marketId,[\s\S]*?\}\)[\s\S]*?\}/.test(hook),
+  'Every Mint entry or increase must pass the ordinary entry policy first and its action-specific Mint policy second.',
 )
 check(
   'adjustment pending bounds bind the exact expected position family',
@@ -367,12 +406,12 @@ check(
 )
 check(
   'risk-increasing actions recheck the live policy immediately before the first signature',
-  count(preSignatureBoundary, /assertLoopingRuntimeEntryEnabled\(\{/g) === 1 &&
-    /if \(isRiskIncreasingPreview\(preview\)\) \{[\s\S]*?await assertLoopingRuntimeEntryEnabled\(\{[\s\S]*?\}\)[\s\S]*?MIN_QUOTE_FRESHNESS_BEFORE_SIGNATURE_MS[\s\S]*?setState\(\{[\s\S]*?phase: 'signing-authorize'[\s\S]*?$/.test(preSignatureBoundary) &&
+  count(preSignatureBoundary, /assertRiskIncreaseRuntimeEnabled\(preview\)/g) === 1 &&
+    /if \(isRiskIncreasingPreview\(preview\)\) \{[\s\S]*?await assertRiskIncreaseRuntimeEnabled\(preview\)[\s\S]*?MIN_QUOTE_FRESHNESS_BEFORE_SIGNATURE_MS[\s\S]*?setState\(\{[\s\S]*?phase: 'signing-authorize'[\s\S]*?$/.test(preSignatureBoundary) &&
     count(preSignatureBoundary.slice(
-      preSignatureBoundary.indexOf('await assertLoopingRuntimeEntryEnabled'),
+      preSignatureBoundary.indexOf('await assertRiskIncreaseRuntimeEnabled'),
     ), /\bawait\b/g) === 1,
-  'After the no-store policy fetch, only synchronous context, lease, and quote checks may run before requesting authorizeSignature.',
+  'After the selected Market/Mint policy checks, only synchronous context, lease, and quote checks may run before requesting authorizeSignature.',
 )
 check(
   'the scoped partial record binds owner, chain market, nonce, deadline, and expected position',
@@ -396,21 +435,23 @@ const preSubmissionBoundary = persistedSignedMetadata >= 0 && mainSend > persist
   : ''
 check(
   'risk-increasing actions recheck the live policy immediately before signed submission',
-  count(preSubmissionBoundary, /assertLoopingRuntimeEntryEnabled\(\{/g) === 1 &&
-    /if \(isRiskIncreasingPreview\(preview\)\) \{[\s\S]*?await assertLoopingRuntimeEntryEnabled\(\{[\s\S]*?\}\)[\s\S]*?MIN_QUOTE_FRESHNESS_BEFORE_SUBMISSION_MS[\s\S]*?setState\(\{ phase: 'submitting'/.test(preSubmissionBoundary) &&
+  count(preSubmissionBoundary, /assertRiskIncreaseRuntimeEnabled\(preview\)/g) === 1 &&
+    /if \(isRiskIncreasingPreview\(preview\)\) \{[\s\S]*?await assertRiskIncreaseRuntimeEnabled\(preview\)[\s\S]*?MIN_QUOTE_FRESHNESS_BEFORE_SUBMISSION_MS[\s\S]*?setState\(\{ phase: 'submitting'/.test(preSubmissionBoundary) &&
     count(preSubmissionBoundary.slice(
-      preSubmissionBoundary.indexOf('await assertLoopingRuntimeEntryEnabled') +
-        'await assertLoopingRuntimeEntryEnabled'.length,
+      preSubmissionBoundary.indexOf('await assertRiskIncreaseRuntimeEnabled') +
+        'await assertRiskIncreaseRuntimeEnabled'.length,
     ), /\bawait\b/g) === 0,
-  'The signed bundle may reach the wallet only after a fresh no-store entry-policy check and synchronous safety rechecks.',
+  'The signed bundle may reach the wallet only after fresh base and selected Mint policy checks and synchronous safety rechecks.',
 )
 check(
-  'the runtime entry policy cannot disable risk reduction or recovery',
-  count(execute, /assertLoopingRuntimeEntryEnabled\(\{/g) === 2 &&
+  'risk-increase runtime policies cannot disable risk reduction or recovery',
+  count(execute, /assertRiskIncreaseRuntimeEnabled\(preview\)/g) === 2 &&
     /return preview\.kind === 'entry-preview' \|\| preview\.kind === 'increase-preview'/.test(hook) &&
+    !/assertRiskIncreaseRuntimeEnabled/.test(recover) &&
     !/assertLoopingRuntimeEntryEnabled/.test(recover) &&
-    !/loopingRuntimePolicy/.test(recover),
-  'The emergency switch is entry-only; full exit and bounded recovery must not depend on the policy endpoint.',
+    !/assertLoopingMintRuntimeActionEnabled/.test(recover) &&
+    !/loopingRuntimePolicy|loopingMintRuntimePolicy/.test(recover),
+  'The base and Mint emergency switches are risk-increase-only; exit, decrease, and recovery must not depend on either endpoint.',
 )
 
 const recoverySendCount = count(recover, /\bsendTransactionAsync\s*\(\s*\{/g)
@@ -522,6 +563,32 @@ check(
   'the public recovery capability includes a persisted pending record',
   /canRecover: Boolean\([\s\S]*?boundState\.phase === 'ambiguous'[\s\S]*?recoveryRef\.current !== undefined \|\| boundState\.pendingRecord !== undefined/.test(hook.slice(externalPhaseStart)),
   'The panel must enable recovery after a reload when scoped metadata is present.',
+)
+check(
+  'persisted Mint recovery is rebound to the original transaction calldata',
+  /readPersistedLoopingMintDeliveryFromTransaction\(\{[\s\S]*?transactionHash,[\s\S]*?owner: args\.owner,[\s\S]*?market: args\.market,[\s\S]*?\}\)/.test(hook) &&
+    /args\.delivery\.yieldToken\.toLowerCase\(\) !==[\s\S]*?args\.market\.yieldToken\.toLowerCase\(\)[\s\S]*?BigInt\(args\.delivery\.minimumYtOut\) !== transactionEvidence\.minimumYtOut/.test(hook) &&
+    /export async function readPersistedLoopingMintDeliveryFromTransaction\([\s\S]*?decodeExposedLoopingAuthorizationPair\([\s\S]*?decodePersistedMintRoute\([\s\S]*?decodePersistedAdapterTransfer\([\s\S]*?token: market\.yieldToken/.test(compiler),
+  'Recovery must decode the mined Mint bundle and reject browser-stored YT metadata that no longer matches it.',
+)
+check(
+  'persisted Mint recovery rejects conflicting transaction hashes',
+  /args\.delivery\.transactionHash !== undefined[\s\S]*?args\.transactionHash !== undefined[\s\S]*?transaction hashes do not match/.test(hook),
+  'A browser record must not redirect delivery verification away from the reconciled transaction.',
+)
+
+check(
+  'risk-reducing previews do not inherit Mint acquisition copy',
+  /const displayedAcquisitionMode = entryPreview\?\.acquisitionMode[\s\S]*?increasePreview\?\.acquisitionMode[\s\S]*?riskReducingPreview === undefined \? acquisitionMode : null/.test(panel) &&
+    /displayedAcquisitionMode === null[\s\S]*?'Execute risk reduction'/.test(panel),
+  'Exit and decrease actions must describe risk reduction even when the page selector is set to Mint Mode.',
+)
+
+check(
+  'runtime acquisition-mode values fail closed before route selection',
+  /function resolveLoopingAcquisitionMode\(value: unknown\)[\s\S]*?value === undefined \|\| value === 'market'[\s\S]*?value === 'mint'[\s\S]*?Looping acquisition mode must be exactly/.test(compiler) &&
+    count(compiler, /resolveLoopingAcquisitionMode\(args\.acquisitionMode\)/g) >= 3,
+  'Unexpected JavaScript values must not fall through to Market routing while bypassing Market-only safety checks.',
 )
 
 console.log('# no-hash recovery')

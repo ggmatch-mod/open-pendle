@@ -4,13 +4,17 @@
 import assert from 'node:assert/strict'
 import {
   MorphoMarketValidationError,
+  calculateLoopingEntryHealth,
+  calculateLoopingEntrySizing,
   calculateLoopingLeverageCap,
   calculateLoopingScenario,
+  calculateMintLoopingPresentation,
   fetchLoopingMarkets,
   joinMorphoMarketsToPendlePts,
   loopingCatalogFingerprint,
   morphoMarketIdFromTuple,
   parseMorphoMarketsResponse,
+  selectMaximumSafeMintBorrowQuote,
 } from '../src/lib/looping.ts'
 import {
   DEFAULT_LOOPING_PREVIEW_FEATURE_FLAGS,
@@ -480,6 +484,187 @@ assert.notEqual(
   loopingCatalogFingerprint(catalogFixture([
     pendleMarket({ impliedApy: 0.11 }),
   ])),
+)
+
+console.log('Mode-aware sizing counts only binding PT and keeps Mint YT outside collateral')
+const marketEntrySizing = calculateLoopingEntrySizing({
+  mode: 'market',
+  equityAssets: 1_000_000n,
+  borrowAssets: 500_000n,
+  initialMinPtOut: 1_050_000n,
+  loopMinPtOut: 520_000n,
+})
+assert.equal(marketEntrySizing.grossCapitalAssets, 1_500_000n)
+assert.equal(marketEntrySizing.capitalMultipleWad, 1_500_000_000_000_000_000n)
+assert.equal(marketEntrySizing.guaranteedPtCollateral, 1_570_000n)
+assert.equal(marketEntrySizing.guaranteedYtToWallet, 0n)
+
+const mintEntrySizing = calculateLoopingEntrySizing({
+  mode: 'mint',
+  equityAssets: 1_000_000n,
+  borrowAssets: 500_000n,
+  initialMinPyOut: 970_000n,
+  loopMinPyOut: 480_000n,
+})
+assert.equal(mintEntrySizing.grossCapitalAssets, 1_500_000n)
+assert.equal(mintEntrySizing.capitalMultipleWad, 1_500_000_000_000_000_000n)
+assert.equal(mintEntrySizing.guaranteedPtCollateral, 1_450_000n)
+assert.equal(mintEntrySizing.guaranteedYtToWallet, 1_450_000n)
+
+console.log('Guaranteed Mint PT health rounds collateral down and worst-case debt LTV up')
+const mintEntryHealth = calculateLoopingEntryHealth({
+  entry: {
+    mode: 'mint',
+    equityAssets: 1_000_000n,
+    borrowAssets: 500_000n,
+    initialMinPyOut: 970_000n,
+    loopMinPyOut: 480_000n,
+  },
+  oraclePrice: 10n ** 36n,
+  lltv: 860_000_000_000_000_000n,
+  maximumDebtAssets: 505_000n,
+  minimumLiquidationBufferBps: 1_000,
+})
+assert.equal(mintEntryHealth.collateralLoanValueAssets, 1_450_000n)
+assert.equal(mintEntryHealth.protocolMaxDebtAssets, 1_247_000n)
+assert.equal(mintEntryHealth.bufferedMaxDebtAssets, 1_122_300n)
+assert.equal(mintEntryHealth.maximumDebtLtvWad, 348_275_862_068_965_518n)
+assert.equal(mintEntryHealth.liquidationBufferBps, 5_950n)
+assert.equal(mintEntryHealth.withinProtocolLltv, true)
+assert.equal(mintEntryHealth.withinConfiguredBuffer, true)
+
+const belowConfiguredBuffer = calculateLoopingEntryHealth({
+  entry: {
+    mode: 'mint',
+    equityAssets: 1_000_000n,
+    borrowAssets: 500_000n,
+    initialMinPyOut: 970_000n,
+    loopMinPyOut: 480_000n,
+  },
+  oraclePrice: 10n ** 36n,
+  lltv: 860_000_000_000_000_000n,
+  maximumDebtAssets: 1_130_000n,
+  minimumLiquidationBufferBps: 1_000,
+})
+assert.equal(belowConfiguredBuffer.withinProtocolLltv, true)
+assert.equal(belowConfiguredBuffer.withinConfiguredBuffer, false)
+
+const floorRoundedHealth = calculateLoopingEntryHealth({
+  entry: {
+    mode: 'mint',
+    equityAssets: 1n,
+    borrowAssets: 1n,
+    initialMinPyOut: 2n,
+    loopMinPyOut: 1n,
+  },
+  oraclePrice: 10n ** 36n - 1n,
+  lltv: 500_000_000_000_000_000n,
+})
+assert.equal(floorRoundedHealth.collateralLoanValueAssets, 2n)
+assert.equal(floorRoundedHealth.protocolMaxDebtAssets, 1n)
+assert.equal(floorRoundedHealth.withinProtocolLltv, false)
+
+console.log('Mint maximum selection evaluates exact quotes and share-rounded debt independently')
+const mintCapacityInput = {
+  equityAssets: 1_000n,
+  initialMinimumPyOut: 800n,
+  oraclePrice: 10n ** 36n,
+  lltv: 800_000_000_000_000_000n,
+  minimumLiquidationBufferBps: 1_000,
+}
+const mintCapacity = selectMaximumSafeMintBorrowQuote({
+  ...mintCapacityInput,
+  quotes: [
+    { borrowAssets: 1_500n, minimumPyOut: 900n },
+    { borrowAssets: 500n, minimumPyOut: 400n, maximumDebtAssets: 510n },
+    { borrowAssets: 1_000n, minimumPyOut: 700n, maximumDebtAssets: 1_100n },
+    { borrowAssets: 900n, minimumPyOut: 650n, maximumDebtAssets: 920n },
+  ],
+})
+assert.ok(mintCapacity)
+assert.equal(mintCapacity.borrowAssets, 900n)
+assert.equal(mintCapacity.maximumDebtAssets, 920n)
+assert.equal(mintCapacity.grossCapitalAssets, 1_900n)
+assert.equal(mintCapacity.entry.guaranteedPtCollateral, 1_450n)
+assert.equal(mintCapacity.entry.guaranteedYtToWallet, 1_450n)
+assert.equal(mintCapacity.health.withinConfiguredBuffer, true)
+
+const capacityWithoutShareOverhang = selectMaximumSafeMintBorrowQuote({
+  ...mintCapacityInput,
+  quotes: [
+    { borrowAssets: 1_500n, minimumPyOut: 900n },
+    { borrowAssets: 900n, minimumPyOut: 650n },
+    { borrowAssets: 1_000n, minimumPyOut: 700n },
+  ],
+})
+assert.ok(capacityWithoutShareOverhang)
+assert.equal(capacityWithoutShareOverhang.borrowAssets, 1_000n)
+
+console.log('Mint presentation omits return APY until a verified SY source is supplied')
+const mintPresentationInput = {
+  entry: {
+    mode: 'mint',
+    equityAssets: 1_000_000n,
+    borrowAssets: 500_000n,
+    initialMinPyOut: 970_000n,
+    loopMinPyOut: 480_000n,
+  },
+  oraclePrice: 10n ** 36n,
+  lltv: 860_000_000_000_000_000n,
+  maximumDebtAssets: 505_000n,
+  minimumLiquidationBufferBps: 1_000,
+  borrowApy: 0.04,
+  holdingPeriodYears: 0.5,
+  entryCostRate: 0.001,
+  exitCostRate: 0.001,
+  fixedCostOnEquity: 0.002,
+}
+const mintPresentationWithoutYield = calculateMintLoopingPresentation(
+  mintPresentationInput,
+)
+assert.equal(mintPresentationWithoutYield.returnEstimateBasis, 'unavailable')
+assert.equal(mintPresentationWithoutYield.verifiedSyApy, null)
+assert.equal(mintPresentationWithoutYield.grossSyYieldOnEquity, null)
+assert.equal(mintPresentationWithoutYield.estimatedNetApy, null)
+assert.ok(Math.abs(mintPresentationWithoutYield.borrowCostOnEquity - 0.0202) < 1e-12)
+assert.ok(Math.abs(mintPresentationWithoutYield.annualizedOneTimeCosts - 0.01) < 1e-12)
+assert.equal('headlineLoopApy' in mintPresentationWithoutYield, false)
+assert.equal('ptApy' in mintPresentationWithoutYield, false)
+
+const mintPresentationWithYield = calculateMintLoopingPresentation({
+  ...mintPresentationInput,
+  verifiedSyApy: 0.06,
+})
+assert.equal(mintPresentationWithYield.returnEstimateBasis, 'verified-sy-apy')
+assert.ok(Math.abs(mintPresentationWithYield.grossSyYieldOnEquity - 0.09) < 1e-12)
+assert.ok(Math.abs(mintPresentationWithYield.estimatedNetApy - 0.0598) < 1e-12)
+
+expectValidation(
+  () =>
+    calculateLoopingEntryHealth({
+      entry: {
+        mode: 'mint',
+        equityAssets: 1_000n,
+        borrowAssets: 500n,
+        initialMinPyOut: 900n,
+        loopMinPyOut: 400n,
+      },
+      oraclePrice: 10n ** 36n,
+      lltv: MORPHO_LTV,
+      maximumDebtAssets: 499n,
+    }),
+  'entryHealth.maximumDebtAssets',
+)
+expectValidation(
+  () =>
+    selectMaximumSafeMintBorrowQuote({
+      ...mintCapacityInput,
+      quotes: [
+        { borrowAssets: 500n, minimumPyOut: 400n },
+        { borrowAssets: 500n, minimumPyOut: 399n },
+      ],
+    }),
+  'mintCapacity.quotes[1].borrowAssets',
 )
 
 console.log('Scenario math separates headline yield, stress, costs, and liquidation headroom')

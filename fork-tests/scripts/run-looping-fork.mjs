@@ -11,6 +11,7 @@ const BORROW_SHARE_BUFFER_BPS = 50n
 const BPS = 10_000n
 const MORPHO_MARKET_SELECTOR = '0x5c60e39a'
 const PENDLE_READ_TOKENS_SELECTOR = '0x2c8ce6bc'
+const ERC20_DECIMALS_SELECTOR = '0x313ce567'
 const SY_GET_TOKENS_IN_SELECTOR = '0x213cae63'
 const SY_GET_TOKENS_OUT_SELECTOR = '0x071bc3c9'
 const MAX_QUOTE_ROUTES = 16
@@ -24,6 +25,7 @@ const CHAINS = {
     evmVersion: 'osaka',
     lltv: 915_000_000_000_000_000n,
     ptDecimals: 6,
+    ytDecimals: 6,
     ptExpiry: 1_796_860_800n,
     aggregators: new Set(['kyberswap', 'odos']),
     addresses: {
@@ -36,6 +38,7 @@ const CHAINS = {
       oracle: '0x217d6ddcdb95112c51657f6270e8c079cfdb51f0',
       pendleSwap: '0xd4f480965d2347d421f1bec7f545682e5ec2151d',
       pt: '0xecfafdc7741323a945a163ed068b5a3c43483957',
+      yt: '0xa8bd3b21291ace53927b35563fc80615919e63d7',
       router: '0x888888888889758f76e7103c6cbf23abbf58f946',
       mintSyTokens: ['0x5086bf358635b81d8c47c66d1c8b9e567db70c72'],
       redeemSyTokens: ['0x5086bf358635b81d8c47c66d1c8b9e567db70c72'],
@@ -51,6 +54,7 @@ const CHAINS = {
     evmVersion: 'osaka',
     lltv: 915_000_000_000_000_000n,
     ptDecimals: 6,
+    ytDecimals: 6,
     ptExpiry: 1_791_417_600n,
     aggregators: new Set(['kyberswap']),
     addresses: {
@@ -63,6 +67,7 @@ const CHAINS = {
       oracle: '0x436ca3263b1aaa57d286823a42e35d8c228e85a2',
       pendleSwap: '0xd4f480965d2347d421f1bec7f545682e5ec2151d',
       pt: '0x9fc74f8ed616b5baf52a170caa97d6d3898602d1',
+      yt: '0xeddee9c0b56248d70a9bfdd103f8bd97c35dfd89',
       router: '0x888888888889758f76e7103c6cbf23abbf58f946',
       mintSyTokens: ['0x00000000efe302beaa2b3e6e1b18d08d69a9012a'],
       redeemSyTokens: ['0x00000000efe302beaa2b3e6e1b18d08d69a9012a'],
@@ -78,6 +83,7 @@ const CHAINS = {
     evmVersion: 'osaka',
     lltv: 915_000_000_000_000_000n,
     ptDecimals: 18,
+    ytDecimals: 18,
     ptExpiry: 1_792_022_400n,
     aggregators: new Set(['kyberswap']),
     addresses: {
@@ -90,6 +96,7 @@ const CHAINS = {
       oracle: '0xaae5194036306a14b6bfe51a255001bd75f315b1',
       pendleSwap: '0xd4f480965d2347d421f1bec7f545682e5ec2151d',
       pt: '0xc9d24ad0bb25f34098e226a8c5192dea7bacccae',
+      yt: '0xaf67341456151ab8c270e0962966092181c2eb80',
       router: '0x888888888889758f76e7103c6cbf23abbf58f946',
       mintSyTokens: [
         '0x46850ad61c2b7d64d08c9c754f45254596696984',
@@ -170,11 +177,24 @@ async function readSyRouteTokens(rpcUrl, blockTag, chain) {
   if (body.length !== 192) fail('Pendle market readTokens() returned malformed data')
   const sy = decodeAddressWord(body.slice(0, 64), 'Pendle SY')
   const pt = decodeAddressWord(body.slice(64, 128), 'Pendle PT')
+  const yt = decodeAddressWord(body.slice(128, 192), 'Pendle YT')
   if (pt !== chain.addresses.pt) fail(`Pendle market returned unexpected PT ${pt}`)
-  const [tokensInData, tokensOutData] = await Promise.all([
+  if (yt !== chain.addresses.yt) fail(`Pendle market returned unexpected YT ${yt}`)
+  const [tokensInData, tokensOutData, ptDecimalsData, ytDecimalsData] = await Promise.all([
     jsonRpc(rpcUrl, 'eth_call', [{ to: sy, data: SY_GET_TOKENS_IN_SELECTOR }, blockTag]),
     jsonRpc(rpcUrl, 'eth_call', [{ to: sy, data: SY_GET_TOKENS_OUT_SELECTOR }, blockTag]),
+    jsonRpc(rpcUrl, 'eth_call', [{ to: pt, data: ERC20_DECIMALS_SELECTOR }, blockTag]),
+    jsonRpc(rpcUrl, 'eth_call', [{ to: yt, data: ERC20_DECIMALS_SELECTOR }, blockTag]),
   ])
+  const [ptDecimals] = decodeUintWords(ptDecimalsData, 1, 'PT decimals()')
+  const [ytDecimals] = decodeUintWords(ytDecimalsData, 1, 'YT decimals()')
+  if (
+    ptDecimals !== BigInt(chain.ptDecimals) ||
+    ytDecimals !== BigInt(chain.ytDecimals) ||
+    ptDecimals !== ytDecimals
+  ) {
+    fail(`Pendle PT/YT decimals changed: PT ${ptDecimals}, YT ${ytDecimals}`)
+  }
   const tokensIn = decodeAddressArray(tokensInData, 'SY getTokensIn()')
   const tokensOut = decodeAddressArray(tokensOutData, 'SY getTokensOut()')
   for (const token of chain.addresses.mintSyTokens) {
@@ -183,7 +203,7 @@ async function readSyRouteTokens(rpcUrl, blockTag, chain) {
   for (const token of chain.addresses.redeemSyTokens) {
     if (!tokensOut.includes(token)) fail(`SY no longer supports allowlisted redeem token ${token}`)
   }
-  return { sy, tokensIn, tokensOut }
+  return { sy, pt, yt, ptDecimals, ytDecimals, tokensIn, tokensOut }
 }
 
 async function morphoBorrowBounds(rpcUrl, blockHex, chain, borrowAssets) {
@@ -315,11 +335,20 @@ function parseOptions(argv) {
   if (maturityLoopUsdc > loopUsdc) {
     fail('--maturity-loop-usdc cannot exceed --loop-usdc')
   }
+  const acquisitionMode = lower(optionValue('--mode') ?? 'market')
+  if (acquisitionMode !== 'market' && acquisitionMode !== 'mint') {
+    fail('--mode must be market or mint')
+  }
+  const compilerOnly = argv.includes('--compiler-only')
+  if (acquisitionMode === 'mint' && !compilerOnly) {
+    fail('Mint Mode currently uses the production compiler fork proof; add --compiler-only')
+  }
 
   return {
+    acquisitionMode,
     aggregator,
     chain,
-    compilerOnly: argv.includes('--compiler-only'),
+    compilerOnly,
     initialUsdc,
     loopUsdc,
     maturityLoopUsdc,
@@ -514,6 +543,7 @@ async function main() {
       initialUsdc: options.initialUsdc,
       loopUsdc: options.loopUsdc,
       maturityLoopUsdc: options.maturityLoopUsdc,
+      acquisitionMode: options.acquisitionMode,
       chainId: chain.chainId,
     })
     return
@@ -663,6 +693,7 @@ async function main() {
     initialUsdc: options.initialUsdc,
     loopUsdc: options.loopUsdc,
     maturityLoopUsdc: options.maturityLoopUsdc,
+    acquisitionMode: options.acquisitionMode,
     chainId: chain.chainId,
   })
 }
