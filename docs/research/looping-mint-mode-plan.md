@@ -1,6 +1,7 @@
 # Looping Mint Mode: feasibility and integration plan
 
-**Status:** Full Mint Mode implemented locally; writes remain disabled by default
+**Status:** Full Mint Mode is implemented and fork-verified; production Mint
+entry and increase remain disabled, with no live Mint burner canary
 
 **Date:** 2026-07-23
 
@@ -174,19 +175,16 @@ to convert the loan token into an accepted SY input.
 
 ### ABI and reviewed Router surface
 
-The general Pendle ABI already contains `mintPyFromToken`; the looping-specific
-ABI does not. The implementation would need to add it and review selector
-`0xd0f42385`.
-
-The selector must be pinned to its expected Router facet and runtime code hash
-in the same fail-closed registry used for the existing buy-PT, sell-PT, and
-redeem-PY selectors. A Router upgrade or unexpected facet must disable Mint
-entry/increase without disabling reduction, exit, or recovery.
+The looping ABI includes `mintPyFromToken` and validates selector `0xd0f42385`.
+The fail-closed registry pins its expected Router facet and runtime code hash
+alongside the existing buy-PT, sell-PT, and redeem-PY selectors. A Router
+upgrade or unexpected facet disables Mint entry/increase without disabling
+reduction, exit, or recovery.
 
 ### Strict route validation
 
-Do not treat the Hosted SDK response as trusted calldata. The compiler should
-decode and validate all of the following:
+The Hosted SDK response is not trusted calldata. The compiler decodes and
+validates all of the following:
 
 1. `action`, method, selector, chain, Router target, Bundler3 caller/sender, and
    zero native value.
@@ -206,8 +204,8 @@ decode and validate all of the following:
 11. Quote freshness, pinned block assumptions, maturity runway, and current
     Router facet/code checks immediately before signing.
 
-For an MVP, accept only route shapes that have deterministic validators and
-fork coverage. Fail closed on any new Hosted SDK shape.
+Accepted route shapes have deterministic validators and fork coverage. Any new
+Hosted SDK shape fails closed.
 
 ### Current read-only validation
 
@@ -343,7 +341,6 @@ YT never contributes to LTV or liquidation distance.
 
 The selected-market PT APY and raw PT-minus-borrow spread remain visible in
 both modes as market context. They are not the Mint strategy return.
-- conversion price impact and gas.
 
 Do not silently substitute PT implied APY. Rewards and points embedded in YT
 should be described but not valued unless OpenPendle has a reliable source.
@@ -352,9 +349,9 @@ should be described but not valued unless OpenPendle has a reliable source.
 
 ### Toggle
 
-Market Mode remains the default. The switch should be available for new
-positions and risk-increasing actions when the exact market passes the
-Mint-specific runtime policy.
+Market Mode remains the default. The switch is available for new positions and
+risk-increasing actions; Mint execution still requires the exact-market build
+and runtime gates.
 
 Suggested copy for full Mint Mode:
 
@@ -419,41 +416,39 @@ available.
 
 ## Runtime policy and recovery
 
-Add a separate Mint capability to the runtime policy, including:
+Every Mint entry or increase first passes the existing build flag and
+same-origin `looping-execution-policy.v1.json`, then independently requires:
 
-- independent `mintEntry` and `mintIncrease` switches;
-- exact market allowlist;
-- maximum user input;
-- maximum debt;
-- maximum share of live borrow liquidity;
-- minimum maturity runway;
-- route/aggregator allowlist version; and
-- required Router selector/facet/code pins.
+- `VITE_LOOPING_MINT_BETA_ENABLED=true`; and
+- the matching `mint.entry` or `mint.increase` capability in
+  `app/public/looping-mint-execution-policy.v1.json`.
 
-An incident must be able to disable Mint risk-increasing actions without
-disabling Market Mode, reduction, exit, repayment, or pending recovery.
+The implemented `openpendle.looping-mint-execution-policy.v1` schema contains
+only `schema`, `revision`, and `mint.entry` / `mint.increase`. Each capability
+has the exact keys `enabled`, `validUntil`, and `markets`. The policy is fetched
+same-origin with `cache: no-store`, has at most seven days of validity, and
+fails closed when missing, stale, malformed, redirected, cross-origin, or
+mismatched. The canonical Cloudflare main build forces the Mint flag off, and
+the committed Mint policy currently disables both capabilities.
 
-Mint also needs a separate build-time gate alongside the current looping beta
-flags. The existing same-origin v1 policy parser rejects unknown keys, so adding
-Mint fields directly to `looping-execution-policy.v1.json` would pause current
-Market entry. Prefer a parallel Mint policy file/schema for the first rollout.
-If a combined v2 policy is preferred, deploy backwards-compatible parser
-support before switching the served policy. Never make the policy migration
-itself a Market Mode outage.
+Maximum input/debt, borrow-liquidity share, configured maturity runway, and
+route/pin rollout metadata are future rollout controls, not fields in the
+implemented v1 Mint policy. Current health, liquidity, quote, maturity, route,
+and code-pin safety remains in the compiler, eligibility checks, and registry;
+there is no fixed browser beta amount cap.
 
-Extend pending state with a closed, versioned Mint schema containing:
+This separation can pause Mint risk increases without disabling Market Mode,
+reduction, exit, repayment, or pending recovery. It also preserves the strict
+shape of the existing Market Mode v1 policy.
 
-- mode and action;
-- exact YT and market identity;
-- minimum YT delivery;
-- bounded debt assets/shares;
-- expected position/auth bounds; and
-- receipt-log verification requirements.
+Pending state now uses a closed, versioned schema containing the operation,
+acquisition mode, exact market and YT identity, minimum YT delivery, bounded
+expected position, and authorization nonce/deadline.
 
 Keep it within the existing small recovery-record budget. Quote payloads,
-identifiers, expiries, calldata, transaction requests, and signatures are
-compiler-time data and must never be persisted. Quote freshness remains part of
-the preview/execution fingerprint and signed-state revalidation.
+quote identifiers and expiries, calldata, transaction requests, and signatures
+are compiler-time data and must never be persisted. Quote freshness remains
+part of the preview/execution fingerprint and signed-state revalidation.
 
 Preserve the current discipline: simulate the unsigned bundle, persist pending
 state before signatures, revalidate live state before signing and broadcasting,
@@ -473,11 +468,11 @@ The local implementation now includes:
 - independent disabled-by-default Mint build and runtime gates;
 - mode-bound URL, preview, execution fingerprint, and pending recovery state;
 - Market/Mint selectors for new loops and risk-increasing adjustments; and
-- mode-aware sizing, presentation, registry, policy, pending, and compiler tests;
-  and
-- fresh Ethereum, Monad, and Arbitrum compiler-fork lifecycles covering Mint
-  entry, Mint increase, Market-based partial decrease, full exit, direct rescue,
-  and post-expiry exit.
+- mode-aware sizing, presentation, registry, policy, pending, and compiler
+  tests; and
+- fresh representative Ethereum, Monad, and Arbitrum compiler-fork lifecycles
+  covering Mint entry, Mint increase, Market-based partial decrease, full exit,
+  direct rescue, and post-expiry exit.
 
 Market Mode remains the default. Mint writes cannot run from an ordinary local
 or production build unless both the base entry gate and the separate Mint gate
@@ -486,7 +481,8 @@ Mint gate.
 
 Production work remains intentionally out of scope here: a lifecycle-filtered
 runtime allowlist, a burner-wallet canary, rollout approval, and activation of
-the disabled production Mint policy.
+the disabled production Mint policy. No value-moving Mint burner canary has
+run.
 
 ## Implementation and rollout checklist
 
@@ -495,7 +491,7 @@ The current-market P0 audit is complete; P5 production actions remain open.
 
 ### P0 — Product decision and market audit
 
-1. Confirm full versus hybrid semantics.
+1. Confirm full versus hybrid semantics. **Complete: full Mint Mode.**
 2. Audit all 22 current entry markets for exact YT, decimals, SY inputs, mint
    quote shape, aggregator path, maturity, and Router facet. **Complete for the
    2026-07-23 registry snapshot.**
@@ -506,7 +502,7 @@ The current-market P0 audit is complete; P5 production actions remain open.
 
 ### P1 — Types, registry, and quote compiler
 
-Likely touchpoints:
+Implemented touchpoints:
 
 - `app/src/lib/loopingAbi.ts`
 - `app/src/lib/loopingRegistry.ts`
@@ -514,10 +510,11 @@ Likely touchpoints:
 - `app/src/lib/loopingExecution.ts`
 - `app/src/lib/loopingBeta.ts`
 - `app/src/lib/loopingRuntimePolicy.ts`
-- a parallel Mint policy file/schema, or a staged compatible policy v2
-- deployment/environment configuration for the Mint build flag
+- `app/src/lib/loopingMintRuntimePolicy.ts`
+- `app/public/looping-mint-execution-policy.v1.json`
+- `app/vite.config.ts`
 
-Work:
+Implemented work:
 
 1. Add discriminated `market` and `mint` acquisition types.
 2. Add/pin exact YT identity for every market.
@@ -530,15 +527,15 @@ Work:
 
 ### P2 — Execution, verification, and recovery
 
-Likely touchpoints:
+Implemented touchpoints:
 
 - `app/src/lib/loopingExecution.ts`
-- `app/src/hooks/useLoopingExecution.ts`
+- `app/src/components/useLoopingExecution.ts`
 - `app/src/lib/loopingPending.ts`
 
-Work:
+Implemented work:
 
-1. Compile the full or hybrid atomic call sequence.
+1. Compile the full-Mint atomic call sequence.
 2. Use exact temporary Router approvals and clear them after each leg.
 3. Supply only guaranteed PT.
 4. Sweep all YT, excess PT, and loan-token dust.
@@ -551,13 +548,13 @@ Work:
 
 ### P3 — Math and UI
 
-Likely touchpoints:
+Implemented touchpoints:
 
 - `app/src/lib/looping.ts`
 - `app/src/pages/LoopingPage.tsx`
-- `app/src/components/looping/LoopingExecutionPanel.tsx`
+- `app/src/components/LoopingExecutionPanel.tsx`
 
-Work:
+Implemented work:
 
 1. Add conservative Mint sizing and a quote-dependent maximum-capital solver.
 2. Add the mode switch and explanatory copy.
@@ -574,12 +571,12 @@ Work:
 
 ### P4 — Deterministic and fork tests
 
-Extend the existing looping safety, execution, pending, UI, registry, runtime
-policy, and fork suites.
+The existing looping safety, execution, pending, UI, registry, runtime-policy,
+and fork suites retain this audit coverage.
 
-Required positive cases:
+Positive cases:
 
-- full or hybrid initial entry, matching the chosen semantics;
+- full-Mint initial entry;
 - Mint-based leverage increase on an existing position;
 - direct-SY-input and aggregator routes;
 - exact minimum PT supplied and minimum YT delivered;
@@ -589,7 +586,7 @@ Required positive cases:
 - recovery succeeds after reload; and
 - 6/18-decimal combinations and conservative rounding.
 
-Required adversarial cases:
+Adversarial cases:
 
 - wrong Router, selector, facet, receiver, PT, YT, SY, input token, or amount;
 - unequal PT/YT outputs or insufficient `minPyOut`;
@@ -613,12 +610,14 @@ than assuming the adapter and Bundler began at absolute zero.
 
 ### P5 — Controlled rollout
 
-1. Ship locally with Mint writes disabled.
-2. Run read-only live preflight for every intended market.
-3. Pass fork lifecycles for the direct and aggregator canaries on current chain
-   forks.
-4. Only with separate explicit authorization, run one tiny burner-wallet
-   round-trip canary.
+1. Local implementation and read-only validation are complete; keep production
+   Mint writes disabled.
+2. Revalidate the exact intended production allowlist immediately before
+   release.
+3. Re-run the representative direct and aggregator fork lifecycles on current
+   chain forks.
+4. Only with separate explicit authorization, run the first tiny Mint
+   burner-wallet round-trip canary. This has not run.
 5. Enable one market behind the independent Mint runtime gate and exact
    lifecycle-filtered allowlist.
 6. Expand market by market only after exact quote and fork evidence.
@@ -627,17 +626,16 @@ No release step may impair existing reduction, exit, rescue, or recovery paths.
 
 ## Definition of done
 
-Mint Mode is ready for a production proposal only when:
+Production activation remains blocked until:
 
-- the full/hybrid semantic decision and UI copy are approved;
-- every enabled market has an exact YT and reviewed quote route;
-- all route calldata is decoded and fail-closed;
-- conservative quote-dependent sizing passes property tests;
-- direct and aggregator fork lifecycles pass;
-- YT delivery and cleanup are receipt-verified;
-- Market Mode regressions pass unchanged;
-- Mint has an independent kill switch and exact runtime allowlist; and
-- exit, repayment, rescue, and recovery remain available when Mint is disabled.
+- the intended production allowlist is revalidated;
+- the first live Mint burner canary is explicitly authorized and completed;
+- rollout approval is recorded; and
+- the production Mint build flag and action-specific runtime capability are
+  deliberately enabled.
+
+No activation step may impair Market Mode, reduction, exit, repayment, rescue,
+or recovery.
 
 ## Primary references
 

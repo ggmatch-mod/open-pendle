@@ -1,14 +1,19 @@
 # PT looping fork proof
 
-**Status:** browser execution and recovery are implemented but launch-gated; the production compiler has completed a guarded burner round trip
-**Last live run:** 21 July 2026
-**Networks:** Arbitrum mainnet canary plus pinned Ethereum and Arbitrum fork proofs
+**Status:** Market Mode has a guarded Arbitrum burner round trip; Mint Mode is
+implemented and compiler-fork verified but production-disabled
+**Last live value-moving run:** 21 July 2026 (Market Mode only)
+**Networks:** Arbitrum Market Mode canary plus pinned Ethereum, Monad, and
+Arbitrum compiler-fork proofs
 
 ## Result
 
-One atomic PT loop and its complete unwind are feasible through Morpho's already-deployed Bundler3 and GeneralAdapter1. The tested path does not require an OpenPendle contract or a backend executor.
+One atomic Market Mode PT loop and its complete unwind are feasible through
+Morpho's already-deployed Bundler3 and GeneralAdapter1. The tested path does
+not require an OpenPendle contract or a backend executor.
 
-The default proof uses a deliberately small fixture: a 1 USDC simulated user contribution and one 0.5 USDC Morpho borrow:
+The default Market Mode proof uses a deliberately small fixture: a 1 USDC
+simulated user contribution and one 0.5 USDC Morpho borrow:
 
 1. pull the user's USDC into Bundler3;
 2. buy PT through Pendle Router V4, with output sent to GeneralAdapter1;
@@ -20,7 +25,7 @@ The default proof uses a deliberately small fixture: a 1 USDC simulated user con
 
 Morpho's position is always owned by the user. Bundler3 and GeneralAdapter1 finish with no USDC or PT, and temporary Pendle Router allowances are cleared.
 
-## Arbitrum mainnet burner canary
+## Arbitrum mainnet Market Mode burner canary
 
 The first funded proof used the Arbitrum PT-USDai-15OCT2026 / native-USDC Morpho market. It deliberately opened and closed the position inside one Bundler3 transaction so any bad entry, exit, repayment, or revocation reverted the entire position-bearing operation.
 
@@ -47,7 +52,7 @@ Independent post-transaction reads confirmed:
 
 The atomic canary proves the assembled Arbitrum transaction shape can execute and unwind. By itself it does not prove production sizing, every market, persisted positions across blocks, or frontend wallet behavior.
 
-## Persisted Arbitrum entry and separate unwind
+## Persisted Arbitrum Market Mode entry and separate unwind
 
 A second burner proof opened the same 1 USDC + 0.5 USDC loop as a real Morpho position, verified it after confirmation, and closed it in a separate transaction 22 blocks later. Both transactions contained their own signed Morpho authorize/revoke pair, so GeneralAdapter1 was already unauthorized while the position remained open between transactions.
 
@@ -78,7 +83,7 @@ This proves that the public Bundler3/GeneralAdapter1 path can open a position th
 
 The guarded direct-Morpho rescue path was reviewed and kept ready, but the successful normal exit meant it was not broadcast. A later production gate must exercise that fallback independently rather than treating its presence in the canary script as live proof.
 
-## Guarded production-compiler round trip
+## Guarded Market Mode production-compiler round trip
 
 The production compiler runner repeated the persisted 1 USDC contribution plus
 0.5 USDC debt canary with fresh routes, bounded entry and exit, and separate
@@ -145,6 +150,20 @@ The same five cases also passed with Odos at block `25,558,159`. Fresh Hosted SD
 
 A minimum-size rehearsal using a 2 USDC contribution and a 1 USDC borrow passed the same five KyberSwap cases at block `25,558,375`. Its guaranteed full-exit quote was 2.934846 USDC against 1 USDC of principal debt. This was still a fork rehearsal; the burner wallet had no Ethereum funds, so no mainnet transaction was sent.
 
+### Mint Mode evidence
+
+A 2026-07-23 read-only live audit covered all 22 reviewed entry identities.
+Fresh production-validator Mint quotes passed for all 19 unexpired identities
+(three direct `VOID` routes and 16 pinned KyberSwap routes); the other three
+identities were already matured. The audit also checked PT/YT identity,
+decimals, SY inputs, and Router and aggregator pins.
+
+Separately, representative production-compiler fork lifecycles on Ethereum,
+Monad, and Arbitrum covered Mint entry, Mint increase, Market Mode partial
+decrease, full exit, direct rescue, and post-expiry exit. This is read-only and
+fork evidence, not a value-moving Mint burner canary or execution proof for
+every reviewed market.
+
 ### Fork-version finding
 
 An earlier Kyber full-exit test failed with `EvmError: NotActivated` while the same entry passed. The trace reached the external Kyber route and a currently deployed contract before reverting. The cause was the local harness executing as Cancun, not a bad Bundler callback: Ethereum activated Fulu-Osaka in December 2025. Running the fork with `--evm-version osaka` made the identical route and both exit cases pass.
@@ -175,6 +194,9 @@ node --experimental-strip-types scripts/run-looping-fork.mjs --aggregator kybers
 node --experimental-strip-types scripts/run-looping-fork.mjs --chain ethereum --aggregator odos
 node --experimental-strip-types scripts/run-looping-fork.mjs --chain ethereum --aggregator kyberswap --initial-usdc 2 --loop-usdc 1
 node --experimental-strip-types scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.11 --maturity-loop-usdc 0.11
+node --experimental-strip-types scripts/run-looping-fork.mjs --chain ethereum --compiler-only --mode mint
+node --experimental-strip-types scripts/run-looping-fork.mjs --chain monad --compiler-only --mode mint --loop-usdc 0.11 --maturity-loop-usdc 0.11
+node --experimental-strip-types scripts/run-looping-fork.mjs --chain arbitrum --compiler-only --mode mint
 ```
 
 Arbitrum is the default chain. `OPENPENDLE_ARB_RPC_URL` (or `ARB_RPC_URL`),
@@ -191,8 +213,9 @@ loop amount and applies only to the separate post-expiry fixture. Monad uses a
 smaller loop fixture because Pendle's live quote service cannot observe the
 earlier swap made only on the local fork; this is a test-isolation choice, not
 a frontend amount cap. `--match-test <name>` and `--trace` narrow or trace the Solidity
-cases. `--compiler-only` is available for a focused production-compiler proof;
-the full Arbitrum run remains the release gate.
+cases. `--compiler-only` is available for a focused production-compiler proof
+and is required with `--mode mint`; the full Market Mode Arbitrum run remains
+the release gate.
 
 The runner rejects a quote unless it has the expected Router, adapter receiver, market, exact input, token path, PendleSwap, scaling behavior, zero native value, chosen aggregator, and empty limit-order data.
 
@@ -225,46 +248,61 @@ GeneralAdapter1's repay callback intentionally ignores Morpho's runtime `assets`
 
 ## Launch controls and next proof
 
-The browser now compiles exact reviewed-market paths across its supported
-execution chains, keeps
-Morpho signatures in memory, performs unsigned pre-signature and final
-revalidation, verifies receipts and position postconditions, and exposes a
-bounded direct-Morpho recovery flow. New entry, full exit, and recovery are
-separate planes:
+The browser now compiles exact reviewed-market paths across its execution
+chains, keeps Morpho signatures in memory, revalidates before signing and
+submission, verifies receipts and position postconditions, and exposes bounded
+direct-Morpho recovery. Risk increase, reduction/exit, and recovery are separate
+planes:
 
-- new entry requires `VITE_LOOPING_EXECUTION_BETA_ENABLED=true` **and** a fresh
-  enabled `app/public/looping-execution-policy.v1.json` covering the exact
-  chain and Morpho market;
+- Market Mode entry and increase require
+  `VITE_LOOPING_EXECUTION_BETA_ENABLED=true` **and** a fresh enabled
+  `app/public/looping-execution-policy.v1.json` covering the exact chain and
+  Morpho market;
+- Mint Mode entry and increase additionally require
+  `VITE_LOOPING_MINT_BETA_ENABLED=true` and the matching `mint.entry` or
+  `mint.increase` capability in
+  `app/public/looping-mint-execution-policy.v1.json`;
 - full exit has its own `VITE_LOOPING_EXIT_BETA_ENABLED` flag and never depends
-  on the runtime entry policy;
+  on either risk-increase runtime policy; reduction follows the same exit plane;
 - recovery is not launch-gated.
 
-The runtime entry policy is fetched same-origin with `cache: no-store` before a
-nonzero adapter approval, immediately before the first authorization signature,
-and again immediately before signed submission. Enabled policies expire within
-seven days; missing, stale, malformed, redirected, cross-origin, or mismatched
-policies pause entry. The OpenPendle main deployment's committed policy covers
-the exact reviewed entry registry and expires within seven days; preview builds
-force both execution flags off. Cloudflare cache rules must be verified on the
-deployed JSON endpoint whenever entry is enabled.
+Both runtime policies are fetched same-origin with `cache: no-store`; the base
+policy is checked first, followed by the action-specific Mint policy. They are
+checked before a nonzero adapter approval, immediately before the first
+authorization signature, and again immediately before signed submission.
+Enabled capabilities expire within seven days; missing, stale, malformed,
+redirected, cross-origin, or mismatched policies fail closed.
 
-The guarded production-compiler round trip and cleanup are complete. A release
-can keep entry paused through either its build flag or same-origin policy while
-leaving separately enabled full exit and recovery available. The browser does
-not impose a fixed equity or debt amount cap; wallet balance, Morpho liquidity,
-Pendle quote capacity, and all execution safety checks still apply. The small
-runner amounts remain canary fixtures only.
-The 10% liquidation-buffer marker is a warning that requires acknowledgement;
+The canonical Cloudflare main build currently forces the Mint build flag off,
+and the committed Mint policy disables both entry and increase. Local
+development may opt in through `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or one
+exact `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<marketId>`; these
+loopback-only dev-server overrides are ignored by production builds. The
+OpenPendle main deployment's base policy covers the reviewed entry registry
+and expires within seven days. Preview builds force execution flags off.
+Cloudflare cache rules must be verified on each deployed policy endpoint before
+its capability is enabled.
+
+The guarded Market Mode production-compiler round trip and cleanup are
+complete. No value-moving Mint burner canary has run. Mint can remain paused
+through either of its additional gates while Market Mode, reduction, full exit,
+and recovery remain available. The browser does not impose a fixed equity or
+debt amount cap; wallet balance, Morpho liquidity, Pendle quote capacity, and
+all execution safety checks still apply. The small runner amounts remain
+canary fixtures only.
+
+The 10% liquidation-buffer threshold is a warning that requires acknowledgement;
 the live preflight enforces the 1% floor.
 
-`app/scripts/live-looping-compiler-canary.mjs` is the guarded runner for that
-proof. With no arguments it is keyless and read-only. `--live-preflight`
-validates the configured burner and private 1RPC endpoint, compiles a fresh
-production entry preview, and creates no signature or transaction. Value-moving
-modes require an exact environment acknowledgement and an exclusive local
-lock. Signed authorization calldata is transport-blocked from `eth_call` and
-`eth_estimateGas`; the runner uses fixed fork-reviewed gas limits, one raw
-broadcast, two confirmations, and a mode-0600 ignored recovery journal. A
+`app/scripts/live-looping-compiler-canary.mjs` is the guarded runner for the
+Market Mode proof. With no arguments it is keyless and read-only.
+`--live-preflight` validates the configured burner and private 1RPC endpoint,
+compiles a fresh production entry preview, and creates no signature or
+transaction. Value-moving modes require an exact environment acknowledgement
+and an exclusive local lock. Signed authorization calldata is transport-blocked
+from `eth_call` and `eth_estimateGas`; the runner uses fixed fork-reviewed gas
+limits, one raw broadcast, two confirmations, and a mode-0600 ignored recovery
+journal. A
 separate `--recover-reverted`, one-step `--rescue`, read-only `--reconcile`, and
 same-nonce `--cancel-ambiguous` path remain available if the normal round trip
 does not finish cleanly. Cancellation retains an append-only, capped history of
@@ -276,9 +314,10 @@ a failed exit, authorization cleanup, and four direct-rescue steps (0.0055 ETH).
 After a process crash, keyless `--clear-stale-lock` removes the local lock only
 when its recorded PID is no longer alive; it never removes the recovery journal.
 The runner's guarded approval, persisted entry, and separate exit are linked
-above. Browser entry and exit are available only when their respective build
-flags permit them; entry additionally requires the fresh same-origin policy to
-cover the exact market.
+above and are all Market Mode transactions. Browser risk increases and exits
+are available only when their respective build flags permit them; every risk
+increase requires the fresh base policy, and Mint also requires the fresh
+action-specific Mint policy.
 
 ## Primary references
 

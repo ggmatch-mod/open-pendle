@@ -132,7 +132,7 @@ The stock build can contact:
 
 - configured app RPCs for ordinary reads, simulations, and receipt polling;
 - the injected wallet's provider for Looping safety reads, unsigned simulation, and signed transaction submission;
-- the same-origin market snapshot and Looping entry policy;
+- the same-origin market snapshot, base Looping entry policy, and separate Mint policy;
 - Pendle APIs for enrichment, alerts, Looping routes, limit orders, and connected-wallet Official-position discovery;
 - Morpho for Looping discovery and public market state;
 - supported Blockscout APIs for bounded lookup fallback;
@@ -153,7 +153,11 @@ Self-hosting does not automatically enable executable Looping. New entry and lev
 - a fresh, enabled, same-origin `app/public/looping-execution-policy.v1.json` entry for that chain and Morpho market ID; and
 - live contract, route, position, risk, and unsigned-simulation checks.
 
-The runtime policy is fetched without cache and fails closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market. OpenPendle's main Cloudflare deployment ships both build flags enabled and an exact, time-bounded policy for the reviewed entry registry; Cloudflare previews force both flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve the JSON with the headers in `public/_headers`.
+Mint entry and Mint leverage increases require all of those controls plus `VITE_LOOPING_MINT_BETA_ENABLED=true` and the matching capability in `app/public/looping-mint-execution-policy.v1.json`. Both policies are fetched without cache and fail closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market.
+
+OpenPendle's main Cloudflare deployment enables Market entry and exit with a time-bounded base policy, but currently forces Mint execution off and ships the Mint policy disabled. Cloudflare previews force all looping write flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve both JSON files with the headers in `public/_headers`.
+
+For loopback Vite testing only, enable both the base and Mint entry build flags, then choose either `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<Morpho market id>`. The dev server then serves a one-hour Mint policy for the selected scope; the reviewed registry still blocks unreviewed markets. These two local-policy variables are mutually exclusive and production builds ignore them; the base entry policy must still be fresh and cover the market.
 
 Leverage decreases and full exit use the separate `VITE_LOOPING_EXIT_BETA_ENABLED` build flag. Recovery is independent of the entry policy, so pausing new risk does not by itself remove permission cleanup or direct rescue.
 
