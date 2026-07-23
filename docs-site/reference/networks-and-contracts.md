@@ -17,7 +17,7 @@ The preferred chain is stored under `openpendle.chain` and defaults to Arbitrum.
 
 Executable PT looping has a narrower reviewed registry than general market browsing. Its reviewed identities are on Ethereum, Monad, and Arbitrum, with chain-specific Morpho, Bundler3, GeneralAdapter1, route, and runtime-code pins. Directory visibility on another supported network does not grant execution.
 
-Market Mode risk increases require the base looping build flag and same-origin entry policy. Mint Mode requires those controls plus an independent Mint build flag and Mint entry/increase policy. Production currently keeps Mint execution disabled.
+Market Mode risk increases require the base looping build flag and same-origin entry policy. Mint Mode requires those controls plus an independent Mint build flag and Mint entry/increase policy. Production enables Mint entry for the 19 reviewed markets that remain live through the current policy window; Mint increases remain disabled.
 
 ::: warning A market is chain-specific
 An address is not enough to identify a market across networks. Confirm the chain ID before reading, sharing, approving, or signing.

@@ -1,9 +1,9 @@
 {
   "schema": "openpendle.looping-execution-policy.v1",
-  "revision": 2,
+  "revision": 3,
   "entry": {
     "enabled": true,
-    "validUntil": "2026-07-28T13:00:00.000Z",
+    "validUntil": "2026-07-30T14:00:00.000Z",
     "markets": [
       {
         "chainId": 1,

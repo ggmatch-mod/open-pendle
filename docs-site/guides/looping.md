@@ -26,6 +26,7 @@ Select a market and enter the amount to model:
 These are estimates, not quotes or promised returns. Rates, oracle value, liquidity, fees, slippage, and routes can change before a transaction is mined.
 
 Market Mode estimates return from current PT and borrow rates. Mint Mode uses Pendle's reported underlying APY for the paired PT+YT exposure, less borrowing cost. Its estimate excludes conversion costs, fees, slippage, and gas. Mint collateral, LTV, and liquidation distance remain unavailable until a fresh quote supplies guaranteed PT and current Morpho risk values.
+Each added 1× in Mint Mode changes the estimate by underlying APY minus borrow APY, so leverage lowers the estimate when borrowing costs more.
 
 ## Open a loop
 
@@ -39,10 +40,10 @@ In Market Mode, the leverage slider reaches the market-specific boundary that le
 
 Open **Profile → Positions**, choose **Loop positions**, and select the relevant network. A clean OpenPendle-supported loop can:
 
-- increase using Market Mode or Mint Mode, or decrease leverage; or
+- increase using Market Mode, or decrease leverage; or
 - fully exit by repaying all Morpho debt and returning the remainder to the wallet.
 
-The acquisition mode belongs to each risk-increasing action; Morpho stores only PT collateral and debt. Increasing leverage uses the entry safety gates, with Mint requiring its additional release plane. Decreasing leverage and full exit use the separately gated exit path and never require or consume wallet YT. The entry policies can therefore pause new risk without removing an existing position or its recovery controls.
+The acquisition mode belongs to each risk-increasing action; Morpho stores only PT collateral and debt. Mint increases are currently disabled. Decreasing leverage and full exit use the separately gated exit path and never require or consume wallet YT. The entry policies can therefore pause new risk without removing an existing position or its recovery controls.
 
 ## Maturity and recovery
 

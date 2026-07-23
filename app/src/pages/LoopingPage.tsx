@@ -337,6 +337,9 @@ function LoopingEstimateCardsWithPreview({
   }
   const displayedMintReturnEstimate =
     previewIsIncrease ? null : indicativeMintReturnEstimate
+  const mintIncrementalSpread = candidate.pendle.underlyingApy === null
+    ? null
+    : candidate.pendle.underlyingApy - candidate.morpho.state.borrowApy
 
   const returnEstimateValue = acquisitionMode === 'market'
     ? formatPercent(calculator.scenario.headlineLoopApy)
@@ -349,9 +352,9 @@ function LoopingEstimateCardsWithPreview({
     ? `${formatPercent(calculator.input.ptApy)} PT APY at 1×; each additional 1× changes the estimate by ${selectedSpread === null ? '—' : formatPercent(selectedSpread)}.`
     : previewIsIncrease
       ? 'A position-wide return cannot reconstruct YT already held outside Morpho.'
-        : candidate.pendle.underlyingApy === null
+        : candidate.pendle.underlyingApy === null || mintIncrementalSpread === null
           ? 'Pendle does not report a current underlying APY for this market.'
-          : `Rate-only: ${formatPercent(candidate.pendle.underlyingApy)} Pendle-reported underlying APY on paired PT+YT exposure, less borrow cost; excludes route conversion, fees, slippage, and gas.`
+          : `Mint carry: ${formatPercent(candidate.pendle.underlyingApy)} underlying APY less ${formatPercent(candidate.morpho.state.borrowApy)} borrow APY changes the estimate by ${formatPercent(mintIncrementalSpread)} per additional 1×. Excludes conversion, fees, slippage, and gas.`
   const returnTone = acquisitionMode === 'market'
     ? calculator.scenario.headlineLoopApy >= 0 ? 'good' : 'warn'
     : displayedMintReturnEstimate === null

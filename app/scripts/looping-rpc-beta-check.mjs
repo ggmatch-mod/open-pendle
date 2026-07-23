@@ -153,7 +153,7 @@ assert.deepEqual(resolveLoopingReleaseFlags({
   VITE_LOOPING_EXIT_BETA_ENABLED: 'false',
 }), {
   entry: true,
-  mint: false,
+  mint: true,
   exit: true,
 })
 assert.equal(resolveLocalLoopingMintPolicyMarket(undefined), null)
@@ -233,7 +233,7 @@ const expectedCommittedPolicyMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY
     left.chainId - right.chainId ||
     left.morphoMarketId.localeCompare(right.morphoMarketId))
 assert.equal(committedPolicy.schema, LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA)
-assert.equal(committedPolicy.revision, 2)
+assert.equal(committedPolicy.revision, 3)
 assert.equal(committedPolicy.entry.enabled, true)
 assert.equal(typeof committedPolicy.entry.validUntil, 'string')
 assert.deepEqual(committedPolicy.entry.markets, expectedCommittedPolicyMarkets)

@@ -1,10 +1,10 @@
 # PT looping fork proof
 
-**Status:** Market Mode has a guarded Arbitrum burner round trip; Mint Mode is
-implemented and compiler-fork verified but production-disabled
-**Last live value-moving run:** 21 July 2026 (Market Mode only)
-**Networks:** Arbitrum Market Mode canary plus pinned Ethereum, Monad, and
-Arbitrum compiler-fork proofs
+**Status:** Market Mode has a guarded Arbitrum burner round trip. Mint entry is
+production-enabled for 19 live reviewed markets; Mint increases remain disabled.
+**Last live value-moving run:** 23 July 2026 (Ethereum Mint entry and exit)
+**Networks:** Ethereum user round trip, Arbitrum Market Mode canary, and pinned
+Ethereum, Monad, and Arbitrum compiler-fork proofs
 
 ## Result
 
@@ -161,8 +161,14 @@ decimals, SY inputs, and Router and aggregator pins.
 Separately, representative production-compiler fork lifecycles on Ethereum,
 Monad, and Arbitrum covered Mint entry, Mint increase, Market Mode partial
 decrease, full exit, direct rescue, and post-expiry exit. This is read-only and
-fork evidence, not a value-moving Mint burner canary or execution proof for
-every reviewed market.
+fork evidence, not execution proof for every reviewed market.
+
+The user's Ethereum PT-reUSD/USDC Mint entry
+[`0x461db7…f64c`](https://etherscan.io/tx/0x461db70575f073e3e5a88da85023f6fb51c4ebe999ec014b7232a4d975cef64c)
+and full exit
+[`0x5e691a…8d24`](https://etherscan.io/tx/0x5e691a7209c9d7a1b951c7161751538946763e4b508f55a5b5915bc5a6018d24)
+succeeded. Later reads confirmed an empty Morpho position and cleared adapter
+authorization and allowance. This was not a dedicated burner canary.
 
 ### Fork-version finding
 
@@ -273,8 +279,9 @@ authorization signature, and again immediately before signed submission.
 Enabled capabilities expire within seven days; missing, stale, malformed,
 redirected, cross-origin, or mismatched policies fail closed.
 
-The canonical Cloudflare main build currently forces the Mint build flag off,
-and the committed Mint policy disables both entry and increase. Local
+The canonical Cloudflare main build enables Mint entry for the 19 reviewed
+markets that remain live through the current policy window. Mint increases
+remain disabled. Local
 development may opt in through `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or one
 exact `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<marketId>`; these
 loopback-only dev-server overrides are ignored by production builds. The
@@ -284,12 +291,12 @@ Cloudflare cache rules must be verified on each deployed policy endpoint before
 its capability is enabled.
 
 The guarded Market Mode production-compiler round trip and cleanup are
-complete. No value-moving Mint burner canary has run. Mint can remain paused
-through either of its additional gates while Market Mode, reduction, full exit,
-and recovery remain available. The browser does not impose a fixed equity or
-debt amount cap; wallet balance, Morpho liquidity, Pendle quote capacity, and
-all execution safety checks still apply. The small runner amounts remain
-canary fixtures only.
+complete. The user-run Mint entry and exit are confirmed; no dedicated Mint
+burner canary has run. Mint entry can still be paused through its runtime gate
+without affecting Market Mode, reduction, full exit, or recovery. The browser
+does not impose a fixed equity or debt amount cap; wallet balance, Morpho
+liquidity, Pendle quote capacity, and all execution safety checks still apply.
+The small runner amounts remain canary fixtures only.
 
 The 10% liquidation-buffer threshold is a warning that requires acknowledgement;
 the live preflight enforces the 1% floor.
