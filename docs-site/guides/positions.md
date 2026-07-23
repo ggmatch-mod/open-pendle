@@ -29,7 +29,7 @@ Standalone SY balances and bridged cross-chain PT representations are not folded
 
 Looped PT collateral is managed separately from ordinary wallet PT balances. Select a supported network under **Loop positions**; OpenPendle scans its permanent reviewed position-management registry through the connected wallet's RPC and shows positions with Morpho debt or collateral.
 
-A clean supported loop can adjust leverage or fully exit. Risk-increasing adjustments use the live entry gates, while reductions and full exit use the separate exit path. If the PT has matured, adjustment is disabled but the position remains visible and **Full exit** uses PT redemption before repaying the Morpho debt. A paused entry policy never removes the position or its bounded recovery controls.
+A clean supported loop can adjust leverage or fully exit. A risk-increasing adjustment can acquire PT through Market Mode or mint PT+YT through Mint Mode when that mode's additional release gates permit it. The mode belongs to the action rather than the Morpho position, which stores only PT collateral and debt. Reductions and full exit use the separate exit path, never require wallet YT, and leave any YT in the wallet. If the PT has matured, adjustment is disabled but the position remains visible and **Full exit** uses PT redemption before repaying the Morpho debt. A paused entry policy never removes the position or its bounded recovery controls.
 
 ## Claims are grouped by network
 

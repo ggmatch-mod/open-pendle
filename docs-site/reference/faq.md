@@ -54,7 +54,7 @@ Not yet. The page is wallet-less and has no push, email, Telegram, or X delivery
 
 ### Can I execute a PT loop from OpenPendle?
 
-Yes, conditionally. [Looping](/guides/looping) can open a loop for an exact reviewed market when the entry build flag, fresh same-origin runtime policy, and live safety checks all permit it. Positions can adjust leverage or fully exit a supported loop. Risk increases use the entry gates; exit and bounded recovery remain separate so pausing entry does not strand an existing position. Expired PT loops stay manageable in Positions through the reviewed post-expiry full-exit path.
+Yes, conditionally. [Looping](/guides/looping) offers Market Mode, which buys PT, and full Mint Mode. On entry, Mint Mode mints PT+YT from the user's capital and borrowed capital, supplies only PT as collateral, and sends YT to the wallet; a Mint increase mints only its new borrowed leg. An exact reviewed market must pass the base entry gates and live safety checks, while Mint risk increases must also pass their independent build flag and runtime policy. Reductions and exits never require wallet YT, and pausing either entry plane does not strand an existing position. Expired PT loops stay manageable through the reviewed post-expiry full-exit path.
 
 ### What does Explore include?
 

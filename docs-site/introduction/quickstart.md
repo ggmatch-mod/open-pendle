@@ -12,7 +12,7 @@ OpenPendle validates that a market came from a recognized Pendle factory. It doe
 
 | Goal | Start here | What you can do |
 | --- | --- | --- |
-| **Open or model a PT loop** | [Looping](https://openpendle.com/#/looping) | Compare Pendle PT collateral against Morpho markets. Exact reviewed markets can execute when the release flags and live entry policy permit it. |
+| **Open or model a PT loop** | [Looping](https://openpendle.com/#/looping) | Compare exact Pendle PT/Morpho matches, then buy PT in Market Mode or mint PT+YT in Mint Mode. |
 | **Spot fixed-yield moves** | [Yield alerts](https://openpendle.com/#/alerts) | Review qualified 24-hour changes in PT implied APY. No wallet or notification subscription is required. |
 | **Find a market** | [Explore](https://openpendle.com/#/explore) | Search the factory-indexed directory across supported networks. |
 | **Trade now or target an APY** | Open a market | Swap through Pendle's AMM or place a PT ↔ SY limit order when Pendle's live service supports it. |
@@ -81,7 +81,7 @@ Available actions depend on the market lifecycle and Pendle's live services:
 - **Mint or redeem PT + YT** before maturity. The current SY exchange rate determines how much equal PT and YT an SY amount represents.
 - **Add or remove liquidity.** Adding ends at maturity; removing and settling remain available afterward.
 - **Place a PT limit order** where Pendle approves the exact market and direction. Placement does not reserve funds and an order may never fill.
-- **Open a reviewed PT loop** when the exact market is allowlisted and the build flag plus fresh same-origin entry policy enable it. Existing supported loops are managed from Positions.
+- **Open a reviewed PT loop** in Market Mode by buying PT, or in Mint Mode by minting PT+YT, supplying only PT as collateral, and keeping YT in your wallet. Mint risk increases require their additional release gates. Existing supported loops are managed from Positions.
 - **Redeem matured PT** through the market's supported output path.
 
 OpenPendle simulates prepared on-chain transactions against current chain state before asking for a signature. A successful simulation is useful evidence, not a guarantee: market state can change before inclusion. Token approvals default to the action amount; Unlimited approval is an explicit opt-in.
@@ -107,7 +107,7 @@ A limit order is not an immediate trade. OpenPendle first asks Pendle's live ser
 
 Publishing sends the maker address and signed order to Pendle's hosted API. Funds remain in the wallet and must still be available and approved when a taker attempts to fill. An order can fill partially, fill completely, expire, become unfundable, or remain open until cancellation. See [PT limit orders](/guides/limit-orders).
 
-The **Looping** directory is broader than its execution allowlist. For an enabled reviewed market, OpenPendle validates the exact Pendle and Morpho identities, contract state, route, liquidity, leverage floor, and runtime entry policy before requesting wallet actions. A paused entry policy does not disable full exit or bounded recovery for an existing supported position. See [PT looping](/guides/looping).
+The **Looping** directory is broader than its execution allowlist. For an enabled reviewed market, OpenPendle validates the exact Pendle and Morpho identities, contract state, route, liquidity, risk floor, and runtime entry policy before requesting wallet actions. Mint Mode also requires its independent build flag and runtime policy. Pausing either entry plane does not disable full exit or bounded recovery, and exiting never consumes YT held in the wallet. See [PT looping](/guides/looping).
 
 ## 6. Track what you used
 

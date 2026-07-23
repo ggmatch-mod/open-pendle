@@ -107,7 +107,7 @@ If you are new to Pendle and simply want a well-known market, Pendle's official 
 
 ## Current feature boundary
 
-Alerts and market discovery are read-only. Limit orders are available only where Pendle's live service supports the exact market and direction. Looping has a broader comparison directory, but only exact reviewed markets can open or adjust a loop when the build flags, same-origin runtime policy, and live safety checks permit it. Entry can be paused independently of full exit and recovery.
+Alerts and market discovery are read-only. Limit orders are available only where Pendle's live service supports the exact market and direction. Looping has a broader comparison directory, but only exact reviewed markets can open or adjust a loop when the base entry gates and live safety checks permit it. Mint Mode, which sends minted YT to the wallet and supplies only PT as collateral, has an additional independent build flag and runtime policy. Either entry plane can be paused without disabling full exit or recovery.
 
 ## Next
 

@@ -22,6 +22,8 @@ A concise reference to the terms used in OpenPendle. For a guided introduction, 
 
 ## C
 
+**Capital multiple.** In Mint Mode, the total loan-token capital converted into PT+YT divided by the user's equity. Guaranteed PT, debt, and live Morpho state determine actual LTV and liquidation distance.
+
 **Cardinality.** The number of observations a market's TWAP oracle can retain. A new market needs an initial increase before external integrations can use longer TWAP windows, and capacity can be raised again later. Normal OpenPendle quotes and trades do not require it.
 
 **Community market.** OpenPendle's label for a recognized factory-created market absent from Pendle's current catalog. It is not an endorsement, review result, or durable incentive classification.
@@ -78,11 +80,15 @@ A concise reference to the terms used in OpenPendle. For a guided introduction, 
 
 **Market / pool.** A `PendleMarket` contract holding the PT/SY AMM for one maturity.
 
+**Market Mode.** A looping acquisition path that buys PT with the user's capital and borrowed capital, then supplies the acquired PT as Morpho collateral.
+
 **Morpho market.** An immutable lending-market tuple defining loan token, collateral token, oracle, interest-rate model, and LLTV. Two markets using similar symbols are not interchangeable unless the tuple matches.
 
 **Merkl.** An external reward-distribution service. OpenPendle supports eligible Merkl claims on Positions; this does not mean every market has a campaign or that Merkl is the only possible external reward mechanism.
 
 **Mint PT and YT.** Convert SY value at the current index into equal quantities of PT and YT before maturity. One raw SY token does not necessarily equal one PT plus one YT.
+
+**Mint Mode.** A full-mint looping path that, on entry, mints PT+YT from both the user's capital and borrowed capital. A Mint increase mints only its new borrowed leg. Only guaranteed PT supports the Morpho loan; YT is sent to the wallet, and Mint risk increases have a separate release plane.
 
 **Multicall3.** A helper contract used to batch several on-chain reads into one RPC request.
 
