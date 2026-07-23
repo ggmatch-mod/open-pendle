@@ -43,6 +43,8 @@ const RECORD_OPTIONAL_KEYS = new Set([
   'txHash',
   'walletTxNonce',
   'expectedPosition',
+  'acquisitionMode',
+  'mintDelivery',
 ])
 const POSITION_KEYS = new Set([
   'supplyShares',
@@ -51,6 +53,20 @@ const POSITION_KEYS = new Set([
   'minCollateral',
   'maxCollateral',
 ])
+const MINT_DELIVERY_REQUIRED_KEYS = new Set([
+  'yieldToken',
+  'minimumYtOut',
+])
+const MINT_DELIVERY_OPTIONAL_KEYS = new Set(['transactionHash'])
+
+export type LoopingPendingAcquisitionMode = 'market' | 'mint'
+
+export interface LoopingPendingMintDelivery {
+  yieldToken: Address
+  minimumYtOut: string
+  /** Original Mint Mode bundle hash, retained across later rescue transactions. */
+  transactionHash?: Hex
+}
 
 export type LoopingPendingOperationKind =
   | 'entry'
@@ -85,6 +101,10 @@ export interface LoopingPendingOperation {
   /** Record creation time in Unix milliseconds. */
   createdAt: number
   expectedPosition?: LoopingExpectedPositionBounds
+  /** Absent only on legacy and risk-reducing records. */
+  acquisitionMode?: LoopingPendingAcquisitionMode
+  /** Minimal receipt-recovery evidence; never contains quote calldata. */
+  mintDelivery?: LoopingPendingMintDelivery
 }
 
 export interface LoopingPendingScope {
@@ -199,6 +219,44 @@ function canonicalExpectedPosition(value: unknown): LoopingExpectedPositionBound
   }
 }
 
+function canonicalMintDelivery(value: unknown): LoopingPendingMintDelivery {
+  if (
+    !isPlainRecord(value) ||
+    !hasExactKeys(
+      value,
+      MINT_DELIVERY_REQUIRED_KEYS,
+      MINT_DELIVERY_OPTIONAL_KEYS,
+    )
+  ) {
+    throw new TypeError('Looping pending mintDelivery has an invalid shape.')
+  }
+  const minimumYtOut = canonicalUint(
+    value.minimumYtOut,
+    'mintDelivery.minimumYtOut',
+  )
+  if (minimumYtOut === '0') {
+    throw new TypeError('Looping pending minimum YT output must be positive.')
+  }
+  let yieldToken: Address
+  try {
+    yieldToken = getAddress(value.yieldToken as string)
+  } catch {
+    throw new TypeError('Looping pending yield token is invalid.')
+  }
+  return {
+    yieldToken,
+    minimumYtOut,
+    ...(value.transactionHash === undefined
+      ? {}
+      : {
+          transactionHash: canonicalBytes32(
+            value.transactionHash,
+            'mintDelivery.transactionHash',
+          ),
+        }),
+  }
+}
+
 function requireLoopingPendingOperation(value: unknown): LoopingPendingOperation {
   if (
     !isPlainRecord(value) ||
@@ -240,6 +298,25 @@ function requireLoopingPendingOperation(value: unknown): LoopingPendingOperation
   }
   if (value.expectedPosition !== undefined) {
     record.expectedPosition = canonicalExpectedPosition(value.expectedPosition)
+  }
+  if (
+    value.acquisitionMode !== undefined &&
+    value.acquisitionMode !== 'market' &&
+    value.acquisitionMode !== 'mint'
+  ) {
+    throw new TypeError('Looping pending acquisition mode is invalid.')
+  }
+  if (value.acquisitionMode === 'mint') {
+    if (value.mintDelivery === undefined) {
+      throw new TypeError('Looping pending Mint Mode delivery metadata is missing.')
+    }
+    record.acquisitionMode = 'mint'
+    record.mintDelivery = canonicalMintDelivery(value.mintDelivery)
+  } else {
+    if (value.mintDelivery !== undefined) {
+      throw new TypeError('Looping pending mint delivery requires Mint Mode.')
+    }
+    if (value.acquisitionMode === 'market') record.acquisitionMode = 'market'
   }
   return record
 }

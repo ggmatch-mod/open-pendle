@@ -530,6 +530,7 @@ async function executeCompiledEntry({
   market,
   initialUsdc,
   loopUsdc,
+  acquisitionMode,
   localRpcUrl,
 }) {
   await approveExact({
@@ -549,6 +550,7 @@ async function executeCompiledEntry({
       market,
       equityAssets: initialUsdc,
       borrowAssets: loopUsdc,
+      acquisitionMode,
     }),
   )
   const preSignIntent = buildUnsignedLoopingEntrySimulation(preview)
@@ -599,6 +601,23 @@ async function executeCompiledEntry({
     readiness,
     transactionHash,
   })
+  if (
+    preview.acquisitionMode !== acquisitionMode ||
+    bundle.acquisitionMode !== acquisitionMode ||
+    verified.acquisitionMode !== acquisitionMode
+  ) {
+    fail('Compiled entry changed acquisition mode')
+  }
+  if (
+    acquisitionMode === 'mint' &&
+    (
+      preview.minimumYtOut <= 0n ||
+      verified.deliveredYtOut < preview.minimumYtOut ||
+      bundle.calls.length !== 11
+    )
+  ) {
+    fail('Compiled Mint entry did not prove its YT delivery and reviewed call shape')
+  }
   return { preview, bundle, verified }
 }
 
@@ -608,6 +627,7 @@ async function executeCompiledIncrease({
   account,
   market,
   targetLeverageWad,
+  acquisitionMode,
   localRpcUrl,
 }) {
   const preview = await prepareWithPendleQuoteRateLimitRetry(
@@ -617,6 +637,7 @@ async function executeCompiledIncrease({
       owner: account.address,
       market,
       targetLeverageWad,
+      acquisitionMode,
     }),
   )
   const preSignIntent = buildUnsignedLoopingIncreaseSimulation(preview)
@@ -667,6 +688,23 @@ async function executeCompiledIncrease({
     readiness,
     transactionHash,
   })
+  if (
+    preview.acquisitionMode !== acquisitionMode ||
+    bundle.acquisitionMode !== acquisitionMode ||
+    verified.acquisitionMode !== acquisitionMode
+  ) {
+    fail('Compiled leverage increase changed acquisition mode')
+  }
+  if (
+    acquisitionMode === 'mint' &&
+    (
+      preview.minimumYtOut <= 0n ||
+      verified.deliveredYtOut < preview.minimumYtOut ||
+      bundle.calls.length !== 7
+    )
+  ) {
+    fail('Compiled Mint increase did not prove its YT delivery and reviewed call shape')
+  }
   return { preview, bundle, verified }
 }
 
@@ -845,6 +883,7 @@ export async function runLoopingCompilerForkProof({
   initialUsdc,
   loopUsdc,
   maturityLoopUsdc = loopUsdc,
+  acquisitionMode = 'market',
   chainId = ARBITRUM_LOOPING_CHAIN_ID,
   anvilPort = Number(process.env.OPENPENDLE_ANVIL_PORT ?? DEFAULT_ANVIL_PORT),
 }) {
@@ -864,8 +903,14 @@ export async function runLoopingCompilerForkProof({
   ) {
     fail('Ethereum compiler proof must exercise the reviewed 6-decimal PT')
   }
+  if (market.yieldTokenDecimals !== market.collateralTokenDecimals) {
+    fail('Compiler fork target PT and YT decimals must match')
+  }
   if (initialUsdc <= 0n || loopUsdc <= 0n) {
     fail('Fork equity and borrow fixtures must be positive')
+  }
+  if (acquisitionMode !== 'market' && acquisitionMode !== 'mint') {
+    fail('Compiler fork acquisition mode must be market or mint')
   }
   if (
     maturityLoopUsdc <= 1n ||
@@ -944,7 +989,9 @@ export async function runLoopingCompilerForkProof({
     console.log('TypeScript compiler fork proof')
     console.log(`  Local Anvil: ${localRpcUrl}`)
     console.log(`  Fresh ${chainName} block: ${blockNumber}`)
+    console.log(`  Acquisition mode: ${acquisitionMode}`)
     console.log(`  Collateral decimals: ${market.collateralTokenDecimals}`)
+    console.log(`  Yield-token decimals: ${market.yieldTokenDecimals}`)
     console.log(`  Loan-token balance slot: ${balanceSlot}`)
     const baselineSnapshot = await jsonRpc(localRpcUrl, 'evm_snapshot')
 
@@ -955,6 +1002,7 @@ export async function runLoopingCompilerForkProof({
       market,
       initialUsdc,
       loopUsdc,
+      acquisitionMode,
       localRpcUrl,
     })
     const entryLeverageWad = deriveVerifiedLeverageWad(entry.verified)
@@ -965,6 +1013,7 @@ export async function runLoopingCompilerForkProof({
       account,
       market,
       targetLeverageWad: increaseTargetLeverageWad,
+      acquisitionMode,
       localRpcUrl,
     })
     const increasedLeverageWad = deriveVerifiedLeverageWad(increase.verified)
@@ -1020,6 +1069,7 @@ export async function runLoopingCompilerForkProof({
       market,
       initialUsdc,
       loopUsdc,
+      acquisitionMode,
       localRpcUrl,
     })
     const rescueSteps = await executeCompiledRescue({
@@ -1057,6 +1107,7 @@ export async function runLoopingCompilerForkProof({
       market,
       initialUsdc,
       loopUsdc: maturityLoopUsdc,
+      acquisitionMode,
       localRpcUrl,
     })
     const maturedTimestamp = market.pendleMarketExpiry + 1n
@@ -1097,7 +1148,7 @@ export async function runLoopingCompilerForkProof({
       `  Post-expiry signed exit: ${maturedExit.preview.quote.kind} at ${maturedTimestamp} with ${maturityLoopUsdc} loan-token base units borrowed (${maturedExit.bundle.calls.length} calls)`,
     )
     console.log(
-      `TypeScript-compiled entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the ${chainName} fork`,
+      `TypeScript-compiled ${acquisitionMode} entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the ${chainName} fork`,
     )
   } finally {
     await stopAnvil(anvil)

@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import type { LoopingMarketCandidate } from '../lib/looping'
+import type { LoopingAcquisitionMode } from '../lib/loopingExecution'
 import { supportedChain } from '../lib/addresses'
 import { explorerTxUrl, shortAddress } from './format'
 import {
@@ -68,9 +69,12 @@ export interface LoopingExecutionInputs {
   equityAssets: bigint
   leverage: string
   intent?: 'auto' | 'adjust' | 'full-exit'
+  acquisitionMode?: LoopingAcquisitionMode
 }
 
-interface LoopingExecutionContextValue extends LoopingExecutionInputs {
+interface LoopingExecutionContextValue
+  extends Omit<LoopingExecutionInputs, 'acquisitionMode'> {
+  acquisitionMode: LoopingAcquisitionMode
   execution: UseLoopingExecutionResult
 }
 
@@ -89,16 +93,24 @@ export function LoopingExecutionProvider({
   equityAssets,
   leverage,
   intent = 'auto',
+  acquisitionMode = 'market',
   children,
 }: LoopingExecutionInputs & { children: ReactNode }) {
-  const execution = useLoopingExecution({ candidate, equityAssets, leverage, intent })
+  const execution = useLoopingExecution({
+    candidate,
+    equityAssets,
+    leverage,
+    intent,
+    acquisitionMode,
+  })
   const value = useMemo<LoopingExecutionContextValue>(() => ({
     candidate,
     equityAssets,
     leverage,
     intent,
+    acquisitionMode,
     execution,
-  }), [candidate, equityAssets, execution, intent, leverage])
+  }), [acquisitionMode, candidate, equityAssets, execution, intent, leverage])
   return (
     <LoopingExecutionContext.Provider value={value}>
       {children}
@@ -181,9 +193,13 @@ function LoopingExecutionActionView({
     action = <button type="button" disabled className={disabledClass}>{activeStep ?? 'Working…'}</button>
   } else if (preview !== undefined && execution.phase === 'ready') {
     const label = preview.kind === 'entry-preview'
-      ? 'Start loop'
+      ? preview.acquisitionMode === 'mint'
+        ? 'Start Mint Mode loop'
+        : 'Start loop'
       : preview.kind === 'increase-preview'
-        ? 'Increase leverage'
+        ? preview.acquisitionMode === 'mint'
+          ? 'Increase with Mint Mode'
+          : 'Increase leverage'
         : preview.kind === 'decrease-preview'
           ? 'Decrease leverage'
           : 'Exit full loop'
@@ -272,10 +288,12 @@ export function LoopingExecutionAction() {
 }
 
 function LoopingExecutionDetails({
+  acquisitionMode,
   candidate,
   execution,
   showAction,
 }: {
+  acquisitionMode: LoopingAcquisitionMode
   candidate: LoopingMarketCandidate
   execution: UseLoopingExecutionResult
   showAction: boolean
@@ -298,7 +316,9 @@ function LoopingExecutionDetails({
           <div>
             <p className="text-xs font-semibold text-fg">Calculator only</p>
             <p className="mt-1 max-w-2xl text-[10.5px] leading-4 text-muted">
-              Execution isn't enabled for this market yet.
+              {acquisitionMode === 'mint'
+                ? "Mint Mode execution isn't enabled for this market yet."
+                : "Execution isn't enabled for this market yet."}
             </p>
           </div>
         </div>
@@ -318,6 +338,9 @@ function LoopingExecutionDetails({
   const increasePreview = preview?.kind === 'increase-preview' ? preview : undefined
   const decreasePreview = preview?.kind === 'decrease-preview' ? preview : undefined
   const riskReducingPreview = exitPreview ?? decreasePreview
+  const displayedAcquisitionMode = entryPreview?.acquisitionMode ??
+    increasePreview?.acquisitionMode ??
+    (riskReducingPreview === undefined ? acquisitionMode : null)
   const quoteSecondsRemaining = preview === undefined
     ? undefined
     : Math.max(0, Math.ceil((preview.validUntilMs - nowMs) / 1_000))
@@ -332,9 +355,17 @@ function LoopingExecutionDetails({
     <div className="mt-5 rounded-xl border border-[rgba(var(--op-accent-rgb),0.35)] bg-[rgba(var(--op-accent-rgb),0.05)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold text-fg">Execute on {executionChainName}</p>
+          <p className="text-xs font-semibold text-fg">
+            {displayedAcquisitionMode === null
+              ? 'Execute risk reduction'
+              : `Execute ${displayedAcquisitionMode === 'mint' ? 'Mint Mode' : 'Market Mode'}`} on {executionChainName}
+          </p>
           <p className="mt-1 max-w-2xl text-[10.5px] leading-4 text-muted">
-            Runs as a single transaction from your wallet.
+            {displayedAcquisitionMode === null
+              ? 'Reduces or closes the existing position without acquiring new PT or minting YT.'
+              : displayedAcquisitionMode === 'mint'
+              ? 'Mints equal PT and YT in one transaction. PT backs the Morpho loan; YT stays in your wallet and does not support it.'
+              : 'Runs as a single transaction from your wallet.'}
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
@@ -406,7 +437,9 @@ function LoopingExecutionDetails({
         <div className="mt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-[.06em] text-accent-ink">
-              New loop · preflight passed
+              New loop · {entryPreview.acquisitionMode === 'mint'
+                ? 'Mint Mode preflight passed'
+                : 'preflight passed'}
             </p>
             <span className={quoteExpired ? 'text-[10px] text-warn' : 'text-[10px] text-muted'}>
               {quoteExpired ? 'Quote expired' : `${quoteSecondsRemaining}s remaining`}
@@ -429,6 +462,21 @@ function LoopingExecutionDetails({
                 candidate.morpho.collateralAsset.symbol,
               )}
             />
+            {entryPreview.acquisitionMode === 'mint' && (
+              <Detail
+                label="Minimum YT to wallet"
+                value={formatTokenAmount(
+                  entryPreview.minimumYtOut,
+                  market.yieldTokenDecimals,
+                  'YT',
+                )}
+                note={`Quote expects ${formatTokenAmount(
+                  entryPreview.expectedYtOut,
+                  market.yieldTokenDecimals,
+                  'YT',
+                )} · token ${shortAddress(entryPreview.yieldToken)}`}
+              />
+            )}
             <Detail
               label="Post-quote LTV"
               value={postQuoteLtv === undefined ? 'Unavailable' : `${postQuoteLtv.toFixed(2)}%`}
@@ -479,7 +527,9 @@ function LoopingExecutionDetails({
         <div className="mt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-[.06em] text-accent-ink">
-              Existing loop · increase preview passed
+              Existing loop · {increasePreview.acquisitionMode === 'mint'
+                ? 'Mint Mode increase passed'
+                : 'increase preview passed'}
             </p>
             <span className={quoteExpired ? 'text-[10px] text-warn' : 'text-[10px] text-muted'}>
               {quoteExpired ? 'Quote expired' : `${quoteSecondsRemaining}s remaining`}
@@ -503,6 +553,21 @@ function LoopingExecutionDetails({
                 candidate.morpho.collateralAsset.symbol,
               )}
             />
+            {increasePreview.acquisitionMode === 'mint' && (
+              <Detail
+                label="Minimum added YT to wallet"
+                value={formatTokenAmount(
+                  increasePreview.minimumYtOut,
+                  market.yieldTokenDecimals,
+                  'YT',
+                )}
+                note={`Quote expects ${formatTokenAmount(
+                  increasePreview.expectedYtOut,
+                  market.yieldTokenDecimals,
+                  'YT',
+                )} · token ${shortAddress(increasePreview.yieldToken)}`}
+              />
+            )}
             <Detail
               label="Post-quote buffer"
               value={formatBps(increasePreview.conservativePost.liquidationBufferBps)}
@@ -590,9 +655,10 @@ function LoopingExecutionDetails({
 }
 
 function ContextualLoopingExecutionDetails({ showAction }: { showAction: boolean }) {
-  const { candidate, execution } = useRequiredLoopingExecution()
+  const { acquisitionMode, candidate, execution } = useRequiredLoopingExecution()
   return (
     <LoopingExecutionDetails
+      acquisitionMode={acquisitionMode}
       candidate={candidate}
       execution={execution}
       showAction={showAction}
@@ -636,7 +702,12 @@ export function LoopingExecutionPanel(props: LoopingExecutionPanelProps = {}) {
     return (
       <>
         <LoopingConfirmationEffect onConfirmed={props.onConfirmed} />
-        <LoopingExecutionDetails candidate={context.candidate} execution={context.execution} showAction={false} />
+        <LoopingExecutionDetails
+          acquisitionMode={context.acquisitionMode}
+          candidate={context.candidate}
+          execution={context.execution}
+          showAction={false}
+        />
       </>
     )
   }
@@ -653,6 +724,7 @@ export function LoopingExecutionPanel(props: LoopingExecutionPanelProps = {}) {
       equityAssets={props.equityAssets}
       leverage={props.leverage}
       intent={props.intent}
+      acquisitionMode={props.acquisitionMode}
     >
       <LoopingConfirmationEffect onConfirmed={props.onConfirmed} />
       <ContextualLoopingExecutionDetails showAction />

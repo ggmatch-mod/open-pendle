@@ -40,6 +40,8 @@ export const MORPHO_API_OPENPENDLE_CHAIN_IDS = [1, 143, 8453, 42161] as const
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const WAD = 10n ** 18n
+const BPS = 10_000n
+const MORPHO_ORACLE_PRICE_SCALE = 10n ** 36n
 const HEX_32_BYTES = /^0x[0-9a-fA-F]{64}$/
 const DECIMAL_UINT = /^(0|[1-9][0-9]*)$/
 const DISPLAY_CONTROL_CHARACTERS =
@@ -237,6 +239,159 @@ export interface LoopingScenario {
   annualizedOneTimeCosts: number
   /** Stress-adjusted estimate after annualized one-time costs. */
   conservativeNetApy: number
+}
+
+export type LoopingEntryMode = 'market' | 'mint'
+
+interface LoopingEntrySizingBase {
+  /** Exact loan-token equity supplied by the user. */
+  equityAssets: bigint
+  /** Exact loan-token assets requested from Morpho. */
+  borrowAssets: bigint
+}
+
+export interface LoopingMarketEntrySizingInput extends LoopingEntrySizingBase {
+  mode: 'market'
+  /** Binding minimum PT from buying with the user's equity. */
+  initialMinPtOut: bigint
+  /** Binding minimum PT from buying with the borrowed assets. */
+  loopMinPtOut: bigint
+}
+
+/**
+ * Full Mint Mode: both the equity and borrowed legs mint equal PT and YT.
+ * `minPyOut` is therefore independently guaranteed for each token.
+ */
+export interface LoopingMintEntrySizingInput extends LoopingEntrySizingBase {
+  mode: 'mint'
+  /** Binding minimum PT and minimum YT minted from the user's equity. */
+  initialMinPyOut: bigint
+  /** Binding minimum PT and minimum YT minted from the borrowed assets. */
+  loopMinPyOut: bigint
+}
+
+export type LoopingEntrySizingInput =
+  | LoopingMarketEntrySizingInput
+  | LoopingMintEntrySizingInput
+
+export interface LoopingEntrySizing {
+  mode: LoopingEntryMode
+  equityAssets: bigint
+  borrowAssets: bigint
+  grossCapitalAssets: bigint
+  /** Floor-rounded, WAD-scaled `(equity + borrow) / equity`. */
+  capitalMultipleWad: bigint
+  initialGuaranteedPt: bigint
+  loopGuaranteedPt: bigint
+  /** The only quote-derived PT amount that may be promised as collateral. */
+  guaranteedPtCollateral: bigint
+  /** Zero in Market Mode; equal to guaranteed PT in full Mint Mode. */
+  guaranteedYtToWallet: bigint
+}
+
+export interface LoopingEntryHealthInput {
+  entry: LoopingEntrySizingInput
+  /** Morpho oracle price, scaled by 1e36. */
+  oraclePrice: bigint
+  /** Morpho market LLTV, WAD-scaled. */
+  lltv: bigint
+  /**
+   * Worst-case debt exposure after borrow-share rounding. Defaults to the exact
+   * requested borrow and must never be smaller than it.
+   */
+  maximumDebtAssets?: bigint
+  /**
+   * Required fraction of protocol borrow capacity left unused. For example,
+   * 1_000 means 10%.
+   */
+  minimumLiquidationBufferBps?: number | bigint
+}
+
+export interface LoopingEntryHealth {
+  entry: LoopingEntrySizing
+  maximumDebtAssets: bigint
+  oraclePrice: bigint
+  /** Guaranteed PT value in loan-token units, rounded down. */
+  collateralLoanValueAssets: bigint
+  /** Protocol LLTV borrow limit, rounded down. */
+  protocolMaxDebtAssets: bigint
+  /** Protocol limit after the configured buffer, rounded down. */
+  bufferedMaxDebtAssets: bigint
+  /** Worst-case debt / guaranteed collateral value, rounded up and WAD-scaled. */
+  maximumDebtLtvWad: bigint | null
+  /** Zero at or beyond liquidation; 10_000 when no debt is present. */
+  liquidationBufferBps: bigint
+  minimumLiquidationBufferBps: bigint
+  withinProtocolLltv: boolean
+  withinConfiguredBuffer: boolean
+}
+
+export interface LoopingMintBorrowQuote {
+  borrowAssets: bigint
+  /** Binding minimum PT and YT returned by this exact borrowed-leg quote. */
+  minimumPyOut: bigint
+  /** Optional worst-case debt after borrow-share rounding for this candidate. */
+  maximumDebtAssets?: bigint
+}
+
+export interface LoopingMintBorrowCapacityInput {
+  equityAssets: bigint
+  initialMinimumPyOut: bigint
+  /**
+   * Fresh, route-bound candidates to evaluate. The helper does not interpolate
+   * between opaque Pendle quotes or assume their safety is monotonic.
+   */
+  quotes: readonly LoopingMintBorrowQuote[]
+  oraclePrice: bigint
+  lltv: bigint
+  minimumLiquidationBufferBps?: number | bigint
+}
+
+export interface LoopingMintBorrowCapacity {
+  borrowAssets: bigint
+  maximumDebtAssets: bigint
+  minimumPyOut: bigint
+  grossCapitalAssets: bigint
+  capitalMultipleWad: bigint
+  entry: LoopingEntrySizing
+  health: LoopingEntryHealth
+}
+
+export interface LoopingMintPresentationInput extends LoopingEntryHealthInput {
+  entry: LoopingMintEntrySizingInput
+  /** Current Morpho borrow APY as a decimal fraction. */
+  borrowApy: number
+  /**
+   * Optional APY from a dependable SY/underlying source. PT implied APY is not
+   * an accepted input to this Mint-specific model.
+   */
+  verifiedSyApy?: number | null
+  holdingPeriodYears: number
+  /** One-time conversion cost as a fraction of gross minted exposure. */
+  entryCostRate?: number
+  /** One-time unwind cost as a fraction of gross minted exposure. */
+  exitCostRate?: number
+  /** Gas/relayer cost as a fraction of initial equity. */
+  fixedCostOnEquity?: number
+}
+
+export interface LoopingMintPresentation {
+  mode: 'mint'
+  entry: LoopingEntrySizing
+  health: LoopingEntryHealth
+  capitalMultiple: number
+  maximumDebtMultiple: number
+  borrowApy: number
+  borrowCostOnEquity: number
+  verifiedSyApy: number | null
+  grossSyYieldOnEquity: number | null
+  annualizedOneTimeCosts: number
+  /**
+   * Null until a dependable SY APY is supplied. This deliberately never falls
+   * back to Pendle PT implied APY.
+   */
+  estimatedNetApy: number | null
+  returnEstimateBasis: 'verified-sy-apy' | 'unavailable'
 }
 
 function fail(path: string, message: string): never {
@@ -1023,6 +1178,358 @@ function scenarioNumber(
     return fail(path, `expected a finite number from ${minimum} to ${maximum}`)
   }
   return value
+}
+
+function loopingMathUint(
+  value: bigint,
+  path: string,
+  minimum = 0n,
+): bigint {
+  if (typeof value !== 'bigint' || value < minimum) {
+    return fail(path, `expected a bigint of at least ${minimum}`)
+  }
+  return value
+}
+
+function loopingMathBps(
+  value: number | bigint,
+  path: string,
+): bigint {
+  const parsed = typeof value === 'bigint'
+    ? value
+    : Number.isSafeInteger(value)
+      ? BigInt(value)
+      : fail(path, 'expected integer basis points')
+  if (parsed < 0n || parsed > BPS) {
+    return fail(path, 'expected integer basis points from 0 to 10000')
+  }
+  return parsed
+}
+
+function ceilDivUint(numerator: bigint, denominator: bigint): bigint {
+  if (numerator < 0n || denominator <= 0n) {
+    return fail('loopingMath.division', 'requires a non-negative numerator and positive denominator')
+  }
+  return numerator === 0n ? 0n : (numerator - 1n) / denominator + 1n
+}
+
+function wadToPresentationNumber(value: bigint, path: string): number {
+  const result = Number(value) / 1e18
+  if (!Number.isFinite(result)) {
+    return fail(path, 'inputs produce a non-finite presentation value')
+  }
+  return result
+}
+
+/**
+ * Convert binding entry-route minima into the only PT collateral the app may
+ * promise to Morpho. Mint Mode is the full-mint form: both legs mint PT+YT.
+ */
+export function calculateLoopingEntrySizing(
+  input: LoopingEntrySizingInput,
+): LoopingEntrySizing {
+  if (input.mode !== 'market' && input.mode !== 'mint') {
+    return fail('entry.mode', 'must be market or mint')
+  }
+  const equityAssets = loopingMathUint(input.equityAssets, 'entry.equityAssets', 1n)
+  const borrowAssets = loopingMathUint(input.borrowAssets, 'entry.borrowAssets')
+  const initialGuaranteedPt = input.mode === 'market'
+    ? loopingMathUint(input.initialMinPtOut, 'entry.initialMinPtOut', 1n)
+    : loopingMathUint(input.initialMinPyOut, 'entry.initialMinPyOut', 1n)
+  const loopGuaranteedPt = input.mode === 'market'
+    ? loopingMathUint(input.loopMinPtOut, 'entry.loopMinPtOut')
+    : loopingMathUint(input.loopMinPyOut, 'entry.loopMinPyOut')
+  const loopOutputPath = input.mode === 'market'
+    ? 'entry.loopMinPtOut'
+    : 'entry.loopMinPyOut'
+  if (borrowAssets === 0n && loopGuaranteedPt !== 0n) {
+    return fail(loopOutputPath, 'must be zero when no assets are borrowed')
+  }
+  if (borrowAssets > 0n && loopGuaranteedPt === 0n) {
+    return fail(loopOutputPath, 'must be greater than zero when assets are borrowed')
+  }
+
+  const grossCapitalAssets = equityAssets + borrowAssets
+  const guaranteedPtCollateral = initialGuaranteedPt + loopGuaranteedPt
+  return {
+    mode: input.mode,
+    equityAssets,
+    borrowAssets,
+    grossCapitalAssets,
+    capitalMultipleWad: grossCapitalAssets * WAD / equityAssets,
+    initialGuaranteedPt,
+    loopGuaranteedPt,
+    guaranteedPtCollateral,
+    guaranteedYtToWallet:
+      input.mode === 'mint' ? guaranteedPtCollateral : 0n,
+  }
+}
+
+/**
+ * Value only guaranteed PT and compare worst-case debt against Morpho LLTV.
+ * Collateral/value/capacity round down; displayed debt LTV rounds up.
+ */
+export function calculateLoopingEntryHealth(
+  input: LoopingEntryHealthInput,
+): LoopingEntryHealth {
+  const entry = calculateLoopingEntrySizing(input.entry)
+  const oraclePrice = loopingMathUint(input.oraclePrice, 'entryHealth.oraclePrice', 1n)
+  if (typeof input.lltv !== 'bigint' || input.lltv <= 0n || input.lltv >= WAD) {
+    return fail(
+      'entryHealth.lltv',
+      'must be a bigint strictly between 0 and 1e18',
+    )
+  }
+  const maximumDebtAssets = loopingMathUint(
+    input.maximumDebtAssets ?? entry.borrowAssets,
+    'entryHealth.maximumDebtAssets',
+  )
+  if (maximumDebtAssets < entry.borrowAssets) {
+    return fail(
+      'entryHealth.maximumDebtAssets',
+      'must not be smaller than the requested borrow',
+    )
+  }
+  const minimumLiquidationBufferBps = loopingMathBps(
+    input.minimumLiquidationBufferBps ?? 0,
+    'entryHealth.minimumLiquidationBufferBps',
+  )
+
+  const collateralLoanValueAssets =
+    entry.guaranteedPtCollateral * oraclePrice / MORPHO_ORACLE_PRICE_SCALE
+  const protocolMaxDebtAssets =
+    collateralLoanValueAssets * input.lltv / WAD
+  const bufferedMaxDebtAssets =
+    protocolMaxDebtAssets * (BPS - minimumLiquidationBufferBps) / BPS
+  const maximumDebtLtvWad = maximumDebtAssets === 0n
+    ? 0n
+    : collateralLoanValueAssets === 0n
+      ? null
+      : ceilDivUint(
+          maximumDebtAssets * WAD,
+          collateralLoanValueAssets,
+        )
+  const liquidationBufferBps = maximumDebtAssets === 0n
+    ? BPS
+    : protocolMaxDebtAssets <= maximumDebtAssets
+      ? 0n
+      : (protocolMaxDebtAssets - maximumDebtAssets) * BPS /
+        protocolMaxDebtAssets
+  const withinProtocolLltv =
+    maximumDebtAssets === 0n || maximumDebtAssets < protocolMaxDebtAssets
+  const withinConfiguredBuffer =
+    maximumDebtAssets === 0n ||
+    (
+      withinProtocolLltv &&
+      maximumDebtAssets <= bufferedMaxDebtAssets
+    )
+
+  return {
+    entry,
+    maximumDebtAssets,
+    oraclePrice,
+    collateralLoanValueAssets,
+    protocolMaxDebtAssets,
+    bufferedMaxDebtAssets,
+    maximumDebtLtvWad,
+    liquidationBufferBps,
+    minimumLiquidationBufferBps,
+    withinProtocolLltv,
+    withinConfiguredBuffer,
+  }
+}
+
+/**
+ * Pick the largest safe debt from exact, fresh Mint quotes. Evaluating every
+ * candidate avoids assuming opaque Router/aggregator quotes are monotonic.
+ */
+export function selectMaximumSafeMintBorrowQuote(
+  input: LoopingMintBorrowCapacityInput,
+): LoopingMintBorrowCapacity | null {
+  const equityAssets = loopingMathUint(
+    input.equityAssets,
+    'mintCapacity.equityAssets',
+    1n,
+  )
+  const initialMinimumPyOut = loopingMathUint(
+    input.initialMinimumPyOut,
+    'mintCapacity.initialMinimumPyOut',
+    1n,
+  )
+  if (!Array.isArray(input.quotes) || input.quotes.length === 0) {
+    return fail('mintCapacity.quotes', 'must contain at least one exact quote')
+  }
+
+  const seenBorrowAmounts = new Set<string>()
+  let selected: LoopingMintBorrowCapacity | null = null
+  for (let index = 0; index < input.quotes.length; index += 1) {
+    const quote = input.quotes[index]
+    const path = `mintCapacity.quotes[${index}]`
+    const borrowAssets = loopingMathUint(
+      quote.borrowAssets,
+      `${path}.borrowAssets`,
+    )
+    const minimumPyOut = loopingMathUint(
+      quote.minimumPyOut,
+      `${path}.minimumPyOut`,
+    )
+    const borrowKey = borrowAssets.toString()
+    if (seenBorrowAmounts.has(borrowKey)) {
+      return fail(`${path}.borrowAssets`, 'duplicates an earlier quote')
+    }
+    seenBorrowAmounts.add(borrowKey)
+    if (borrowAssets === 0n && minimumPyOut !== 0n) {
+      return fail(`${path}.minimumPyOut`, 'must be zero for a zero-borrow quote')
+    }
+    if (borrowAssets > 0n && minimumPyOut === 0n) {
+      return fail(`${path}.minimumPyOut`, 'must be positive for a borrowed-leg quote')
+    }
+    const maximumDebtAssets = loopingMathUint(
+      quote.maximumDebtAssets ?? borrowAssets,
+      `${path}.maximumDebtAssets`,
+    )
+    if (maximumDebtAssets < borrowAssets) {
+      return fail(
+        `${path}.maximumDebtAssets`,
+        'must not be smaller than the requested borrow',
+      )
+    }
+
+    const health = calculateLoopingEntryHealth({
+      entry: {
+        mode: 'mint',
+        equityAssets,
+        borrowAssets,
+        initialMinPyOut: initialMinimumPyOut,
+        loopMinPyOut: minimumPyOut,
+      },
+      oraclePrice: input.oraclePrice,
+      lltv: input.lltv,
+      maximumDebtAssets,
+      minimumLiquidationBufferBps: input.minimumLiquidationBufferBps,
+    })
+    if (
+      health.withinConfiguredBuffer &&
+      (selected === null || borrowAssets > selected.borrowAssets)
+    ) {
+      selected = {
+        borrowAssets,
+        maximumDebtAssets,
+        minimumPyOut,
+        grossCapitalAssets: health.entry.grossCapitalAssets,
+        capitalMultipleWad: health.entry.capitalMultipleWad,
+        entry: health.entry,
+        health,
+      }
+    }
+  }
+  return selected
+}
+
+/**
+ * Mint-specific display model. Combined PT+YT exposure may use a verified SY
+ * APY, but an absent SY source produces a null return estimate rather than
+ * silently substituting PT implied APY.
+ */
+export function calculateMintLoopingPresentation(
+  input: LoopingMintPresentationInput,
+): LoopingMintPresentation {
+  if (input.entry.mode !== 'mint') {
+    return fail('mintPresentation.entry.mode', 'must be mint')
+  }
+  const borrowApy = scenarioNumber(
+    input.borrowApy,
+    'mintPresentation.borrowApy',
+    0,
+  )
+  const verifiedSyApy = input.verifiedSyApy === undefined ||
+      input.verifiedSyApy === null
+    ? null
+    : scenarioNumber(
+        input.verifiedSyApy,
+        'mintPresentation.verifiedSyApy',
+        -1,
+      )
+  const holdingPeriodYears = scenarioNumber(
+    input.holdingPeriodYears,
+    'mintPresentation.holdingPeriodYears',
+    Number.MIN_VALUE,
+  )
+  const entryCostRate = scenarioNumber(
+    input.entryCostRate ?? 0,
+    'mintPresentation.entryCostRate',
+    0,
+    1,
+  )
+  const exitCostRate = scenarioNumber(
+    input.exitCostRate ?? 0,
+    'mintPresentation.exitCostRate',
+    0,
+    1,
+  )
+  const fixedCostOnEquity = scenarioNumber(
+    input.fixedCostOnEquity ?? 0,
+    'mintPresentation.fixedCostOnEquity',
+    0,
+    1,
+  )
+  const health = calculateLoopingEntryHealth(input)
+  const capitalMultiple = wadToPresentationNumber(
+    health.entry.capitalMultipleWad,
+    'mintPresentation.capitalMultiple',
+  )
+  const maximumDebtMultiple = wadToPresentationNumber(
+    ceilDivUint(
+      health.maximumDebtAssets * WAD,
+      health.entry.equityAssets,
+    ),
+    'mintPresentation.maximumDebtMultiple',
+  )
+  const borrowCostOnEquity = borrowApy * maximumDebtMultiple
+  const annualizedOneTimeCosts =
+    (
+      (entryCostRate + exitCostRate) * capitalMultiple +
+      fixedCostOnEquity
+    ) / holdingPeriodYears
+  const grossSyYieldOnEquity = verifiedSyApy === null
+    ? null
+    : verifiedSyApy * capitalMultiple
+  const estimatedNetApy = grossSyYieldOnEquity === null
+    ? null
+    : grossSyYieldOnEquity -
+      borrowCostOnEquity -
+      annualizedOneTimeCosts
+  const finiteOutputs = [
+    capitalMultiple,
+    maximumDebtMultiple,
+    borrowCostOnEquity,
+    annualizedOneTimeCosts,
+    grossSyYieldOnEquity,
+    estimatedNetApy,
+  ]
+  if (
+    finiteOutputs.some(
+      (value) => value !== null && !Number.isFinite(value),
+    )
+  ) {
+    return fail('mintPresentation', 'inputs produce a non-finite result')
+  }
+
+  return {
+    mode: 'mint',
+    entry: health.entry,
+    health,
+    capitalMultiple,
+    maximumDebtMultiple,
+    borrowApy,
+    borrowCostOnEquity,
+    verifiedSyApy,
+    grossSyYieldOnEquity,
+    annualizedOneTimeCosts,
+    estimatedNetApy,
+    returnEstimateBasis:
+      verifiedSyApy === null ? 'unavailable' : 'verified-sy-apy',
+  }
 }
 
 /**

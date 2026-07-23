@@ -7,6 +7,8 @@ import {
   ARBITRUM_LOOPING_USDT0_USDAI,
   LOOPING_ENTRY_EXECUTION_REGISTRY,
   LOOPING_EXECUTION_REGISTRY,
+  PENDLE_MINT_PY_FROM_TOKEN_SELECTOR,
+  PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT,
   getLoopingExecutionCandidateMarket,
   isLoopingExecutionCandidateSupported,
 } from '../src/lib/loopingRegistry.ts'
@@ -29,6 +31,7 @@ function assertChecksummed(address, label) {
 
 const seen = new Set()
 const counts = new Map()
+const pendleIdentities = new Map()
 
 for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
   const key = `${market.chainId}:${market.marketId}`
@@ -61,6 +64,15 @@ for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
       market.collateralTokenDecimals >= 0,
     `${key} has invalid collateral-token decimals`,
   )
+  assert(
+    Number.isInteger(market.yieldTokenDecimals) &&
+      market.yieldTokenDecimals >= 0,
+    `${key} has invalid yield-token decimals`,
+  )
+  assert(
+    market.yieldTokenDecimals === market.collateralTokenDecimals,
+    `${key} has mismatched PT/YT decimals`,
+  )
   assert(market.syTokensIn.length > 0, `${key} has no SY input token`)
   assert(market.syTokensOut.length > 0, `${key} has no SY output token`)
   assert(
@@ -75,6 +87,7 @@ for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
   assertChecksummed(market.principalToken, `${key} principalToken`)
   assertChecksummed(market.pendleMarket, `${key} pendleMarket`)
   assertChecksummed(market.standardizedYield, `${key} standardizedYield`)
+  assertChecksummed(market.yieldToken, `${key} yieldToken`)
   market.syTokensIn.forEach((address, index) =>
     assertChecksummed(address, `${key} syTokensIn[${index}]`))
   market.syTokensOut.forEach((address, index) =>
@@ -103,11 +116,44 @@ for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
   }
   const executable = getLoopingExecutionCandidateMarket(directoryCandidate)
   assert(executable.marketId === market.marketId, `${key} is not resolvable`)
+  assert(
+    executable.yieldToken === market.yieldToken,
+    `${key} executable YT does not match the manifest`,
+  )
+  assert(
+    executable.yieldTokenDecimals === market.yieldTokenDecimals,
+    `${key} executable YT decimals do not match the manifest`,
+  )
+  assert(
+    executable.mintRouteUpgradePolicy.pendleRouter.selector ===
+      PENDLE_MINT_PY_FROM_TOKEN_SELECTOR,
+    `${key} has the wrong Mint Router selector`,
+  )
+  assert(
+    executable.mintRouteUpgradePolicy.pendleRouter.selectorStorageSlot ===
+      PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT,
+    `${key} has the wrong Mint Router selector storage slot`,
+  )
   assert(isLoopingExecutionCandidateSupported(directoryCandidate), `${key} is not entry reviewed`)
   assert(
     !Object.prototype.hasOwnProperty.call(executable.launchPolicy, 'betaCaps'),
     `${key} retained the retired fixed-size execution cap`,
   )
+
+  const pendleKey = `${market.chainId}:${market.pendleMarket.toLowerCase()}`
+  const pendleIdentity = [
+    market.standardizedYield.toLowerCase(),
+    market.principalToken.toLowerCase(),
+    market.yieldToken.toLowerCase(),
+    market.yieldTokenDecimals.toString(),
+    market.pendleMarketExpiry.toString(),
+  ].join(':')
+  const previousPendleIdentity = pendleIdentities.get(pendleKey)
+  assert(
+    previousPendleIdentity === undefined || previousPendleIdentity === pendleIdentity,
+    `${pendleKey} has conflicting SY/PT/YT/expiry identity`,
+  )
+  pendleIdentities.set(pendleKey, pendleIdentity)
 }
 
 assert(

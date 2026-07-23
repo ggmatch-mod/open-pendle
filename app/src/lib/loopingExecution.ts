@@ -9,6 +9,8 @@
 
 import {
   concatHex,
+  decodeAbiParameters,
+  decodeEventLog,
   decodeFunctionData,
   decodeFunctionResult,
   encodeAbiParameters,
@@ -26,7 +28,7 @@ import {
   zeroAddress,
   zeroHash,
 } from 'viem'
-import type { Address, Hex, PublicClient } from 'viem'
+import type { Address, Hex, Log, PublicClient } from 'viem'
 import {
   bundler3Abi,
   bundler3CallArrayParameters,
@@ -41,6 +43,7 @@ import {
   pendleLoopingMarketAbi,
   pendleLoopingRouterAbi,
 } from './loopingAbi.ts'
+import { routerActionsAbi } from './pendleAbi.ts'
 import {
   getLoopingExecutionMarket,
   requireLoopingKyberExecutor,
@@ -85,7 +88,7 @@ const domainHashParameters = parseAbiParameters('bytes32,uint256,address')
 const nestedAddressMappingParameters = parseAbiParameters('address,uint256')
 const nestedAddressMappingSlotParameters = parseAbiParameters('address,bytes32')
 const simulationFingerprintParameters = parseAbiParameters(
-  'uint256,address,bytes32,address,bytes,bytes32,bytes32',
+  'uint256,address,bytes32,uint8,address,bytes,bytes32,bytes32',
 )
 const implementationStorageParameters = parseAbiParameters('address')
 const authorizationTypeHash = keccak256(
@@ -102,6 +105,9 @@ const kyberMetaAggregationRouterV2Abi = parseAbi([
   'struct SwapDescriptionV2 { address srcToken; address dstToken; address[] srcReceivers; uint256[] srcAmounts; address[] feeReceivers; uint256[] feeAmounts; address dstReceiver; uint256 amount; uint256 minReturnAmount; uint256 flags; bytes permit; }',
   'struct SwapExecutionParams { address callTarget; address approveTarget; bytes targetData; SwapDescriptionV2 desc; bytes clientData; }',
   'function swap(SwapExecutionParams execution) payable returns (uint256 returnAmount,uint256 gasUsed)',
+])
+const erc20TransferEventAbi = parseAbi([
+  'event Transfer(address indexed from,address indexed to,uint256 value)',
 ])
 
 export type LoopingExecutionErrorCode =
@@ -176,6 +182,36 @@ export interface ValidatedLoopingBuyRoute {
   kyberExecutor: Address | null
   kyberMinReturn: bigint
 }
+
+export type LoopingAcquisitionMode = 'market' | 'mint'
+
+function resolveLoopingAcquisitionMode(value: unknown): LoopingAcquisitionMode {
+  if (value === undefined || value === 'market') return 'market'
+  if (value === 'mint') return 'mint'
+  fail(
+    'INVALID_INPUT',
+    'Looping acquisition mode must be exactly "market" or "mint".',
+  )
+}
+
+export interface ValidatedLoopingMintRoute {
+  kind: 'mint-pt-yt'
+  calldata: Hex
+  /** PT collateral floor alias retained for shared Market/Mint consumers. */
+  minPtOut: bigint
+  /** Expected PT alias retained for shared Market/Mint consumers. */
+  expectedPtOut: bigint
+  minPyOut: bigint
+  expectedPyOut: bigint
+  yieldToken: Address
+  mintSyToken: Address
+  kyberExecutor: Address | null
+  kyberMinReturn: bigint
+}
+
+export type ValidatedLoopingAcquisitionRoute =
+  | ValidatedLoopingBuyRoute
+  | ValidatedLoopingMintRoute
 
 export interface ValidatedLoopingExitRoute {
   kind: 'sell-pt'
@@ -291,6 +327,15 @@ function sameAddress(left: Address | string, right: Address | string): boolean {
   return left.toLowerCase() === right.toLowerCase()
 }
 
+function sameNullableAddress(
+  left: Address | null,
+  right: Address | null,
+): boolean {
+  return left === null || right === null
+    ? left === right
+    : sameAddress(left, right)
+}
+
 function sameHex(left: Hex | string, right: Hex | string): boolean {
   return left.toLowerCase() === right.toLowerCase()
 }
@@ -376,6 +421,14 @@ function decodePendleLoopingCalldata(calldata: Hex) {
     return decodeFunctionData({ abi: pendleLoopingRouterAbi, data: calldata })
   } catch (error) {
     fail('INVALID_QUOTE', 'Pendle route calldata is not decodable.', error)
+  }
+}
+
+function decodePendleMintCalldata(calldata: Hex) {
+  try {
+    return decodeFunctionData({ abi: routerActionsAbi, data: calldata })
+  } catch (error) {
+    fail('INVALID_QUOTE', 'Pendle mint route calldata is not decodable.', error)
   }
 }
 
@@ -497,6 +550,7 @@ function validateRouteEnvelope(
   market: Readonly<LoopingExecutionMarket>,
   expectedMethod:
     | 'swapExactTokenForPt'
+    | 'mintPyFromToken'
     | 'swapExactPtForToken'
     | 'redeemSyToToken',
 ): {
@@ -530,6 +584,7 @@ function validateRouteEnvelope(
   }
   if (
     expectedMethod !== 'redeemSyToToken' &&
+    expectedMethod !== 'mintPyFromToken' &&
     String(data.aggregatorType ?? '').toLowerCase() !== 'kyberswap'
   ) {
     fail('ROUTE_NOT_ALLOWED', 'Pendle did not return a KyberSwap route.')
@@ -539,6 +594,27 @@ function validateRouteEnvelope(
     route,
     calldata,
     outputs: asArray(route.outputs, 'Pendle route outputs'),
+  }
+}
+
+function assertMintPyQuoteFloor(args: {
+  market: Readonly<LoopingExecutionMarket>
+  minPyOut: bigint
+  expectedPyOut: bigint
+}): void {
+  const slippageBps = BigInt(
+    Math.ceil(args.market.launchPolicy.quoteSlippage * Number(BPS)),
+  )
+  if (
+    slippageBps <= 0n ||
+    slippageBps >= BPS ||
+    (args.minPyOut + 1n) * BPS <
+      args.expectedPyOut * (BPS - slippageBps)
+  ) {
+    fail(
+      'INVALID_QUOTE',
+      'Pendle mint minimum is weaker than the configured quote slippage.',
+    )
   }
 }
 
@@ -665,6 +741,153 @@ export function validateLoopingBuyRoute(
     calldata: executableCalldata,
     minPtOut,
     expectedPtOut,
+    mintSyToken,
+    kyberExecutor,
+    kyberMinReturn,
+  }
+}
+
+export function validateLoopingMintRoute(
+  args: RouteValidationBase & {
+    amountIn: bigint
+    yieldToken: Address
+  },
+): ValidatedLoopingMintRoute {
+  if (args.amountIn <= 0n) {
+    fail('INVALID_INPUT', 'Mint-route input amount must be positive.')
+  }
+  const yieldToken = getAddress(args.yieldToken)
+  if (!sameAddress(yieldToken, args.market.yieldToken)) {
+    fail('ROUTE_NOT_ALLOWED', 'Mint route YT is not the reviewed market YT.')
+  }
+  const envelope = validateRouteEnvelope(
+    args.route,
+    args.market,
+    'mintPyFromToken',
+  )
+  const decoded = decodePendleMintCalldata(envelope.calldata)
+  if (decoded.functionName !== 'mintPyFromToken') {
+    fail('INVALID_QUOTE', 'Pendle mint-route selector changed.')
+  }
+  const [receiver, quotedYieldToken, minPyOut, input] = decoded.args
+  const mintSyToken = resolveAllowedRouteAddress(
+    args.market,
+    'mintSyToken',
+    input.tokenMintSy,
+  )
+  assertAddressArrayContains(args.wiring.tokensIn, mintSyToken, 'Mint SY token')
+  if (
+    !sameAddress(receiver, args.market.contracts.generalAdapter1) ||
+    !sameAddress(quotedYieldToken, yieldToken) ||
+    !sameAddress(input.tokenIn, args.market.morphoMarketParams.loanToken) ||
+    input.netTokenIn !== args.amountIn ||
+    minPyOut <= 0n
+  ) {
+    fail(
+      'ROUTE_NOT_ALLOWED',
+      'Pendle mint route changed its receiver, YT, token, amount, or PY floor.',
+    )
+  }
+
+  const routeData = asRecord(envelope.route.data, 'Pendle mint route data')
+  const aggregatorType = String(
+    routeData.aggregatorType ?? '',
+  ).toLowerCase()
+  let kyberExecutor: Address | null = null
+  let kyberMinReturn = 0n
+  const isDirectMint =
+    input.swapData.swapType === 0 &&
+    sameAddress(input.swapData.extRouter, zeroAddress) &&
+    input.swapData.extCalldata === '0x' &&
+    input.swapData.needScale === false &&
+    sameAddress(input.pendleSwap, zeroAddress) &&
+    sameAddress(mintSyToken, args.market.morphoMarketParams.loanToken)
+  if (isDirectMint) {
+    if (aggregatorType !== 'void') {
+      fail(
+        'ROUTE_NOT_ALLOWED',
+        'Pendle direct mint route changed its VOID aggregator metadata.',
+      )
+    }
+  } else {
+    const externalRouter = resolveAllowedRouteAddress(
+      args.market,
+      'externalRouter',
+      input.swapData.extRouter,
+    )
+    if (
+      aggregatorType !== 'kyberswap' ||
+      !sameAddress(input.pendleSwap, args.market.contracts.pendleSwap) ||
+      input.swapData.swapType !== args.market.routePolicy.swapType ||
+      !sameAddress(input.swapData.extRouter, externalRouter) ||
+      input.swapData.needScale !== args.market.routePolicy.entryNeedScale
+    ) {
+      fail('ROUTE_NOT_ALLOWED', 'Pendle mint route swap policy changed.')
+    }
+    const kyber = validateNestedKyberCalldata({
+      market: args.market,
+      wiring: args.wiring,
+      calldata: input.swapData.extCalldata,
+      expectedSourceToken: args.market.morphoMarketParams.loanToken,
+      expectedDestinationToken: mintSyToken,
+      expectedAmount: args.amountIn,
+      label: 'Pendle mint route',
+    })
+    kyberExecutor = kyber.executor
+    kyberMinReturn = kyber.minReturnAmount
+  }
+
+  if (envelope.outputs.length !== 2) {
+    fail('INVALID_QUOTE', 'Pendle mint route must return exactly PT and YT.')
+  }
+  const ptOutput = asRecord(envelope.outputs[0], 'Pendle mint PT output')
+  const ytOutput = asRecord(envelope.outputs[1], 'Pendle mint YT output')
+  const expectedPtOut = asUnsignedBigInt(
+    ptOutput.amount,
+    'Pendle expected mint PT output',
+  )
+  const expectedYtOut = asUnsignedBigInt(
+    ytOutput.amount,
+    'Pendle expected mint YT output',
+  )
+  if (
+    !sameAddress(
+      asAddress(ptOutput.token, 'Pendle mint PT output token'),
+      args.market.morphoMarketParams.collateralToken,
+    ) ||
+    !sameAddress(
+      asAddress(ytOutput.token, 'Pendle mint YT output token'),
+      yieldToken,
+    ) ||
+    expectedPtOut !== expectedYtOut ||
+    expectedPtOut < minPyOut
+  ) {
+    fail(
+      'INVALID_QUOTE',
+      'Pendle mint outputs must be equal PT and YT covering minPyOut.',
+    )
+  }
+  assertMintPyQuoteFloor({
+    market: args.market,
+    minPyOut,
+    expectedPyOut: expectedPtOut,
+  })
+  const roundTrip = encodeFunctionData({
+    abi: routerActionsAbi,
+    functionName: 'mintPyFromToken',
+    args: decoded.args,
+  })
+  if (!sameHex(roundTrip, envelope.calldata)) {
+    fail('INVALID_QUOTE', 'Pendle mint calldata failed ABI round-trip validation.')
+  }
+  return {
+    kind: 'mint-pt-yt',
+    calldata: envelope.calldata,
+    minPtOut: minPyOut,
+    expectedPtOut,
+    minPyOut,
+    expectedPyOut: expectedPtOut,
+    yieldToken,
     mintSyToken,
     kyberExecutor,
     kyberMinReturn,
@@ -974,15 +1197,21 @@ interface PendleQuoteEnvelope {
 async function fetchPendleQuoteEnvelope(args: {
   market: Readonly<LoopingExecutionMarket>
   tokenIn: Address
-  tokenOut: Address
+  tokenOut: Address | readonly Address[]
   amountIn: bigint
   needScale: boolean
   fetcher: LoopingFetcher
   now: () => number
-  expectedAction?: 'swap' | 'redeem-sy'
+  expectedAction?: 'swap' | 'mint-py' | 'redeem-sy'
+  enableAggregator?: boolean
+  requireApproval?: boolean
 }): Promise<PendleQuoteEnvelope> {
   if (args.amountIn <= 0n) fail('INVALID_INPUT', 'Quote amount must be positive.')
   const quotedAtMs = args.now()
+  const enableAggregator = args.enableAggregator ?? true
+  const outputs = Array.isArray(args.tokenOut)
+    ? args.tokenOut
+    : [args.tokenOut]
   const request = () => args.fetcher(
     `${PENDLE_CORE_API}/v3/sdk/${args.market.chainId}/convert`,
     {
@@ -996,10 +1225,12 @@ async function fetchPendleQuoteEnvelope(args: {
       body: JSON.stringify({
         receiver: args.market.contracts.generalAdapter1,
         slippage: args.market.launchPolicy.quoteSlippage,
-        enableAggregator: true,
-        aggregators: [args.market.routePolicy.aggregator],
+        enableAggregator,
+        ...(enableAggregator
+          ? { aggregators: [args.market.routePolicy.aggregator] }
+          : {}),
         inputs: [{ token: args.tokenIn, amount: args.amountIn.toString() }],
-        outputs: [args.tokenOut],
+        outputs,
         redeemRewards: false,
         needScale: args.needScale,
         useLimitOrder: false,
@@ -1062,6 +1293,9 @@ async function fetchPendleQuoteEnvelope(args: {
   ) {
     fail('INVALID_QUOTE', 'Pendle quote did not echo the exact requested input.')
   }
+  if (root.requiredApprovals === undefined && args.requireApproval) {
+    fail('INVALID_QUOTE', 'Pendle mint quote omitted required approval metadata.')
+  }
   if (root.requiredApprovals !== undefined) {
     const approvals = asArray(
       root.requiredApprovals,
@@ -1090,6 +1324,67 @@ async function fetchPendleQuoteEnvelope(args: {
     )
   }
   return { quotedAtMs, routes }
+}
+
+export async function fetchPendleLoopingMintRoute(
+  args: FetchQuoteArgs & { yieldToken: Address },
+): Promise<{ quotedAtMs: number; route: ValidatedLoopingMintRoute }> {
+  const fetcher = args.fetcher ?? defaultLoopingFetcher
+  const now = args.now ?? Date.now
+  const directSupported = args.wiring.tokensIn.some((token) =>
+    sameAddress(token, args.market.morphoMarketParams.loanToken)
+  ) && args.market.routePolicy.mintSyTokenAllowlist.some((token) =>
+    sameAddress(token, args.market.morphoMarketParams.loanToken)
+  )
+  const attempts = directSupported ? [false, true] as const : [true] as const
+  const failures: string[] = []
+  for (const enableAggregator of attempts) {
+    let envelope: PendleQuoteEnvelope
+    try {
+      envelope = await fetchPendleQuoteEnvelope({
+        market: args.market,
+        tokenIn: args.market.morphoMarketParams.loanToken,
+        tokenOut: [
+          args.market.morphoMarketParams.collateralToken,
+          args.yieldToken,
+        ],
+        amountIn: args.amountIn,
+        needScale: args.market.routePolicy.entryNeedScale,
+        fetcher,
+        now,
+        expectedAction: 'mint-py',
+        enableAggregator,
+        requireApproval: true,
+      })
+    } catch (error) {
+      failures.push(
+        `${enableAggregator ? 'aggregated' : 'direct'}: ${messageOf(error)}`,
+      )
+      continue
+    }
+    for (const route of envelope.routes) {
+      try {
+        return {
+          quotedAtMs: envelope.quotedAtMs,
+          route: validateLoopingMintRoute({
+            route,
+            market: args.market,
+            wiring: args.wiring,
+            amountIn: args.amountIn,
+            yieldToken: args.yieldToken,
+          }),
+        }
+      } catch (error) {
+        failures.push(
+          `${enableAggregator ? 'aggregated' : 'direct'}: ${messageOf(error)}`,
+        )
+      }
+    }
+  }
+  fail(
+    'ROUTE_NOT_ALLOWED',
+    `Pendle returned no strictly valid mint route: ${failures.join(' | ')}`,
+  )
 }
 
 export async function fetchPendleLoopingBuyRoute(
@@ -1293,7 +1588,32 @@ export interface LoopingAuthorizationRequest {
   digest: Hex
 }
 
-export interface LoopingEntryExecutionPreview {
+type LoopingAcquisitionModeInput =
+  | Readonly<{ acquisitionMode?: 'market' }>
+  | Readonly<{ acquisitionMode: 'mint' }>
+
+export type LoopingEntryExecutionInput = Readonly<{
+  client: PublicClient
+  owner: Address
+  market: Readonly<LoopingExecutionMarket>
+  equityAssets: bigint
+  borrowAssets: bigint
+  fetcher?: LoopingFetcher
+  now?: () => number
+}> & LoopingAcquisitionModeInput
+
+export type LoopingIncreaseExecutionInput = Readonly<{
+  client: PublicClient
+  owner: Address
+  market: Readonly<LoopingExecutionMarket>
+  targetLeverageWad: bigint
+  fetcher?: LoopingFetcher
+  now?: () => number
+}> & LoopingAcquisitionModeInput
+
+export type LoopingAdjustmentExecutionInput = LoopingIncreaseExecutionInput
+
+interface LoopingEntryExecutionPreviewBase {
   kind: 'entry-preview'
   owner: Address
   market: Readonly<LoopingExecutionMarket>
@@ -1306,18 +1626,38 @@ export interface LoopingEntryExecutionPreview {
   accrued: Readonly<LoopingAccruedMarketSnapshot>
   bounds: Readonly<LoopingEntryBorrowBounds>
   health: Readonly<LoopingEntryHealthSnapshot>
-  quotes: Readonly<{
-    initial: ValidatedLoopingBuyRoute
-    loop: ValidatedLoopingBuyRoute
-    minimumCollateral: bigint
-    expectedCollateral: bigint
-  }>
   authorizationRequests: readonly [
     Readonly<LoopingAuthorizationRequest>,
     Readonly<LoopingAuthorizationRequest>,
   ]
   wiring: Readonly<LoopingWiringSnapshot>
 }
+
+export type LoopingEntryExecutionPreview =
+  | (LoopingEntryExecutionPreviewBase & Readonly<{
+      acquisitionMode: 'market'
+      yieldToken: null
+      minimumYtOut: 0n
+      expectedYtOut: 0n
+      quotes: Readonly<{
+        initial: ValidatedLoopingBuyRoute
+        loop: ValidatedLoopingBuyRoute
+        minimumCollateral: bigint
+        expectedCollateral: bigint
+      }>
+    }>)
+  | (LoopingEntryExecutionPreviewBase & Readonly<{
+      acquisitionMode: 'mint'
+      yieldToken: Address
+      minimumYtOut: bigint
+      expectedYtOut: bigint
+      quotes: Readonly<{
+        initial: ValidatedLoopingMintRoute
+        loop: ValidatedLoopingMintRoute
+        minimumCollateral: bigint
+        expectedCollateral: bigint
+      }>
+    }>)
 
 export interface LoopingBundlerCall {
   to: Address
@@ -1329,6 +1669,10 @@ export interface LoopingBundlerCall {
 
 export interface SignedLoopingEntryBundle {
   kind: 'signed-entry-bundle'
+  acquisitionMode: LoopingAcquisitionMode
+  yieldToken: Address | null
+  minimumYtOut: bigint
+  expectedYtOut: bigint
   owner: Address
   marketId: Hex
   to: Address
@@ -1401,7 +1745,7 @@ export interface LoopingLeverageSnapshot {
   oraclePrice: bigint
 }
 
-export interface LoopingIncreaseExecutionPreview {
+interface LoopingIncreaseExecutionPreviewBase {
   kind: 'increase-preview'
   owner: Address
   market: Readonly<LoopingExecutionMarket>
@@ -1412,7 +1756,6 @@ export interface LoopingIncreaseExecutionPreview {
   position: Readonly<LoopingPositionSnapshot>
   accrued: Readonly<LoopingAccruedMarketSnapshot>
   bounds: Readonly<LoopingEntryBorrowBounds>
-  quote: Readonly<ValidatedLoopingBuyRoute>
   current: Readonly<LoopingLeverageSnapshot>
   conservativePost: Readonly<LoopingLeverageSnapshot>
   authorizationRequests: readonly [
@@ -1422,8 +1765,28 @@ export interface LoopingIncreaseExecutionPreview {
   wiring: Readonly<LoopingWiringSnapshot>
 }
 
+export type LoopingIncreaseExecutionPreview =
+  | (LoopingIncreaseExecutionPreviewBase & Readonly<{
+      acquisitionMode: 'market'
+      yieldToken: null
+      minimumYtOut: 0n
+      expectedYtOut: 0n
+      quote: Readonly<ValidatedLoopingBuyRoute>
+    }>)
+  | (LoopingIncreaseExecutionPreviewBase & Readonly<{
+      acquisitionMode: 'mint'
+      yieldToken: Address
+      minimumYtOut: bigint
+      expectedYtOut: bigint
+      quote: Readonly<ValidatedLoopingMintRoute>
+    }>)
+
 export interface SignedLoopingIncreaseBundle {
   kind: 'signed-increase-bundle'
+  acquisitionMode: LoopingAcquisitionMode
+  yieldToken: Address | null
+  minimumYtOut: bigint
+  expectedYtOut: bigint
   owner: Address
   marketId: Hex
   to: Address
@@ -1489,6 +1852,10 @@ export interface SignedLoopingDecreaseBundle {
 export interface LoopingIncreaseReceiptVerification {
   kind: 'increase-receipt-verified'
   operation: 'entry'
+  acquisitionMode: LoopingAcquisitionMode
+  yieldToken: Address | null
+  minimumYtOut: bigint
+  deliveredYtOut: bigint
   owner: Address
   marketId: Hex
   transactionHash: Hex
@@ -1531,6 +1898,7 @@ export interface LoopingStateOverrideIntent {
 export interface UnsignedLoopingSimulationIntent {
   kind: 'unsigned-entry-simulation' | 'unsigned-exit-simulation'
   operation: 'entry' | 'exit'
+  acquisitionMode: LoopingAcquisitionMode | null
   chainId: number
   owner: Address
   account: Address
@@ -1554,6 +1922,7 @@ export interface UnsignedLoopingSimulationIntent {
 export interface LoopingUnsignedSimulationEvidence {
   kind: 'verified-unsigned-entry-simulation' | 'verified-unsigned-exit-simulation'
   operation: 'entry' | 'exit'
+  acquisitionMode: LoopingAcquisitionMode | null
   owner: Address
   marketId: Hex
   intentFingerprint: Hex
@@ -1662,6 +2031,10 @@ export interface LoopingReceiptVerification {
   ownerLoanBalance: bigint
   position: Readonly<LoopingPositionSnapshot>
   accrued: Readonly<LoopingAccruedMarketSnapshot>
+  acquisitionMode?: LoopingAcquisitionMode
+  yieldToken?: Address | null
+  minimumYtOut?: bigint
+  deliveredYtOut?: bigint
   entryHealth?: Readonly<LoopingEntryHealthSnapshot>
   belowModelBuffer?: boolean
   belowEntryValueFloor?: boolean
@@ -1781,6 +2154,7 @@ async function assertPinnedRuntimeCodeHashes(args: {
   client: PublicClient
   market: Readonly<LoopingExecutionMarket>
   blockNumber?: bigint
+  includeMint?: boolean
 }): Promise<void> {
   const blockNumber = args.blockNumber ?? await (async () => {
     const block = await args.client.getBlock({ blockTag: 'latest' })
@@ -1883,6 +2257,45 @@ async function assertPinnedRuntimeCodeHashes(args: {
     !sameHex(pendleSwapImplementationWord, expectedPendleSwapImplementation)
   ) {
     fail('UNSAFE_WIRING', 'PendleSwap proxy implementation changed.')
+  }
+  if (args.includeMint) {
+    const mintPolicy = args.market.mintRouteUpgradePolicy.pendleRouter
+    let mintFacetCodeHash: Hex
+    let mintFacetWord: Hex | undefined
+    try {
+      ;[mintFacetCodeHash, mintFacetWord] = await Promise.all([
+        readRuntimeCodeHash({
+          client: args.client,
+          address: mintPolicy.facet,
+          blockNumber,
+        }),
+        args.client.getStorageAt({
+          address: args.market.contracts.pendleRouter,
+          slot: mintPolicy.selectorStorageSlot,
+          blockNumber,
+        }),
+      ])
+    } catch (error) {
+      fail(
+        'UNSAFE_WIRING',
+        'Pendle Mint Router facet pin could not be read.',
+        error,
+      )
+    }
+    const expectedMintFacet = encodeAbiParameters(
+      implementationStorageParameters,
+      [mintPolicy.facet],
+    )
+    if (
+      !sameHex(mintFacetCodeHash, mintPolicy.facetRuntimeCodeHash) ||
+      mintFacetWord === undefined ||
+      !sameHex(mintFacetWord, expectedMintFacet)
+    ) {
+      fail(
+        'UNSAFE_WIRING',
+        `Pendle Mint Router implementation changed for selector ${mintPolicy.selector}.`,
+      )
+    }
   }
 }
 
@@ -2031,6 +2444,7 @@ async function readStaticLoopingWiring(args: {
   market: Readonly<LoopingExecutionMarket>
   blockNumber?: bigint
   allowMatured?: boolean
+  includeMint?: boolean
 }): Promise<{
   blockNumber: bigint
   blockHash: Hex
@@ -2066,6 +2480,12 @@ async function readStaticLoopingWiring(args: {
     ...market.routePolicy.kyber.executorAllowlist.map((item) => item.address),
     ...market.routePolicy.mintSyTokenAllowlist,
     ...market.routePolicy.redeemSyTokenAllowlist,
+    ...(args.includeMint
+      ? [
+          market.yieldToken,
+          market.mintRouteUpgradePolicy.pendleRouter.facet,
+        ]
+      : []),
   ]
   const uniqueCodeAddresses = [...new Map(
     codeAddresses.map((address) => [address.toLowerCase(), address]),
@@ -2150,7 +2570,13 @@ async function readStaticLoopingWiring(args: {
       ...block,
     }),
   ])
-  const [collateralDecimals, domainSeparator, nonce, adapterAuthorized] =
+  const [
+    collateralDecimals,
+    yieldTokenDecimals,
+    domainSeparator,
+    nonce,
+    adapterAuthorized,
+  ] =
     await Promise.all([
     client.readContract({
       address: params.collateralToken,
@@ -2158,6 +2584,14 @@ async function readStaticLoopingWiring(args: {
       functionName: 'decimals',
       ...block,
     }),
+    args.includeMint
+      ? client.readContract({
+          address: market.yieldToken,
+          abi: loopingErc20Abi,
+          functionName: 'decimals',
+          ...block,
+        })
+      : Promise.resolve(market.yieldTokenDecimals),
     client.readContract({
       address: market.contracts.morpho,
       abi: morphoBlueAbi,
@@ -2224,6 +2658,7 @@ async function readStaticLoopingWiring(args: {
     client,
     market,
     blockNumber,
+    includeMint: args.includeMint,
   })
   if (
     !sameAddress(adapterBundler, market.contracts.bundler3) ||
@@ -2234,7 +2669,7 @@ async function readStaticLoopingWiring(args: {
   if (
     !sameAddress(marketTokens[0], market.standardizedYield) ||
     !sameAddress(marketTokens[1], params.collateralToken) ||
-    sameAddress(marketTokens[2], zeroAddress) ||
+    !sameAddress(marketTokens[2], market.yieldToken) ||
     marketExpiry !== market.pendleMarketExpiry
   ) {
     fail('UNSAFE_WIRING', 'Pendle market token wiring or expiry changed.')
@@ -2245,7 +2680,14 @@ async function readStaticLoopingWiring(args: {
   assertMarketTuple(liveMarketParams, market)
   if (
     loanDecimals !== market.loanTokenDecimals ||
-    collateralDecimals !== market.collateralTokenDecimals
+    collateralDecimals !== market.collateralTokenDecimals ||
+    (
+      args.includeMint &&
+      (
+        yieldTokenDecimals !== market.yieldTokenDecimals ||
+        yieldTokenDecimals !== collateralDecimals
+      )
+    )
   ) {
     fail('UNSAFE_WIRING', 'Looping token decimals changed.')
   }
@@ -2568,6 +3010,7 @@ function calculateEntryHealth(args: {
 
 function deriveEntryHealth(args: {
   market: Readonly<LoopingExecutionMarket>
+  acquisitionMode: LoopingAcquisitionMode
   collateral: bigint
   equityAssets: bigint
   borrowAssets: bigint
@@ -2584,6 +3027,7 @@ function deriveEntryHealth(args: {
   const health = calculateEntryHealth(args)
   const grossEntryAssets = args.equityAssets + args.borrowAssets
   if (
+    args.acquisitionMode === 'market' &&
     health.collateralLoanValue * BPS <
       grossEntryAssets * BigInt(args.market.launchPolicy.minEntryValueBps)
   ) {
@@ -2849,18 +3293,13 @@ function assertCleanOpenAdjustmentPosition(
   }
 }
 
-export async function prepareLoopingEntryExecution(args: {
-  client: PublicClient
-  owner: Address
-  market: Readonly<LoopingExecutionMarket>
-  equityAssets: bigint
-  borrowAssets: bigint
-  fetcher?: LoopingFetcher
-  now?: () => number
-}): Promise<LoopingEntryExecutionPreview> {
+export async function prepareLoopingEntryExecution(
+  args: LoopingEntryExecutionInput,
+): Promise<LoopingEntryExecutionPreview> {
   const market = canonicalExecutionMarket(args.market)
   const now = args.now ?? Date.now
   const owner = getAddress(args.owner)
+  const acquisitionMode = resolveLoopingAcquisitionMode(args.acquisitionMode)
   if (args.equityAssets <= 0n || args.borrowAssets <= 0n) {
     fail('INVALID_INPUT', 'Looping equity and debt must both be positive.')
   }
@@ -2871,6 +3310,7 @@ export async function prepareLoopingEntryExecution(args: {
       client: args.client,
       owner,
       market,
+      includeMint: acquisitionMode === 'mint',
     })
   } catch (error) {
     if (error instanceof LoopingExecutionError) throw error
@@ -2906,22 +3346,65 @@ export async function prepareLoopingEntryExecution(args: {
     tokensOut: wiring.tokensOut,
     kyberExecutorCodeHashes: wiring.kyberExecutorCodeHashes,
   }
-  const [initialQuote, loopQuote] = await Promise.all([
-    fetchPendleLoopingBuyRoute({
-      market,
-      wiring: quoteWiring,
-      amountIn: args.equityAssets,
-      fetcher: args.fetcher,
-      now,
-    }),
-    fetchPendleLoopingBuyRoute({
-      market,
-      wiring: quoteWiring,
-      amountIn: args.borrowAssets,
-      fetcher: args.fetcher,
-      now,
-    }),
-  ])
+  let acquisitionQuotes:
+    | Readonly<{
+        acquisitionMode: 'market'
+        initialQuote: Awaited<ReturnType<typeof fetchPendleLoopingBuyRoute>>
+        loopQuote: Awaited<ReturnType<typeof fetchPendleLoopingBuyRoute>>
+      }>
+    | Readonly<{
+        acquisitionMode: 'mint'
+        initialQuote: Awaited<ReturnType<typeof fetchPendleLoopingMintRoute>>
+        loopQuote: Awaited<ReturnType<typeof fetchPendleLoopingMintRoute>>
+      }>
+  if (acquisitionMode === 'mint') {
+    const [initialQuote, loopQuote] = await Promise.all([
+      fetchPendleLoopingMintRoute({
+        market,
+        wiring: quoteWiring,
+        amountIn: args.equityAssets,
+        yieldToken: staticSnapshot.pendleYieldToken,
+        fetcher: args.fetcher,
+        now,
+      }),
+      fetchPendleLoopingMintRoute({
+        market,
+        wiring: quoteWiring,
+        amountIn: args.borrowAssets,
+        yieldToken: staticSnapshot.pendleYieldToken,
+        fetcher: args.fetcher,
+        now,
+      }),
+    ])
+    acquisitionQuotes = {
+      acquisitionMode: 'mint',
+      initialQuote,
+      loopQuote,
+    }
+  } else {
+    const [initialQuote, loopQuote] = await Promise.all([
+      fetchPendleLoopingBuyRoute({
+        market,
+        wiring: quoteWiring,
+        amountIn: args.equityAssets,
+        fetcher: args.fetcher,
+        now,
+      }),
+      fetchPendleLoopingBuyRoute({
+        market,
+        wiring: quoteWiring,
+        amountIn: args.borrowAssets,
+        fetcher: args.fetcher,
+        now,
+      }),
+    ])
+    acquisitionQuotes = {
+      acquisitionMode: 'market',
+      initialQuote,
+      loopQuote,
+    }
+  }
+  const { initialQuote, loopQuote } = acquisitionQuotes
   const quotedAtMs = Math.max(initialQuote.quotedAtMs, loopQuote.quotedAtMs)
   const oldestQuoteMs = Math.min(initialQuote.quotedAtMs, loopQuote.quotedAtMs)
   const validUntilMs = oldestQuoteMs + market.launchPolicy.quoteValidityMs
@@ -2934,6 +3417,7 @@ export async function prepareLoopingEntryExecution(args: {
     initialQuote.route.expectedPtOut + loopQuote.route.expectedPtOut
   const health = deriveEntryHealth({
     market,
+    acquisitionMode,
     collateral: minimumCollateral,
     equityAssets: args.equityAssets,
     borrowAssets: args.borrowAssets,
@@ -2960,7 +3444,7 @@ export async function prepareLoopingEntryExecution(args: {
     })),
   ]) as LoopingEntryExecutionPreview['authorizationRequests']
 
-  const preview: LoopingEntryExecutionPreview = {
+  const previewBase: LoopingEntryExecutionPreviewBase = {
     kind: 'entry-preview',
     owner,
     market,
@@ -2979,12 +3463,6 @@ export async function prepareLoopingEntryExecution(args: {
     accrued: Object.freeze(accruedSnapshot.accrued),
     bounds: Object.freeze(bounds),
     health: Object.freeze(health),
-    quotes: Object.freeze({
-      initial: Object.freeze(initialQuote.route),
-      loop: Object.freeze(loopQuote.route),
-      minimumCollateral,
-      expectedCollateral,
-    }),
     authorizationRequests,
     wiring: Object.freeze({
       ...wiring,
@@ -2995,6 +3473,38 @@ export async function prepareLoopingEntryExecution(args: {
       }),
     }),
   }
+  const preview: LoopingEntryExecutionPreview =
+    acquisitionQuotes.acquisitionMode === 'mint'
+      ? {
+          ...previewBase,
+          acquisitionMode: 'mint',
+          yieldToken: staticSnapshot.pendleYieldToken,
+          minimumYtOut:
+            acquisitionQuotes.initialQuote.route.minPyOut +
+            acquisitionQuotes.loopQuote.route.minPyOut,
+          expectedYtOut:
+            acquisitionQuotes.initialQuote.route.expectedPyOut +
+            acquisitionQuotes.loopQuote.route.expectedPyOut,
+          quotes: Object.freeze({
+            initial: Object.freeze(acquisitionQuotes.initialQuote.route),
+            loop: Object.freeze(acquisitionQuotes.loopQuote.route),
+            minimumCollateral,
+            expectedCollateral,
+          }),
+        }
+      : {
+          ...previewBase,
+          acquisitionMode: 'market',
+          yieldToken: null,
+          minimumYtOut: 0n,
+          expectedYtOut: 0n,
+          quotes: Object.freeze({
+            initial: Object.freeze(acquisitionQuotes.initialQuote.route),
+            loop: Object.freeze(acquisitionQuotes.loopQuote.route),
+            minimumCollateral,
+            expectedCollateral,
+          }),
+        }
   Object.freeze(preview)
   preparedEntryPreviews.add(preview)
   return preview
@@ -3197,6 +3707,7 @@ async function readLoopingAdjustmentPreflight(args: {
   client: PublicClient
   owner: Address
   market: Readonly<LoopingExecutionMarket>
+  includeMint?: boolean
 }): Promise<LoopingAdjustmentPreflight> {
   const market = canonicalExecutionMarket(args.market)
   const owner = getAddress(args.owner)
@@ -3206,6 +3717,7 @@ async function readLoopingAdjustmentPreflight(args: {
       client: args.client,
       owner,
       market,
+      includeMint: args.includeMint,
     })
   } catch (error) {
     if (error instanceof LoopingExecutionError) throw error
@@ -3238,17 +3750,25 @@ async function readLoopingAdjustmentPreflight(args: {
   }
 }
 
-async function prepareLoopingIncreaseExecutionCore(args: {
-  client: PublicClient
-  owner: Address
-  market: Readonly<LoopingExecutionMarket>
-  targetLeverageWad: bigint
-  fetcher?: LoopingFetcher
-  now?: () => number
-}, preflight?: LoopingAdjustmentPreflight): Promise<LoopingIncreaseExecutionPreview> {
-  const loaded = preflight ?? await readLoopingAdjustmentPreflight(args)
+async function prepareLoopingIncreaseExecutionCore(
+  args: LoopingIncreaseExecutionInput,
+  preflight?: LoopingAdjustmentPreflight,
+): Promise<LoopingIncreaseExecutionPreview> {
+  const acquisitionMode = resolveLoopingAcquisitionMode(args.acquisitionMode)
+  const loaded = preflight ?? await readLoopingAdjustmentPreflight({
+    ...args,
+    includeMint: acquisitionMode === 'mint',
+  })
   const { market, owner, staticSnapshot, accruedSnapshot, current } = loaded
   const now = args.now ?? Date.now
+  if (preflight !== undefined && acquisitionMode === 'mint') {
+    await assertPinnedRuntimeCodeHashes({
+      client: args.client,
+      market,
+      blockNumber: staticSnapshot.blockNumber,
+      includeMint: true,
+    })
+  }
   assertAdjustmentTarget(args.targetLeverageWad, current.leverageWad, 'increase')
   const idealTargetDebt =
     current.equityAssets * (args.targetLeverageWad - WAD) / WAD
@@ -3268,7 +3788,10 @@ async function prepareLoopingIncreaseExecutionCore(args: {
     upperBorrowAssets = availableBorrowAssets
   }
   let finalQuote:
-    | Awaited<ReturnType<typeof fetchPendleLoopingBuyRoute>>
+    | {
+        quotedAtMs: number
+        route: ValidatedLoopingAcquisitionRoute
+      }
     | undefined
   let finalBounds: LoopingEntryBorrowBounds | undefined
   let finalPost: LoopingLeverageSnapshot | undefined
@@ -3283,7 +3806,7 @@ async function prepareLoopingIncreaseExecutionCore(args: {
       borrowAssets,
       market,
     )
-    const quoteResult = await fetchPendleLoopingBuyRoute({
+    const quoteArgs = {
       market,
       wiring: {
         tokensIn: staticSnapshot.wiring.tokensIn,
@@ -3294,11 +3817,18 @@ async function prepareLoopingIncreaseExecutionCore(args: {
       amountIn: borrowAssets,
       fetcher: args.fetcher,
       now,
-    })
+    }
+    const quoteResult = acquisitionMode === 'mint'
+      ? await fetchPendleLoopingMintRoute({
+          ...quoteArgs,
+          yieldToken: staticSnapshot.pendleYieldToken,
+        })
+      : await fetchPendleLoopingBuyRoute(quoteArgs)
     const addedCollateralValue =
       quoteResult.route.minPtOut * accruedSnapshot.accrued.oraclePrice /
         ORACLE_PRICE_SCALE
     if (
+      acquisitionMode === 'market' &&
       addedCollateralValue * BPS <
         borrowAssets * BigInt(market.launchPolicy.minEntryValueBps)
     ) {
@@ -3394,7 +3924,7 @@ async function prepareLoopingIncreaseExecutionCore(args: {
       operation: 'entry',
     })),
   ]) as LoopingIncreaseExecutionPreview['authorizationRequests']
-  const preview: LoopingIncreaseExecutionPreview = {
+  const previewBase: LoopingIncreaseExecutionPreviewBase = {
     kind: 'increase-preview',
     owner,
     market,
@@ -3405,7 +3935,6 @@ async function prepareLoopingIncreaseExecutionCore(args: {
     position: Object.freeze({ ...accruedSnapshot.position }),
     accrued: Object.freeze({ ...accruedSnapshot.accrued }),
     bounds: Object.freeze(finalBounds),
-    quote: Object.freeze(finalQuote.route),
     current: Object.freeze(current),
     conservativePost: Object.freeze(finalPost),
     authorizationRequests,
@@ -3417,6 +3946,32 @@ async function prepareLoopingIncreaseExecutionCore(args: {
         ...staticSnapshot.wiring.kyberExecutorCodeHashes,
       }),
     }),
+  }
+  let preview: LoopingIncreaseExecutionPreview
+  if (acquisitionMode === 'mint') {
+    if (finalQuote.route.kind !== 'mint-pt-yt') {
+      fail('STATE_CONFLICT', 'Mint increase quote changed acquisition mode.')
+    }
+    preview = {
+      ...previewBase,
+      acquisitionMode: 'mint',
+      yieldToken: staticSnapshot.pendleYieldToken,
+      minimumYtOut: finalQuote.route.minPyOut,
+      expectedYtOut: finalQuote.route.expectedPyOut,
+      quote: Object.freeze(finalQuote.route),
+    }
+  } else {
+    if (finalQuote.route.kind !== 'buy-pt') {
+      fail('STATE_CONFLICT', 'Market increase quote changed acquisition mode.')
+    }
+    preview = {
+      ...previewBase,
+      acquisitionMode: 'market',
+      yieldToken: null,
+      minimumYtOut: 0n,
+      expectedYtOut: 0n,
+      quote: Object.freeze(finalQuote.route),
+    }
   }
   Object.freeze(preview)
   preparedIncreasePreviews.add(preview)
@@ -3661,14 +4216,9 @@ async function prepareLoopingDecreaseExecutionCore(args: {
   return preview
 }
 
-export async function prepareLoopingIncreaseExecution(args: {
-  client: PublicClient
-  owner: Address
-  market: Readonly<LoopingExecutionMarket>
-  targetLeverageWad: bigint
-  fetcher?: LoopingFetcher
-  now?: () => number
-}): Promise<LoopingIncreaseExecutionPreview> {
+export async function prepareLoopingIncreaseExecution(
+  args: LoopingIncreaseExecutionInput,
+): Promise<LoopingIncreaseExecutionPreview> {
   return prepareLoopingIncreaseExecutionCore(args)
 }
 
@@ -3683,14 +4233,10 @@ export async function prepareLoopingDecreaseExecution(args: {
   return prepareLoopingDecreaseExecutionCore(args)
 }
 
-export async function prepareLoopingAdjustmentExecution(args: {
-  client: PublicClient
-  owner: Address
-  market: Readonly<LoopingExecutionMarket>
-  targetLeverageWad: bigint
-  fetcher?: LoopingFetcher
-  now?: () => number
-}): Promise<LoopingIncreaseExecutionPreview | LoopingDecreaseExecutionPreview> {
+export async function prepareLoopingAdjustmentExecution(
+  args: LoopingAdjustmentExecutionInput,
+): Promise<LoopingIncreaseExecutionPreview | LoopingDecreaseExecutionPreview> {
+  resolveLoopingAcquisitionMode(args.acquisitionMode)
   const preflight = await readLoopingAdjustmentPreflight(args)
   if (args.targetLeverageWad === preflight.current.leverageWad) {
     fail('NO_OP', 'The requested leverage already matches the live position.')
@@ -3915,6 +4461,18 @@ function buildEntryActionCalls(
       }),
       callbackData,
     ),
+    ...(preview.acquisitionMode === 'mint'
+      ? [
+          bundlerCall(
+            market.contracts.generalAdapter1,
+            encodeFunctionData({
+              abi: generalAdapter1Abi,
+              functionName: 'erc20Transfer',
+              args: [preview.yieldToken, preview.owner, maxUint256],
+            }),
+          ),
+        ]
+      : []),
     bundlerCall(
       market.contracts.generalAdapter1,
       encodeFunctionData({
@@ -4066,6 +4624,18 @@ function buildIncreaseActionCalls(
       }),
       callbackData,
     ),
+    ...(preview.acquisitionMode === 'mint'
+      ? [
+          bundlerCall(
+            market.contracts.generalAdapter1,
+            encodeFunctionData({
+              abi: generalAdapter1Abi,
+              functionName: 'erc20Transfer',
+              args: [preview.yieldToken, preview.owner, maxUint256],
+            }),
+          ),
+        ]
+      : []),
     bundlerCall(
       market.contracts.generalAdapter1,
       encodeFunctionData({
@@ -4194,6 +4764,7 @@ export function getLoopingAuthorizationStorageSlot(
 
 function makeUnsignedSimulationIntent(args: {
   operation: 'entry' | 'exit'
+  acquisitionMode?: LoopingAcquisitionMode
   owner: Address
   market: Readonly<LoopingExecutionMarket>
   calls: readonly LoopingBundlerCall[]
@@ -4213,6 +4784,7 @@ function makeUnsignedSimulationIntent(args: {
   const intent = Object.freeze({
     kind: `unsigned-${args.operation}-simulation`,
     operation: args.operation,
+    acquisitionMode: args.acquisitionMode ?? null,
     chainId: args.market.chainId,
     owner: args.owner,
     account: args.owner,
@@ -4254,6 +4826,11 @@ function fingerprintUnsignedSimulationIntent(
     BigInt(intent.chainId),
     intent.account,
     intent.marketId,
+    intent.acquisitionMode === 'market'
+      ? 0
+      : intent.acquisitionMode === 'mint'
+        ? 1
+        : 2,
     intent.to,
     intent.data,
     stateDiff.slot,
@@ -4289,6 +4866,7 @@ export async function simulateUnsignedLoopingIntent(args: {
     client: args.client,
     market,
     blockNumber: block.number,
+    includeMint: args.intent.acquisitionMode === 'mint',
   })
   const stateOverride = args.intent.stateOverride.map((override) => ({
     address: override.address,
@@ -4331,6 +4909,7 @@ export async function simulateUnsignedLoopingIntent(args: {
   const evidence = Object.freeze({
     kind: `verified-unsigned-${args.intent.operation}-simulation`,
     operation: args.intent.operation,
+    acquisitionMode: args.intent.acquisitionMode,
     owner: args.intent.owner,
     marketId: args.intent.marketId,
     intentFingerprint: fingerprintUnsignedSimulationIntent(args.intent),
@@ -4377,6 +4956,9 @@ export function buildUnsignedLoopingEntrySimulation(
       market.contracts.pendleRouter,
       params.loanToken,
       market.contracts.generalAdapter1,
+      ...(preview.acquisitionMode === 'mint'
+        ? [market.contracts.generalAdapter1]
+        : []),
       market.contracts.generalAdapter1,
       market.contracts.generalAdapter1,
       params.collateralToken,
@@ -4385,6 +4967,7 @@ export function buildUnsignedLoopingEntrySimulation(
   )
   return makeUnsignedSimulationIntent({
     operation: 'entry',
+    acquisitionMode: preview.acquisitionMode,
     owner: preview.owner,
     market,
     calls,
@@ -4452,6 +5035,9 @@ export function buildUnsignedLoopingIncreaseSimulation(
     data,
     [
       market.contracts.generalAdapter1,
+      ...(preview.acquisitionMode === 'mint'
+        ? [market.contracts.generalAdapter1]
+        : []),
       market.contracts.generalAdapter1,
       market.contracts.generalAdapter1,
       market.morphoMarketParams.collateralToken,
@@ -4460,6 +5046,7 @@ export function buildUnsignedLoopingIncreaseSimulation(
   )
   return makeUnsignedSimulationIntent({
     operation: 'entry',
+    acquisitionMode: preview.acquisitionMode,
     owner: preview.owner,
     market,
     calls,
@@ -4581,6 +5168,9 @@ export async function buildSignedLoopingEntryBundle(
       market.contracts.pendleRouter,
       params.loanToken,
       market.contracts.generalAdapter1,
+      ...(preview.acquisitionMode === 'mint'
+        ? [market.contracts.generalAdapter1]
+        : []),
       market.contracts.generalAdapter1,
       market.contracts.generalAdapter1,
       params.collateralToken,
@@ -4590,6 +5180,10 @@ export async function buildSignedLoopingEntryBundle(
   )
   return {
     kind: 'signed-entry-bundle',
+    acquisitionMode: preview.acquisitionMode,
+    yieldToken: preview.yieldToken,
+    minimumYtOut: preview.minimumYtOut,
+    expectedYtOut: preview.expectedYtOut,
     owner: preview.owner,
     marketId: market.marketId,
     to: market.contracts.bundler3,
@@ -4742,6 +5336,9 @@ export async function buildSignedLoopingIncreaseBundle(
     [
       market.contracts.morpho,
       market.contracts.generalAdapter1,
+      ...(preview.acquisitionMode === 'mint'
+        ? [market.contracts.generalAdapter1]
+        : []),
       market.contracts.generalAdapter1,
       market.contracts.generalAdapter1,
       market.morphoMarketParams.collateralToken,
@@ -4751,6 +5348,10 @@ export async function buildSignedLoopingIncreaseBundle(
   )
   return {
     kind: 'signed-increase-bundle',
+    acquisitionMode: preview.acquisitionMode,
+    yieldToken: preview.yieldToken,
+    minimumYtOut: preview.minimumYtOut,
+    expectedYtOut: preview.expectedYtOut,
     owner: preview.owner,
     marketId: market.marketId,
     to: market.contracts.bundler3,
@@ -4861,6 +5462,10 @@ async function assertSignedEntryBundleBindsPreview(
   const market = canonicalExecutionMarket(preview.market)
   if (
     bundle.kind !== 'signed-entry-bundle' ||
+    bundle.acquisitionMode !== preview.acquisitionMode ||
+    !sameNullableAddress(bundle.yieldToken, preview.yieldToken) ||
+    bundle.minimumYtOut !== preview.minimumYtOut ||
+    bundle.expectedYtOut !== preview.expectedYtOut ||
     !sameAddress(bundle.owner, preview.owner) ||
     !sameHex(bundle.marketId, market.marketId) ||
     !sameAddress(bundle.to, market.contracts.bundler3) ||
@@ -4945,6 +5550,10 @@ async function assertSignedIncreaseBundleBindsPreview(
   const market = canonicalExecutionMarket(preview.market)
   if (
     bundle.kind !== 'signed-increase-bundle' ||
+    bundle.acquisitionMode !== preview.acquisitionMode ||
+    !sameNullableAddress(bundle.yieldToken, preview.yieldToken) ||
+    bundle.minimumYtOut !== preview.minimumYtOut ||
+    bundle.expectedYtOut !== preview.expectedYtOut ||
     !sameAddress(bundle.owner, preview.owner) ||
     !sameHex(bundle.marketId, market.marketId) ||
     !sameAddress(bundle.to, market.contracts.bundler3) ||
@@ -5092,7 +5701,11 @@ export async function decodeExposedLoopingAuthorizationPair(args: {
     fail('UNSAFE_WIRING', 'Reverted transaction is not a Bundler3 multicall.')
   }
   const decodedCalls = decoded.args[0]
-  const operation = decodedCalls.length === 10 || decodedCalls.length === 6
+  const operation =
+    decodedCalls.length === 10 ||
+    decodedCalls.length === 11 ||
+    decodedCalls.length === 6 ||
+    decodedCalls.length === 7
     ? 'entry'
     : decodedCalls.length === 5
       ? 'exit'
@@ -5101,7 +5714,8 @@ export async function decodeExposedLoopingAuthorizationPair(args: {
     fail('UNSAFE_WIRING', 'Reverted looping bundle has an unknown call count.')
   }
   const params = market.morphoMarketParams
-  const expectedTargets = decodedCalls.length === 10
+  const expectedTargets =
+    decodedCalls.length === 10 || decodedCalls.length === 11
     ? [
         market.contracts.morpho,
         market.contracts.generalAdapter1,
@@ -5109,15 +5723,21 @@ export async function decodeExposedLoopingAuthorizationPair(args: {
         market.contracts.pendleRouter,
         params.loanToken,
         market.contracts.generalAdapter1,
+        ...(decodedCalls.length === 11
+          ? [market.contracts.generalAdapter1]
+          : []),
         market.contracts.generalAdapter1,
         market.contracts.generalAdapter1,
         params.collateralToken,
         market.contracts.morpho,
       ]
-    : decodedCalls.length === 6
+    : decodedCalls.length === 6 || decodedCalls.length === 7
       ? [
           market.contracts.morpho,
           market.contracts.generalAdapter1,
+          ...(decodedCalls.length === 7
+            ? [market.contracts.generalAdapter1]
+            : []),
           market.contracts.generalAdapter1,
           market.contracts.generalAdapter1,
           params.collateralToken,
@@ -5133,7 +5753,7 @@ export async function decodeExposedLoopingAuthorizationPair(args: {
   assertBundleShape(
     args.bundleData,
     expectedTargets,
-    decodedCalls.length === 10 ? [5] : [1],
+    decodedCalls.length === 10 || decodedCalls.length === 11 ? [5] : [1],
   )
   const calls = decodedCalls.map((call) => ({
     to: getAddress(call.to),
@@ -5225,6 +5845,468 @@ export async function readExposedLoopingAuthorizationPairFromTransaction(args: {
     market,
     owner,
     bundleData: transaction.input,
+  })
+}
+
+export interface PersistedLoopingMintDeliveryEvidence {
+  transactionHash: Hex
+  operation: 'entry' | 'increase'
+  yieldToken: Address
+  minimumYtOut: bigint
+}
+
+function assertPlainBundlerCall(
+  call: Readonly<LoopingBundlerCall>,
+  target: Address,
+  label: string,
+): void {
+  if (
+    !sameAddress(call.to, target) ||
+    call.value !== 0n ||
+    call.skipRevert ||
+    !sameHex(call.callbackHash, zeroHash)
+  ) {
+    fail('UNSAFE_WIRING', `${label} changed its Bundler3 call shape.`)
+  }
+}
+
+function decodePersistedErc20Approval(args: {
+  call: Readonly<LoopingBundlerCall>
+  token: Address
+  spender: Address
+  amount: bigint
+  label: string
+}): void {
+  assertPlainBundlerCall(args.call, args.token, args.label)
+  let decoded: ReturnType<typeof decodeFunctionData<typeof loopingErc20Abi>>
+  try {
+    decoded = decodeFunctionData({
+      abi: loopingErc20Abi,
+      data: args.call.data,
+    })
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${args.label} calldata is malformed.`, error)
+  }
+  if (
+    decoded.functionName !== 'approve' ||
+    !sameAddress(decoded.args[0], args.spender) ||
+    decoded.args[1] !== args.amount
+  ) {
+    fail('UNSAFE_WIRING', `${args.label} changed its spender or amount.`)
+  }
+}
+
+function decodePersistedAdapterTransfer(args: {
+  call: Readonly<LoopingBundlerCall>
+  market: Readonly<LoopingExecutionMarket>
+  token: Address
+  receiver: Address
+  amount: bigint
+  label: string
+}): void {
+  assertPlainBundlerCall(
+    args.call,
+    args.market.contracts.generalAdapter1,
+    args.label,
+  )
+  let decoded: ReturnType<typeof decodeFunctionData<typeof generalAdapter1Abi>>
+  try {
+    decoded = decodeFunctionData({
+      abi: generalAdapter1Abi,
+      data: args.call.data,
+    })
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${args.label} calldata is malformed.`, error)
+  }
+  if (
+    decoded.functionName !== 'erc20Transfer' ||
+    !sameAddress(decoded.args[0], args.token) ||
+    !sameAddress(decoded.args[1], args.receiver) ||
+    decoded.args[2] !== args.amount
+  ) {
+    fail('UNSAFE_WIRING', `${args.label} changed its token, receiver, or amount.`)
+  }
+}
+
+function decodePersistedMintRoute(args: {
+  call: Readonly<LoopingBundlerCall>
+  market: Readonly<LoopingExecutionMarket>
+  label: string
+}): Readonly<{ amountIn: bigint; minimumYtOut: bigint }> {
+  assertPlainBundlerCall(
+    args.call,
+    args.market.contracts.pendleRouter,
+    args.label,
+  )
+  const decoded = decodePendleMintCalldata(args.call.data)
+  if (decoded.functionName !== 'mintPyFromToken') {
+    fail('UNSAFE_WIRING', `${args.label} is not a Pendle PT+YT mint.`)
+  }
+  const [receiver, yieldToken, minimumYtOut, input] = decoded.args
+  const mintSyToken = resolveAllowedRouteAddress(
+    args.market,
+    'mintSyToken',
+    input.tokenMintSy,
+  )
+  if (
+    !sameAddress(receiver, args.market.contracts.generalAdapter1) ||
+    !sameAddress(yieldToken, args.market.yieldToken) ||
+    !sameAddress(input.tokenIn, args.market.morphoMarketParams.loanToken) ||
+    input.netTokenIn <= 0n ||
+    minimumYtOut <= 0n ||
+    !args.market.routePolicy.mintSyTokenAllowlist.some((token) =>
+      sameAddress(token, mintSyToken))
+  ) {
+    fail(
+      'UNSAFE_WIRING',
+      `${args.label} changed its receiver, YT, input token, amount, or floor.`,
+    )
+  }
+  const isDirectMint =
+    input.swapData.swapType === 0 &&
+    sameAddress(input.swapData.extRouter, zeroAddress) &&
+    input.swapData.extCalldata === '0x' &&
+    input.swapData.needScale === false &&
+    sameAddress(input.pendleSwap, zeroAddress) &&
+    sameAddress(mintSyToken, args.market.morphoMarketParams.loanToken)
+  if (!isDirectMint) {
+    const externalRouter = resolveAllowedRouteAddress(
+      args.market,
+      'externalRouter',
+      input.swapData.extRouter,
+    )
+    if (
+      !sameAddress(input.pendleSwap, args.market.contracts.pendleSwap) ||
+      input.swapData.swapType !== args.market.routePolicy.swapType ||
+      !sameAddress(input.swapData.extRouter, externalRouter) ||
+      input.swapData.needScale !== args.market.routePolicy.entryNeedScale
+    ) {
+      fail('UNSAFE_WIRING', `${args.label} changed its swap policy.`)
+    }
+    validateNestedKyberCalldata({
+      market: args.market,
+      wiring: {
+        kyberExecutorCodeHashes: Object.fromEntries(
+          args.market.routePolicy.kyber.executorAllowlist.map((executor) => [
+            executor.address.toLowerCase(),
+            executor.runtimeCodeHash,
+          ]),
+        ),
+      },
+      calldata: input.swapData.extCalldata,
+      expectedSourceToken: args.market.morphoMarketParams.loanToken,
+      expectedDestinationToken: mintSyToken,
+      expectedAmount: input.netTokenIn,
+      label: args.label,
+    })
+  }
+  const roundTrip = encodeFunctionData({
+    abi: routerActionsAbi,
+    functionName: 'mintPyFromToken',
+    args: decoded.args,
+  })
+  if (!sameHex(roundTrip, args.call.data)) {
+    fail('UNSAFE_WIRING', `${args.label} failed ABI round-trip validation.`)
+  }
+  return {
+    amountIn: input.netTokenIn,
+    minimumYtOut,
+  }
+}
+
+function decodePersistedMintSupplyCallback(args: {
+  call: Readonly<LoopingBundlerCall>
+  market: Readonly<LoopingExecutionMarket>
+  owner: Address
+  initialMinimumCollateral: bigint
+}): bigint {
+  const label = 'Persisted Mint Mode collateral callback'
+  if (
+    !sameAddress(args.call.to, args.market.contracts.generalAdapter1) ||
+    args.call.value !== 0n ||
+    args.call.skipRevert ||
+    sameHex(args.call.callbackHash, zeroHash)
+  ) {
+    fail('UNSAFE_WIRING', `${label} changed its Bundler3 call shape.`)
+  }
+  let decodedSupply:
+    ReturnType<typeof decodeFunctionData<typeof generalAdapter1Abi>>
+  try {
+    decodedSupply = decodeFunctionData({
+      abi: generalAdapter1Abi,
+      data: args.call.data,
+    })
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${label} calldata is malformed.`, error)
+  }
+  if (decodedSupply.functionName !== 'morphoSupplyCollateral') {
+    fail('UNSAFE_WIRING', `${label} no longer supplies Morpho collateral.`)
+  }
+  const [params, collateral, onBehalf, callbackData] = decodedSupply.args
+  assertMarketTuple([
+    params.loanToken,
+    params.collateralToken,
+    params.oracle,
+    params.irm,
+    params.lltv,
+  ], args.market)
+  if (
+    !sameAddress(onBehalf, args.owner) ||
+    callbackData === '0x' ||
+    !sameHex(args.call.callbackHash, keccak256(callbackData))
+  ) {
+    fail(
+      'UNSAFE_WIRING',
+      `${label} changed its collateral, owner, or callback hash.`,
+    )
+  }
+  let callbackCalls:
+    ReturnType<typeof decodeAbiParameters<typeof bundler3CallArrayParameters>>[0]
+  try {
+    callbackCalls = decodeAbiParameters(
+      bundler3CallArrayParameters,
+      callbackData,
+    )[0]
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${label} payload is malformed.`, error)
+  }
+  if (
+    callbackCalls.length !== 4 ||
+    !sameHex(
+      encodeAbiParameters(bundler3CallArrayParameters, [callbackCalls]),
+      callbackData,
+    )
+  ) {
+    fail('UNSAFE_WIRING', `${label} payload changed shape.`)
+  }
+  const calls = callbackCalls.map((call) => ({
+    to: getAddress(call.to),
+    data: call.data,
+    value: call.value,
+    skipRevert: call.skipRevert,
+    callbackHash: call.callbackHash,
+  }))
+  assertPlainBundlerCall(
+    calls[0],
+    args.market.contracts.generalAdapter1,
+    `${label} borrow`,
+  )
+  let decodedBorrow:
+    ReturnType<typeof decodeFunctionData<typeof generalAdapter1Abi>>
+  try {
+    decodedBorrow = decodeFunctionData({
+      abi: generalAdapter1Abi,
+      data: calls[0].data,
+    })
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${label} borrow calldata is malformed.`, error)
+  }
+  if (decodedBorrow.functionName !== 'morphoBorrow') {
+    fail('UNSAFE_WIRING', `${label} no longer borrows from Morpho.`)
+  }
+  const [
+    borrowParams,
+    borrowAssets,
+    borrowShares,
+    minimumSharePrice,
+    borrowReceiver,
+  ] = decodedBorrow.args
+  assertMarketTuple([
+    borrowParams.loanToken,
+    borrowParams.collateralToken,
+    borrowParams.oracle,
+    borrowParams.irm,
+    borrowParams.lltv,
+  ], args.market)
+  if (
+    borrowAssets <= 0n ||
+    borrowShares !== 0n ||
+    minimumSharePrice <= 0n ||
+    !sameAddress(borrowReceiver, args.market.contracts.bundler3)
+  ) {
+    fail('UNSAFE_WIRING', `${label} changed its bounded Morpho borrow.`)
+  }
+  const mint = decodePersistedMintRoute({
+    call: calls[2],
+    market: args.market,
+    label: `${label} route`,
+  })
+  if (
+    mint.amountIn !== borrowAssets ||
+    collateral !== args.initialMinimumCollateral + mint.minimumYtOut
+  ) {
+    fail(
+      'UNSAFE_WIRING',
+      `${label} mint input or supplied collateral no longer matches its debt.`,
+    )
+  }
+  decodePersistedErc20Approval({
+    call: calls[1],
+    token: args.market.morphoMarketParams.loanToken,
+    spender: args.market.contracts.pendleRouter,
+    amount: borrowAssets,
+    label: `${label} approval`,
+  })
+  decodePersistedErc20Approval({
+    call: calls[3],
+    token: args.market.morphoMarketParams.loanToken,
+    spender: args.market.contracts.pendleRouter,
+    amount: 0n,
+    label: `${label} approval cleanup`,
+  })
+  return mint.minimumYtOut
+}
+
+/**
+ * Re-derives Mint Mode delivery bounds from the mined transaction itself.
+ * Browser storage is treated only as a cache and must match this evidence.
+ */
+export async function readPersistedLoopingMintDeliveryFromTransaction(args: {
+  client: PublicClient
+  market: Readonly<LoopingExecutionMarket>
+  owner: Address
+  transactionHash: Hex
+}): Promise<PersistedLoopingMintDeliveryEvidence> {
+  const market = canonicalExecutionMarket(args.market)
+  const owner = getAddress(args.owner)
+  const [chainId, transaction] = await Promise.all([
+    args.client.getChainId(),
+    args.client.getTransaction({ hash: args.transactionHash }),
+  ])
+  if (
+    chainId !== market.chainId ||
+    !sameHex(transaction.hash, args.transactionHash) ||
+    !sameAddress(transaction.from, owner) ||
+    transaction.to === null ||
+    !sameAddress(transaction.to, market.contracts.bundler3) ||
+    transaction.value !== 0n
+  ) {
+    fail(
+      'UNSAFE_WIRING',
+      'Persisted Mint Mode transaction identity does not match this wallet and market.',
+    )
+  }
+  const pair = await decodeExposedLoopingAuthorizationPair({
+    market,
+    owner,
+    bundleData: transaction.input,
+  })
+  const calls = decodeBundleCalls(transaction.input)
+  if (
+    pair.operation !== 'entry' ||
+    (calls.length !== 11 && calls.length !== 7)
+  ) {
+    fail('UNSAFE_WIRING', 'Persisted transaction is not a Mint Mode entry or increase.')
+  }
+
+  let minimumYtOut: bigint
+  let operation: PersistedLoopingMintDeliveryEvidence['operation']
+  if (calls.length === 11) {
+    operation = 'entry'
+    const initialMint = decodePersistedMintRoute({
+      call: calls[3],
+      market,
+      label: 'Persisted Mint Mode equity route',
+    })
+    assertPlainBundlerCall(
+      calls[1],
+      market.contracts.generalAdapter1,
+      'Persisted Mint Mode equity transfer',
+    )
+    let decodedTransfer:
+      ReturnType<typeof decodeFunctionData<typeof generalAdapter1Abi>>
+    try {
+      decodedTransfer = decodeFunctionData({
+        abi: generalAdapter1Abi,
+        data: calls[1].data,
+      })
+    } catch (error) {
+      fail(
+        'UNSAFE_WIRING',
+        'Persisted Mint Mode equity transfer calldata is malformed.',
+        error,
+      )
+    }
+    if (
+      decodedTransfer.functionName !== 'erc20TransferFrom' ||
+      !sameAddress(
+        decodedTransfer.args[0],
+        market.morphoMarketParams.loanToken,
+      ) ||
+      !sameAddress(decodedTransfer.args[1], market.contracts.bundler3) ||
+      decodedTransfer.args[2] !== initialMint.amountIn
+    ) {
+      fail('UNSAFE_WIRING', 'Persisted Mint Mode equity transfer changed.')
+    }
+    decodePersistedErc20Approval({
+      call: calls[2],
+      token: market.morphoMarketParams.loanToken,
+      spender: market.contracts.pendleRouter,
+      amount: initialMint.amountIn,
+      label: 'Persisted Mint Mode equity approval',
+    })
+    decodePersistedErc20Approval({
+      call: calls[4],
+      token: market.morphoMarketParams.loanToken,
+      spender: market.contracts.pendleRouter,
+      amount: 0n,
+      label: 'Persisted Mint Mode equity approval cleanup',
+    })
+    const borrowedMinimumYtOut = decodePersistedMintSupplyCallback({
+      call: calls[5],
+      market,
+      owner,
+      initialMinimumCollateral: initialMint.minimumYtOut,
+    })
+    minimumYtOut = initialMint.minimumYtOut + borrowedMinimumYtOut
+  } else {
+    operation = 'increase'
+    minimumYtOut = decodePersistedMintSupplyCallback({
+      call: calls[1],
+      market,
+      owner,
+      initialMinimumCollateral: 0n,
+    })
+  }
+  const sweepIndex = calls.length === 11 ? 6 : 2
+  const collateralSweepIndex = sweepIndex + 1
+  const loanSweepIndex = sweepIndex + 2
+  decodePersistedAdapterTransfer({
+    call: calls[sweepIndex],
+    market,
+    token: market.yieldToken,
+    receiver: owner,
+    amount: maxUint256,
+    label: 'Persisted Mint Mode YT sweep',
+  })
+  decodePersistedAdapterTransfer({
+    call: calls[collateralSweepIndex],
+    market,
+    token: market.morphoMarketParams.collateralToken,
+    receiver: owner,
+    amount: maxUint256,
+    label: 'Persisted Mint Mode PT sweep',
+  })
+  decodePersistedAdapterTransfer({
+    call: calls[loanSweepIndex],
+    market,
+    token: market.morphoMarketParams.loanToken,
+    receiver: owner,
+    amount: maxUint256,
+    label: 'Persisted Mint Mode loan-token sweep',
+  })
+  decodePersistedErc20Approval({
+    call: calls[loanSweepIndex + 1],
+    token: market.morphoMarketParams.collateralToken,
+    spender: market.contracts.pendleRouter,
+    amount: 0n,
+    label: 'Persisted Mint Mode PT approval cleanup',
+  })
+  return Object.freeze({
+    transactionHash: args.transactionHash,
+    operation,
+    yieldToken: market.yieldToken,
+    minimumYtOut,
   })
 }
 
@@ -5804,6 +6886,7 @@ function assertSimulationEvidence(args: {
   if (
     !verifiedSimulationEvidence.has(args.evidence) ||
     args.evidence.operation !== args.intent.operation ||
+    args.evidence.acquisitionMode !== args.intent.acquisitionMode ||
     !sameAddress(args.evidence.owner, args.intent.owner) ||
     !sameHex(args.evidence.marketId, args.intent.marketId) ||
     !sameHex(
@@ -5848,6 +6931,7 @@ export async function revalidateSignedLoopingEntry(args: {
       owner: args.preview.owner,
       market,
       blockNumber: args.simulation.blockNumber,
+      includeMint: args.preview.acquisitionMode === 'mint',
     }),
     readAccruedLoopingSnapshot({
       client: args.client,
@@ -5886,6 +6970,7 @@ export async function revalidateSignedLoopingEntry(args: {
   assertEntryBorrowFitsSignedBounds({ preview: args.preview, fresh: freshBounds })
   const entryHealth = deriveEntryHealth({
     market,
+    acquisitionMode: args.preview.acquisitionMode,
     collateral: args.preview.quotes.minimumCollateral,
     equityAssets: args.preview.equityAssets,
     borrowAssets: args.preview.borrowAssets,
@@ -6039,6 +7124,7 @@ export async function revalidateSignedLoopingIncrease(args: {
       owner: args.preview.owner,
       market,
       blockNumber: args.simulation.blockNumber,
+      includeMint: args.preview.acquisitionMode === 'mint',
     }),
     readAccruedLoopingSnapshot({
       client: args.client,
@@ -6080,6 +7166,7 @@ export async function revalidateSignedLoopingIncrease(args: {
     args.preview.quote.minPtOut * accruedSnapshot.accrued.oraclePrice /
       ORACLE_PRICE_SCALE
   if (
+    args.preview.acquisitionMode === 'market' &&
     addedCollateralValue * BPS <
       args.preview.borrowAssets * BigInt(market.launchPolicy.minEntryValueBps)
   ) {
@@ -6275,6 +7362,7 @@ async function readLoopingReceiptSnapshot(args: {
   market: Readonly<LoopingExecutionMarket>
   blockNumber: bigint
   includeOracle: boolean
+  includeMint: boolean
 }): Promise<{
   nonce: bigint
   adapterAuthorized: boolean
@@ -6288,6 +7376,7 @@ async function readLoopingReceiptSnapshot(args: {
   const owner = getAddress(args.owner)
   const [
     chainId,
+    yieldTokenDecimals,
     nonce,
     adapterAuthorized,
     adapterAllowance,
@@ -6296,6 +7385,14 @@ async function readLoopingReceiptSnapshot(args: {
     accruedSnapshot,
   ] = await Promise.all([
     args.client.getChainId(),
+    args.includeMint
+      ? args.client.readContract({
+          address: market.yieldToken,
+          abi: loopingErc20Abi,
+          functionName: 'decimals',
+          blockNumber: args.blockNumber,
+        })
+      : Promise.resolve(market.yieldTokenDecimals),
     args.client.readContract({
       address: market.contracts.morpho,
       abi: morphoBlueAbi,
@@ -6342,10 +7439,20 @@ async function readLoopingReceiptSnapshot(args: {
   if (chainId !== market.chainId) {
     fail('UNSUPPORTED_CHAIN', 'Cannot verify a looping receipt on the wrong chain.')
   }
+  if (
+    args.includeMint &&
+    (
+      yieldTokenDecimals !== market.yieldTokenDecimals ||
+      yieldTokenDecimals !== market.collateralTokenDecimals
+    )
+  ) {
+    fail('UNSAFE_WIRING', 'Looping YT decimals changed at the receipt block.')
+  }
   await assertPinnedRuntimeCodeHashes({
     client: args.client,
     market,
     blockNumber: args.blockNumber,
+    includeMint: args.includeMint,
   })
   return {
     nonce,
@@ -6358,13 +7465,46 @@ async function readLoopingReceiptSnapshot(args: {
   }
 }
 
+function sumMintYieldTokenDelivery(args: {
+  logs: readonly Log[]
+  yieldToken: Address
+  adapter: Address
+  owner: Address
+}): bigint {
+  let delivered = 0n
+  for (const log of args.logs) {
+    if (!sameAddress(log.address, args.yieldToken)) continue
+    try {
+      const decoded = decodeEventLog({
+        abi: erc20TransferEventAbi,
+        data: log.data,
+        topics: log.topics,
+      })
+      if (
+        decoded.eventName === 'Transfer' &&
+        sameAddress(decoded.args.from, args.adapter) &&
+        sameAddress(decoded.args.to, args.owner)
+      ) {
+        delivered += decoded.args.value
+      }
+    } catch {
+      // The YT contract can emit non-Transfer events in the same receipt.
+    }
+  }
+  return delivered
+}
+
 async function assertSuccessfulLoopingTransaction(args: {
   client: PublicClient
   transactionHash: Hex
   owner: Address
   to: Address
   data: Hex
-}): Promise<{ blockNumber: bigint; blockHash: Hex }> {
+}): Promise<{
+  blockNumber: bigint
+  blockHash: Hex
+  logs: readonly Log[]
+}> {
   const [receipt, transaction] = await Promise.all([
     args.client.getTransactionReceipt({ hash: args.transactionHash }),
     args.client.getTransaction({ hash: args.transactionHash }),
@@ -6392,7 +7532,11 @@ async function assertSuccessfulLoopingTransaction(args: {
   ) {
     fail('STATE_CONFLICT', 'Receipt or transaction identity does not match the looping bundle.')
   }
-  return { blockNumber: receipt.blockNumber, blockHash: receipt.blockHash }
+  return {
+    blockNumber: receipt.blockNumber,
+    blockHash: receipt.blockHash,
+    logs: receipt.logs,
+  }
 }
 
 export async function verifyLoopingEntryReceiptState(args: {
@@ -6428,7 +7572,19 @@ export async function verifyLoopingEntryReceiptState(args: {
     market,
     blockNumber: mined.blockNumber,
     includeOracle: true,
+    includeMint: args.preview.acquisitionMode === 'mint',
   })
+  const deliveredYtOut = args.preview.acquisitionMode === 'mint'
+    ? sumMintYieldTokenDelivery({
+        logs: mined.logs,
+        yieldToken: args.preview.yieldToken,
+        adapter: market.contracts.generalAdapter1,
+        owner: args.preview.owner,
+      })
+    : 0n
+  if (deliveredYtOut < args.bundle.minimumYtOut) {
+    fail('STATE_CONFLICT', 'Entry receipt returned less YT than guaranteed.')
+  }
   if (
     snapshot.nonce !== args.bundle.startingNonce + 2n ||
     snapshot.adapterAuthorized ||
@@ -6458,12 +7614,18 @@ export async function verifyLoopingEntryReceiptState(args: {
   })
   const belowModelBuffer = entryHealth.liquidationBufferBps <
     BigInt(market.launchPolicy.modelMinLiquidationBufferBps)
-  const belowEntryValueFloor = entryHealth.collateralLoanValue * BPS <
-    (args.preview.equityAssets + debtAssets) *
-      BigInt(market.launchPolicy.minEntryValueBps)
+  const belowEntryValueFloor = args.preview.acquisitionMode === 'market'
+    ? entryHealth.collateralLoanValue * BPS <
+      (args.preview.equityAssets + debtAssets) *
+        BigInt(market.launchPolicy.minEntryValueBps)
+    : undefined
   return Object.freeze({
     kind: 'entry-receipt-verified',
     operation: 'entry',
+    acquisitionMode: args.preview.acquisitionMode,
+    yieldToken: args.preview.yieldToken,
+    minimumYtOut: args.preview.minimumYtOut,
+    deliveredYtOut,
     owner: args.preview.owner,
     marketId: market.marketId,
     transactionHash: args.transactionHash,
@@ -6515,6 +7677,7 @@ export async function verifyLoopingExitReceiptState(args: {
     market,
     blockNumber: mined.blockNumber,
     includeOracle: false,
+    includeMint: false,
   })
   if (
     snapshot.nonce !== args.bundle.startingNonce + 2n ||
@@ -6582,7 +7745,19 @@ export async function verifyLoopingIncreaseReceiptState(args: {
     market,
     blockNumber: mined.blockNumber,
     includeOracle: true,
+    includeMint: args.preview.acquisitionMode === 'mint',
   })
+  const deliveredYtOut = args.preview.acquisitionMode === 'mint'
+    ? sumMintYieldTokenDelivery({
+        logs: mined.logs,
+        yieldToken: args.preview.yieldToken,
+        adapter: market.contracts.generalAdapter1,
+        owner: args.preview.owner,
+      })
+    : 0n
+  if (deliveredYtOut < args.bundle.minimumYtOut) {
+    fail('STATE_CONFLICT', 'Increase receipt returned less YT than guaranteed.')
+  }
   if (
     snapshot.nonce !== args.bundle.startingNonce + 2n ||
     snapshot.adapterAuthorized ||
@@ -6618,6 +7793,10 @@ export async function verifyLoopingIncreaseReceiptState(args: {
   return Object.freeze({
     kind: 'increase-receipt-verified',
     operation: 'entry',
+    acquisitionMode: args.preview.acquisitionMode,
+    yieldToken: args.preview.yieldToken,
+    minimumYtOut: args.preview.minimumYtOut,
+    deliveredYtOut,
     owner: args.preview.owner,
     marketId: market.marketId,
     transactionHash: args.transactionHash,
@@ -6668,6 +7847,7 @@ export async function verifyLoopingDecreaseReceiptState(args: {
     market,
     blockNumber: mined.blockNumber,
     includeOracle: true,
+    includeMint: false,
   })
   if (
     snapshot.nonce !== args.bundle.startingNonce + 2n ||
