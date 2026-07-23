@@ -39,7 +39,7 @@ flowchart LR
   W -.->|signed limit-order payload| UI
 
   UI -->|factory inventory| SNAP[(Same-origin market snapshot)]
-  UI -->|reviewed entry allowlist| POLICY[(Same-origin looping policy)]
+  UI -->|reviewed entry allowlists| POLICY[(Same-origin looping policies)]
   UI -->|market data and routes| PENDLE[(Pendle APIs)]
   UI -->|wallet address for Official-pool<br/>market discovery| POSITIONS[(Pendle position API)]
   UI -->|PT collateral markets| MORPHO[(Morpho GraphQL API)]
@@ -121,7 +121,9 @@ Catalog freshness and live market freshness are separate. A stale card can still
 
 [PT looping](/guides/looping) joins the factory-indexed Pendle PT inventory to Morpho markets by exact chain and collateral address. The directory and scenario model remain wallet-less, but directory inclusion is not execution approval.
 
-An executable action must match OpenPendle's reviewed market registry, including the Pendle market, PT, Morpho tuple, SY route tokens, and deployed contract policy. New entry and leverage increases additionally require the entry build flag and a fresh same-origin runtime policy covering the exact market. The connected wallet's selected-chain RPC supplies pinned safety reads and unsigned simulation; the wallet signs authorizations and broadcasts the final transaction.
+An executable action must match OpenPendle's reviewed market registry, including the Pendle market, PT, Morpho tuple, SY route tokens, and deployed contract policy. Every new entry or leverage increase additionally requires the base entry build flag and a fresh same-origin runtime policy covering the exact market. Mint Mode also requires its independent build flag and the matching entry or increase capability in a separate same-origin Mint policy. A Mint-policy failure pauses Mint without disabling Market Mode, reductions, exits, or recovery. Production currently leaves Mint execution disabled.
+
+The connected wallet's selected-chain RPC supplies pinned safety reads and unsigned simulation; the wallet signs authorizations and broadcasts the final transaction.
 
 Leverage decreases and full exit use the separately gated exit path. Recovery is not controlled by the entry policy. Reviewed identities remain in the position-management registry after maturity or a liquidity decline, so Positions can still prepare the post-expiry redemption and full debt repayment even when new entry is unavailable.
 
@@ -191,7 +193,8 @@ This is the canonical request disclosure for the stock build:
 | **Configured blockchain RPCs** | Browsing, ordinary quoting, provenance, simulation, receipt polling | Addresses, calldata, and chain reads required by the action |
 | **Wallet-configured provider/RPC** | Looping safety reads and unsigned simulation; signing and sending on-chain transactions | Looping read/simulation calldata, the signed transaction, and normal wallet-provider metadata |
 | **Same-origin catalog** | Explore, PT/YT resolution, Looping inventory | Static factory-market snapshot and coverage metadata |
-| **Same-origin looping policy** | Before a new loop or leverage increase reaches sensitive wallet steps | Short-lived allowlist for exact reviewed entry markets; fetched without cache |
+| **Same-origin looping entry policy** | Before any new loop or leverage increase reaches sensitive wallet steps | Short-lived base allowlist for exact reviewed entry markets; fetched without cache |
+| **Same-origin looping Mint policy** | Before a Mint entry or Mint leverage increase reaches sensitive wallet steps | Independent short-lived Mint entry/increase capabilities and exact market allowlists; fetched without cache |
 | **Pendle market APIs** | Explore enrichment, bounded PT/YT lookup, and fresh Looping entry/exit routes | Market/token identifiers, amounts, reviewed adapter receiver, slippage, and optional metadata; no wallet signature |
 | **Pendle position API** | A connected user opens Positions | Wallet address used to discover relevant Official-pool market IDs; balances are then read by RPC |
 | **Pendle yield-data APIs** | Yield alerts | Active catalog and hourly APY/liquidity histories; no wallet required |

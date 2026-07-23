@@ -20,7 +20,7 @@ OpenPendle calls a factory-created market absent from Pendle's current catalog a
 
 - **Explore markets.** Search recognized factory deployments across six networks and distinguish Pendle-listed results from Community results.
 - **Open by address.** Paste a market, PT, or YT address. Markets open directly; PT and YT open Token actions and may resolve associated markets.
-- **Model and manage PT loops.** Match Pendle PT collateral with Morpho markets, compare leverage and liquidation risk, and execute supported actions for exact reviewed markets when the release gates permit them.
+- **Model and manage PT loops.** Match Pendle PT collateral with Morpho markets, then buy PT in Market Mode or mint PT+YT in Mint Mode. Mint supplies only PT as collateral and keeps YT in the wallet.
 - **Track fixed-yield changes.** Yield alerts surfaces qualified 24-hour changes in PT implied APY without requiring a wallet.
 - **Trade PT and YT.** Use Pendle's AMM for immediate swaps.
 - **Place supported PT limit orders.** Sign PT ↔ SY orders for a target APY when Pendle's live support service approves the market and direction.
@@ -34,13 +34,13 @@ OpenPendle calls a factory-created market absent from Pendle's current catalog a
 | --- | --- |
 | **Explore** | Static factory-event inventory plus Pendle catalog enrichment; opening a result performs live chain reads. |
 | **Yield alerts** | Pendle-listed market histories filtered in the browser; read-only and not a notification service. |
-| **Looping** | Broad comparison directory; entry and leverage increases require an exact reviewed market, enabled build flag, fresh same-origin runtime policy, and live preflight. Decreases, full exit, and recovery use separate controls. |
+| **Looping** | Broad comparison directory with Market and Mint acquisition modes. Risk increases require an exact reviewed market, base entry gates, and live preflight; Mint also has an independent build flag and runtime policy. Decreases, full exit, and recovery use separate controls. |
 | **Immediate actions** | Quotes and calldata from Pendle's deployed contracts; simulated before the wallet request. |
 | **PT limit orders** | Signed and validated locally, then published to Pendle's API when live support allows it. |
 | **Positions and rewards** | Discovers Saved and Pendle Official pools, re-reads balances on-chain, and keeps supported loop management separate from standard PT/YT/LP holdings. |
 | **Create** | Guided preparation for Pendle's deployment contracts; OpenPendle deploys no intermediary contract. |
 
-Directory inclusion is not execution approval. Looping requests a wallet action only after the selected market matches the reviewed registry and all current release, policy, route, contract-state, liquidity, leverage, and simulation checks pass.
+Directory inclusion is not execution approval. Looping requests a wallet action only after the selected market matches the reviewed registry and all current release, policy, route, contract-state, liquidity, risk, and simulation checks pass. Mint Mode must additionally pass its separate release plane.
 
 ## Architecture and safety boundaries
 

@@ -54,6 +54,8 @@ export interface CatalogMarket {
   tvl: number | null
   /** Decimal APY: 0.05 means 5%. */
   impliedApy: number | null
+  /** Pendle-reported APY for the underlying/SY exposure. */
+  underlyingApy: number | null
   /** Unix seconds. */
   createdAt: number | null
   /** On-chain time lifecycle; independent from Pendle frontend listing state. */
@@ -260,6 +262,11 @@ function finiteNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function underlyingApyNumber(value: unknown): number | null {
+  const parsed = finiteNumber(value)
+  return parsed !== null && parsed >= -1 && parsed <= 100 ? parsed : null
+}
+
 function strictNonNegativeInteger(value: unknown): number | null {
   return typeof value === 'number' &&
     Number.isSafeInteger(value) &&
@@ -433,6 +440,10 @@ export function normalizeCatalogMarket(
     icon: firstValid([row.icon, row.iconUrl], (candidate) => displayText(candidate, 2_048)),
     tvl: firstValid([details?.totalTvl, row.totalTvl, row.tvl], nonNegativeNumber),
     impliedApy: firstValid([details?.impliedApy, row.impliedApy], finiteNumber),
+    underlyingApy: firstValid(
+      [details?.underlyingApy, row.underlyingApy],
+      underlyingApyNumber,
+    ),
     createdAt: firstValid([row.timestamp, row.createdAt], unixSeconds),
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus,
@@ -1054,6 +1065,7 @@ function mergePendleRows(
     icon: preferred.icon ?? fallback.icon,
     tvl: preferred.tvl ?? fallback.tvl,
     impliedApy: preferred.impliedApy ?? fallback.impliedApy,
+    underlyingApy: preferred.underlyingApy ?? fallback.underlyingApy,
     createdAt: preferred.createdAt ?? fallback.createdAt,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus:
@@ -1081,6 +1093,7 @@ function factoryCatalogMarket(
     icon: null,
     tvl: null,
     impliedApy: null,
+    underlyingApy: null,
     createdAt: market.createdAt ?? null,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus: null,
@@ -1105,6 +1118,7 @@ function enrichFactoryMarket(
     icon: pendle.icon ?? factory.icon,
     tvl: pendle.tvl ?? factory.tvl,
     impliedApy: pendle.impliedApy ?? factory.impliedApy,
+    underlyingApy: pendle.underlyingApy ?? factory.underlyingApy,
     createdAt: factory.createdAt ?? pendle.createdAt,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus: pendle.pendleStatus,

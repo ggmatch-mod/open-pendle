@@ -44,7 +44,7 @@ Community markets are permissionless, and OpenPendle has not reviewed or endorse
 
 - [**Quickstart**](/introduction/quickstart) — choose a goal and follow the shortest safe path.
 - [**Explore markets**](/guides/exploring-markets) — search listed and community markets.
-- [**Model or execute a PT loop**](/guides/looping) — compare Pendle PT yield with Morpho borrowing; exact reviewed markets can execute when the release gates permit it.
+- [**Model or execute a PT loop**](/guides/looping) — on reviewed markets, buy PT in Market Mode or mint PT+YT and keep YT in Mint Mode.
 - [**Yield alerts**](/guides/yield-alerts) — inspect qualified 24-hour PT fixed-yield moves.
 - [**PT limit orders**](/guides/limit-orders) — place orders where Pendle's live service reports support.
 - [**Positions & rewards**](/guides/positions) — inspect balances and claim supported rewards.

@@ -178,6 +178,24 @@ const loopingPageCandidateResolver = region(
   'function formatAge(',
   'Looping page exact candidate resolver',
 )
+const selectedMarketStats = region(
+  loopingPage,
+  '<dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">',
+  '</dl>',
+  'selected market stats',
+)
+const loopingEstimateCards = region(
+  loopingPage,
+  'function LoopingEstimateCardsWithPreview({',
+  'function SummaryStat(',
+  'shared looping estimate cards',
+)
+const loopingExecutionProvider = region(
+  loopingPage,
+  '<LoopingExecutionProvider',
+  '</LoopingExecutionProvider>',
+  'looping execution provider',
+)
 
 console.log('# exact execution candidate identity')
 check(
@@ -241,6 +259,60 @@ check(
   'Mint YT amounts use the dedicated YT decimal pin',
   count(panel, /market\.yieldTokenDecimals/g) === 4,
   'Entry and increase previews must format minimum and expected YT with the reviewed YT decimals.',
+)
+check(
+  'PT APY and raw spread remain visible market context in both modes',
+  selectedMarketStats.includes('>PT APY</dt>') &&
+    selectedMarketStats.includes('selectedCandidate.pendle.impliedApy') &&
+    selectedMarketStats.includes('>Raw spread</dt>') &&
+    selectedMarketStats.includes('selectedSpread') &&
+    !selectedMarketStats.includes('acquisitionMode') &&
+    !selectedMarketStats.includes('Mint output') &&
+    !selectedMarketStats.includes('YT destination'),
+  'Mint Mode must not replace PT APY or raw spread with route-description cards.',
+)
+check(
+  'Market and Mint modes share the same five economics fields',
+  count(loopingEstimateCards, /label="Estimated loop APY"/g) === 1 &&
+    count(loopingEstimateCards, /label="Estimated debt"/g) === 1 &&
+    count(loopingEstimateCards, /label="PT collateral"/g) === 1 &&
+    count(loopingEstimateCards, /label="Current LTV"/g) === 1 &&
+    count(loopingEstimateCards, /label="Drop to liquidation"/g) === 1 &&
+    !loopingEstimateCards.includes('label="YT to wallet"') &&
+    !loopingEstimateCards.includes('value="Not shown"') &&
+    !loopingEstimateCards.includes('value="Set by live quote"'),
+  'Acquisition mode may change data sources, but must not remove or replace the core economics cards.',
+)
+check(
+  'Mint economics use underlying yield and fresh binding quote health',
+  /calculateMintLoopingReturnEstimate\(\{[\s\S]*?capitalMultiple: calculator\.input\.leverage[\s\S]*?underlyingApy: candidate\.pendle\.underlyingApy/.test(loopingEstimateCards) &&
+    /entryPreview\?\.quotes\.minimumCollateral/.test(loopingEstimateCards) &&
+    /entryPreview\?\.health\.collateralLoanValue/.test(loopingEstimateCards) &&
+    /entryPreview\?\.health\.liquidationBufferBps/.test(loopingEstimateCards) &&
+    /const currentPreview = quoteExpired \? undefined : matchingPreview/.test(loopingEstimateCards) &&
+    /Math\.max\(nowMs, Date\.now\(\)\) >= matchingPreview\.validUntilMs/.test(loopingEstimateCards) &&
+    !/underlyingApy: candidate\.pendle\.impliedApy/.test(loopingEstimateCards),
+  'Mint return must use paired PT+YT underlying yield, while collateral and liquidation distance use guaranteed PT only.',
+)
+check(
+  'shared economics cards are mounted inside the preview provider',
+  loopingExecutionProvider.includes('<LoopingEstimateCards') &&
+    loopingExecutionProvider.includes('<LoopingExecutionPanel'),
+  'The cards must consume the same live preview state that drives the execution details.',
+)
+check(
+  'expired increase quotes never fall back to new-entry economics',
+  /const collateralValue = quotedCollateral !== undefined[\s\S]*?: previewIsIncrease[\s\S]*?: acquisitionMode === 'market'/.test(loopingEstimateCards) &&
+    /const dropToLiquidation = quotedLiquidationBufferBps !== undefined[\s\S]*?: previewIsIncrease[\s\S]*?: acquisitionMode === 'market'/.test(loopingEstimateCards) &&
+    /const currentLtv = quotedLtv !== undefined[\s\S]*?: !previewIsIncrease && acquisitionMode === 'market'/.test(loopingEstimateCards) &&
+    count(loopingEstimateCards, /'Quote expired · refresh'/g) >= 4,
+  'An expired position-increase quote must clear debt, PT collateral, LTV, and liquidation distance together.',
+)
+check(
+  'YT output remains an additive Mint execution detail',
+  /label="Minimum YT to wallet"[\s\S]*?entryPreview\.minimumYtOut[\s\S]*?entryPreview\.expectedYtOut[\s\S]*?entryPreview\.yieldToken/.test(panel) &&
+    /label="Minimum added YT to wallet"[\s\S]*?increasePreview\.minimumYtOut[\s\S]*?increasePreview\.expectedYtOut[\s\S]*?increasePreview\.yieldToken/.test(panel),
+  'YT delivery must remain visible below the shared economics cards instead of replacing one.',
 )
 
 console.log('# beta write gates')

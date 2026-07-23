@@ -278,9 +278,11 @@ const ARBITRUM_KYBER_EXECUTOR_ALLOWLIST = Object.freeze([
   }),
 ] as const satisfies readonly Readonly<LoopingKyberExecutorPolicy>[])
 
-/** Tokens returned by the canary market SY's on-chain `getTokensIn()`. */
+/**
+ * Reviewed mint token for the canary market. The alternative PYUSD route is
+ * quarantined after live fork simulation showed repeatable under-delivery.
+ */
 const ARBITRUM_CANARY_MINT_SY_TOKEN_ALLOWLIST = Object.freeze([
-  '0x46850aD61C2B7d64d08c9C754F45254596696984',
   '0x0A1a1A107E45b7Ced86833863f482BC5f4ed82EF',
 ] as const satisfies readonly Address[])
 

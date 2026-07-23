@@ -144,6 +144,7 @@ function fallbackCandidate(
       name: market.display.name,
       expiry: Number(market.pendleMarketExpiry),
       impliedApy: null,
+      underlyingApy: null,
       pendleStatus: null,
     },
   }

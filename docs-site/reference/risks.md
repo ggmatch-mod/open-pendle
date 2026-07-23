@@ -57,9 +57,13 @@ Pendle's API can be unavailable, change behavior, or omit a market. OpenPendle f
 
 ### Looping risk
 
-The Looping directory and APY model cover more markets than OpenPendle will execute. A wallet action is available only for an exact reviewed market when the relevant build flag, same-origin runtime entry policy, live contract and route checks, and unsigned simulation all pass.
+The Looping directory and APY model cover more markets than OpenPendle will execute. A wallet action is available only for an exact reviewed market when the base build flag and runtime entry policy, live contract and route checks, and unsigned simulation all pass. Mint entry and Mint leverage increases also require an independent build flag and Mint runtime policy.
 
-The slider's red marker represents a simplified 10% liquidation buffer. Moving past it requires explicit acknowledgement, but that acknowledgement does not waive the hard live preflight floor of 1%. Neither threshold guarantees safety: borrow interest, PT value, oracle behavior, liquidity, fees, slippage, and chain state can change before or after execution.
+In Mint Mode, OpenPendle mints paired PT and YT but supplies only the guaranteed PT amount as Morpho collateral. YT is sent to the wallet and never contributes to LTV, liquidation distance, or borrow capacity. Selling or transferring that YT does not change Morpho health, but it changes the strategy's economics; reductions and full exit do not pull it back.
+
+The Mint return estimate uses Pendle-reported underlying APY and current borrow cost. It is a rate-only estimate that excludes route conversion costs, fees, slippage, and gas.
+
+In Market Mode, the slider's red marker represents a simplified 10% liquidation buffer. Moving past it requires explicit acknowledgement, but that acknowledgement does not waive the hard live preflight floor of 1%. Neither threshold guarantees safety: borrow interest, PT value, oracle behavior, liquidity, fees, slippage, and chain state can change before or after execution.
 
 New entry and leverage increases can be paused while leverage decreases, full exit, and bounded recovery remain separately controlled. Expiry also does not repay Morpho debt. OpenPendle retains reviewed matured positions in Positions and supports only the post-expiry full-exit path, but users still need a functioning wallet, RPC, contracts, route, and enough gas.
 

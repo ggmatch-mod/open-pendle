@@ -15,6 +15,10 @@ OpenPendle ships no OpenPendle-authored smart contracts. It calls Pendle's deplo
 
 The preferred chain is stored under `openpendle.chain` and defaults to Arbitrum. A market/token URL with `?chain=<id>` overrides it for that tab. Selecting a chain also asks an injected wallet to switch; rejecting the wallet request leaves read-only browsing on the selected OpenPendle chain.
 
+Executable PT looping has a narrower reviewed registry than general market browsing. Its reviewed identities are on Ethereum, Monad, and Arbitrum, with chain-specific Morpho, Bundler3, GeneralAdapter1, route, and runtime-code pins. Directory visibility on another supported network does not grant execution.
+
+Market Mode risk increases require the base looping build flag and same-origin entry policy. Mint Mode requires those controls plus an independent Mint build flag and Mint entry/increase policy. Production currently keeps Mint execution disabled.
+
 ::: warning A market is chain-specific
 An address is not enough to identify a market across networks. Confirm the chain ID before reading, sharing, approving, or signing.
 :::
@@ -122,7 +126,7 @@ Creation routes do not infer a target chain from an asset address. They use the 
 
 ## What else the browser contacts
 
-The RPC is not the only network dependency. The stock interface also contacts its same-origin catalog and looping entry policy, Pendle APIs, Morpho for Looping discovery, supported Blockscout endpoints, DefiLlama/CoinGecko, Merkl on Positions, and Cloudflare Web Analytics. Pendle's hosted APIs supply looping routes and the off-chain limit-order path.
+The RPC is not the only network dependency. The stock interface also contacts its same-origin catalog, base looping entry policy, separate looping Mint policy, Pendle APIs, Morpho for Looping discovery, supported Blockscout endpoints, DefiLlama/CoinGecko, Merkl on Positions, and Cloudflare Web Analytics. Pendle's hosted APIs supply looping routes and the off-chain limit-order path.
 
 The canonical trigger-and-data disclosure is under [Outbound requests](/reference/architecture#outbound-requests).
 

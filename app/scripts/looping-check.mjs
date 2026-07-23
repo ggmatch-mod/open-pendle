@@ -9,6 +9,7 @@ import {
   calculateLoopingLeverageCap,
   calculateLoopingScenario,
   calculateMintLoopingPresentation,
+  calculateMintLoopingReturnEstimate,
   fetchLoopingMarkets,
   joinMorphoMarketsToPendlePts,
   loopingCatalogFingerprint,
@@ -120,6 +121,7 @@ function pendleMarket(overrides = {}) {
     icon: null,
     tvl: 10_000_000,
     impliedApy: 0.1,
+    underlyingApy: 0.06,
     createdAt: NOW - 100_000,
     lifecycle: 'live',
     pendleStatus: 'active',
@@ -268,6 +270,7 @@ assert.equal(new Set(candidates.map((candidate) => candidate.pendle.market)).siz
 assert.equal(candidates.filter((candidate) => candidate.morpho.listed).length, 2)
 assert.equal(candidates.filter((candidate) => !candidate.morpho.listed).length, 2)
 assert.ok(candidates.every((candidate) => candidate.pendle.chainId === candidate.morpho.chainId))
+assert.ok(candidates.every((candidate) => candidate.pendle.underlyingApy === 0.06))
 assert.ok(
   candidates.every(
     (candidate) =>
@@ -485,6 +488,12 @@ assert.notEqual(
     pendleMarket({ impliedApy: 0.11 }),
   ])),
 )
+assert.notEqual(
+  loopingCatalogFingerprint(catalogFixture()),
+  loopingCatalogFingerprint(catalogFixture([
+    pendleMarket({ underlyingApy: 0.061 }),
+  ])),
+)
 
 console.log('Mode-aware sizing counts only binding PT and keeps Mint YT outside collateral')
 const marketEntrySizing = calculateLoopingEntrySizing({
@@ -599,6 +608,38 @@ const capacityWithoutShareOverhang = selectMaximumSafeMintBorrowQuote({
 })
 assert.ok(capacityWithoutShareOverhang)
 assert.equal(capacityWithoutShareOverhang.borrowAssets, 1_000n)
+
+console.log('Mint return counts paired PT+YT once and subtracts debt cost')
+assert.ok(Math.abs(calculateMintLoopingReturnEstimate({
+  capitalMultiple: 1.5,
+  debtMultiple: 0.5,
+  underlyingApy: 0.06,
+  borrowApy: 0.04,
+}) - 0.07) < 1e-12)
+assert.ok(calculateMintLoopingReturnEstimate({
+  capitalMultiple: 2,
+  debtMultiple: 1,
+  underlyingApy: 0.01,
+  borrowApy: 0.05,
+}) < 0)
+expectValidation(
+  () => calculateMintLoopingReturnEstimate({
+    capitalMultiple: 1.5,
+    debtMultiple: 1.6,
+    underlyingApy: 0.06,
+    borrowApy: 0.04,
+  }),
+  'mintReturn.debtMultiple',
+)
+expectValidation(
+  () => calculateMintLoopingReturnEstimate({
+    capitalMultiple: 1.5,
+    debtMultiple: 0.5,
+    underlyingApy: 100.01,
+    borrowApy: 0.04,
+  }),
+  'mintReturn.underlyingApy',
+)
 
 console.log('Mint presentation omits return APY until a verified SY source is supplied')
 const mintPresentationInput = {

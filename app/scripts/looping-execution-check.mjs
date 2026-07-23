@@ -98,6 +98,9 @@ const upgradePolicy = market.routeUpgradePolicy
 const mintUpgradePolicy = market.mintRouteUpgradePolicy.pendleRouter
 const USDC = market.morphoMarketParams.loanToken
 const PT = market.morphoMarketParams.collateralToken
+const QUARANTINED_MINT_SY = getAddress(
+  '0x46850aD61C2B7d64d08c9c754F45254596696984',
+)
 const MINT_SY = policy.mintSyTokenAllowlist[0]
 const KYBER_ROUTER = policy.externalRouterAllowlist[0]
 const KYBER_EXECUTOR = policy.kyber.executorAllowlist[0]
@@ -1556,7 +1559,12 @@ expectExecutionError(
   'ROUTE_NOT_ALLOWED',
 )
 
-console.log('The v3 POST is exact, accepts HTTP 201, and selects a later valid route')
+console.log('The v3 POST is exact, accepts HTTP 201, and skips a quarantined route')
+assert.ok(
+  !policy.mintSyTokenAllowlist.some(
+    (token) => token.toLowerCase() === QUARANTINED_MINT_SY.toLowerCase(),
+  ),
+)
 let capturedUrl
 let capturedInit
 const buyFetcher = async (url, init) => {
@@ -1567,7 +1575,13 @@ const buyFetcher = async (url, init) => {
       action: 'swap',
       inputs: [{ token: USDC, amount: '1000000' }],
       requiredApprovals: [{ token: USDC, amount: '1000000' }],
-      routes: [buyRoute(1_000_000n, { tx: { value: '1' } }), fixture],
+      routes: [
+        buyRoute(1_000_000n, {
+          input: { tokenMintSy: QUARANTINED_MINT_SY },
+          kyber: { dstToken: QUARANTINED_MINT_SY },
+        }),
+        fixture,
+      ],
     }),
     { status: 201, headers: { 'content-type': 'application/json' } },
   )

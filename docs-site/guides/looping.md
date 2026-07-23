@@ -1,42 +1,48 @@
 # PT looping
 
-The **Looping** page matches live Pendle PTs with Morpho markets that use the exact same token as collateral. It compares current rates and, for reviewed markets, can prepare loop transactions directly from the connected wallet.
+The **Looping** page matches live Pendle PTs with Morpho markets that use the exact same token as collateral. It compares current rates and offers two acquisition paths for reviewed markets:
+
+- **Market Mode** buys PT with the user's capital and borrowed capital, then supplies the acquired PT as Morpho collateral.
+- **Mint Mode** mints equal PT+YT from both capital sources, supplies only guaranteed PT as collateral, and sends YT to the user's wallet.
 
 ::: warning Reviewed markets only
-Seeing a market in the directory does not make it executable. Entry is available only when the exact Pendle market, PT, Morpho tuple, SY route tokens, and deployed contracts match OpenPendle's reviewed registry, the release build enables entry, and the fresh same-origin runtime policy covers that market. Any failed check pauses the action before a wallet request.
+Seeing a market in the directory does not make it executable. Entry is available only when the exact Pendle market, PT, Morpho tuple, SY route tokens, and deployed contracts match OpenPendle's reviewed registry, the release build enables entry, and the fresh same-origin runtime policy covers that market. Mint risk increases must also pass their independent Mint build flag and runtime policy. Any failed check pauses the action before a wallet request.
 :::
 
 ## Find and compare markets
 
-Each directory result is an exact same-chain match between a factory-indexed Pendle PT and a Morpho collateral token. Search by name or address, choose a network, require a positive PT-minus-borrow spread, set a minimum borrow-liquidity amount, and sort the results.
+Each directory result is an exact same-chain match between a factory-indexed Pendle PT and a Morpho collateral token. Search by name or address, choose a network, require a positive PT-minus-borrow spread, set a minimum borrow-liquidity amount, and sort the results. Looping coverage is limited to networks available through Morpho's API, and the reviewed execution registry can be narrower.
 
 **Borrow liquidity** is the USD value currently available to borrow from Morpho. It is not total supplied assets or Pendle pool TVL. Thin or unpriced markets can remain visible for research but cannot pass live risk-increasing execution checks.
 
 Select a market and enter the amount to model:
 
-- PT exposure and Morpho debt;
-- estimated loop APY from current PT and borrow rates;
-- current and stressed LTV; and
-- distance to liquidation.
+- PT collateral and Morpho debt;
+- estimated loop APY;
+- current LTV and distance to liquidation;
+- Market Mode stress assumptions; and
+- minimum YT sent to the wallet after a Mint quote.
 
 These are estimates, not quotes or promised returns. Rates, oracle value, liquidity, fees, slippage, and routes can change before a transaction is mined.
 
+Market Mode estimates return from current PT and borrow rates. Mint Mode uses Pendle's reported underlying APY for the paired PT+YT exposure, less borrowing cost. Its estimate excludes conversion costs, fees, slippage, and gas. Mint collateral, LTV, and liquidation distance remain unavailable until a fresh quote supplies guaranteed PT and current Morpho risk values.
+
 ## Open a loop
 
-For an enabled reviewed market, **Execute** prepares a fresh Pendle route, reads the exact Morpho state and contract wiring through the connected wallet's RPC, and runs an unsigned simulation before requesting approvals, Morpho authorization, and the final transaction.
+For an enabled reviewed market, **Execute** prepares fresh Pendle buy or mint routes and reads the exact Morpho state and contract wiring through the connected wallet's RPC. It handles the exact token allowance, runs an unsigned simulation, then requests Morpho authorization and the final transaction.
 
-OpenPendle builds one atomic Bundler3 transaction for the position-bearing step. If its callback, swap, borrow, or collateral supply fails, the transaction reverts rather than leaving a partial loop. The wallet owns the Morpho position; OpenPendle does not custody funds or deploy an intermediary contract.
+OpenPendle builds one atomic Bundler3 transaction for the position-bearing step. If its callback, conversion, borrow, collateral supply, or cleanup fails, the transaction reverts rather than leaving a partial loop. The wallet owns the Morpho position; OpenPendle does not custody funds or deploy an intermediary contract.
 
-The leverage slider reaches the market-specific boundary that leaves a simplified **1% liquidation buffer**. The red marker shows the safer **10% buffer**. Moving beyond the red marker requires an explicit high-liquidation-risk acknowledgement, and the fresh preflight still rejects any result below the 1% floor.
+In Market Mode, the leverage slider reaches the market-specific boundary that leaves a simplified **1% liquidation buffer**. The red marker shows the safer **10% buffer**. Mint Mode instead labels the slider as a **capital multiple** and rechecks guaranteed PT, LTV, and liquidation distance with the live quote. Every risk increase still fails below the hard live safety floor.
 
 ## Manage an existing loop
 
 Open **Profile → Positions**, choose **Loop positions**, and select the relevant network. A clean OpenPendle-supported loop can:
 
-- increase or decrease leverage; or
+- increase using Market Mode or Mint Mode, or decrease leverage; or
 - fully exit by repaying all Morpho debt and returning the remainder to the wallet.
 
-Increasing leverage uses the entry safety gates and runtime policy. Decreasing leverage and full exit use the separately gated exit path. The emergency entry policy can therefore pause new or risk-increasing actions without removing an existing position or its recovery controls.
+The acquisition mode belongs to each risk-increasing action; Morpho stores only PT collateral and debt. Increasing leverage uses the entry safety gates, with Mint requiring its additional release plane. Decreasing leverage and full exit use the separately gated exit path and never require or consume wallet YT. The entry policies can therefore pause new risk without removing an existing position or its recovery controls.
 
 ## Maturity and recovery
 
@@ -50,8 +56,9 @@ If a receipt or RPC response is ambiguous after signatures or a transaction, Ope
 
 - Verify the PT, underlying asset, SY, oracle, LLTV, maturity, and wallet network.
 - Check both Morpho borrow liquidity and the available Pendle entry or exit route.
-- Treat the 10% marker as a warning boundary, not a guarantee against liquidation.
-- Expect PT APY, borrow APY, collateral value, and gas to change independently.
+- In Mint Mode, treat YT as a separate wallet asset that can change the strategy's return but never supports the Morpho loan.
+- In Market Mode, treat the 10% marker as a warning boundary, not a guarantee against liquidation.
+- Expect PT APY, underlying APY, borrow APY, collateral value, and gas to change independently.
 - Stop if the runtime policy, contract-state validation, route validation, or simulation fails.
 
 ## See also
