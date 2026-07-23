@@ -192,8 +192,7 @@ export function resolveLoopingReleaseFlags(
       environment.CF_PAGES_BRANCH === 'main'
     return Object.freeze({
       entry: isMainDeployment,
-      // Mint Mode always requires a separate, deliberate production release.
-      mint: false,
+      mint: isMainDeployment,
       exit: isMainDeployment,
     })
   }

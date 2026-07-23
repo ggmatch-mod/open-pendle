@@ -88,7 +88,7 @@ import {
 } from '../src/lib/loopingExecution.ts'
 import * as loopingExecution from '../src/lib/loopingExecution.ts'
 import { deriveLoopingBorrowAssets } from '../src/lib/looping.ts'
-import { prepareWithPendleQuoteRateLimitRetry } from './looping-compiler-fork.mjs'
+import { prepareWithPendleQuoteRetry } from './looping-compiler-fork.mjs'
 import { LOOPING_KYBER_EXECUTOR_RUNTIME } from './fixtures/looping-kyber-executor-runtime.ts'
 
 const market = ARBITRUM_LOOPING_CANARY
@@ -4343,17 +4343,23 @@ assert.equal(
   'signed bundle simulation must not be exposed to the browser',
 )
 
-console.log('Compiler forks retry only complete Pendle preparations rate-limited with HTTP 429')
+console.log('Compiler forks retry complete Pendle preparations after HTTP 429 or 5xx')
 let retryAttempts = 0
 const retryWaits = []
-const retryResult = await prepareWithPendleQuoteRateLimitRetry(
+const retryResult = await prepareWithPendleQuoteRetry(
   'deterministic check',
   async () => {
     retryAttempts += 1
-    if (retryAttempts < 3) {
+    if (retryAttempts === 1) {
       throw new LoopingExecutionError(
         'INVALID_QUOTE',
         'Pendle quote returned HTTP 429.',
+      )
+    }
+    if (retryAttempts === 2) {
+      throw new LoopingExecutionError(
+        'ROUTE_NOT_ALLOWED',
+        'Pendle returned no strictly valid mint route: direct: Pendle quote returned HTTP 503. | aggregated: Pendle quote returned HTTP 500.',
       )
     }
     return { attempt: retryAttempts }
@@ -4369,14 +4375,22 @@ assert.equal(retryAttempts, 3)
 assert.deepEqual(retryWaits, [5, 15])
 
 for (const nonRetryableError of [
-  new LoopingExecutionError('INVALID_QUOTE', 'Pendle quote returned HTTP 500.'),
+  new LoopingExecutionError('INVALID_QUOTE', 'Pendle quote returned HTTP 400.'),
   new LoopingExecutionError('INVALID_QUOTE', 'Pendle route validation failed.'),
+  new LoopingExecutionError(
+    'ROUTE_NOT_ALLOWED',
+    'Pendle returned no strictly valid mint route: direct: route validation failed.',
+  ),
+  new LoopingExecutionError(
+    'ROUTE_NOT_ALLOWED',
+    'Pendle returned no strictly valid mint route: direct: Pendle quote returned HTTP 500. | aggregated: route validation failed.',
+  ),
   new TypeError('fetch failed'),
 ]) {
   let nonRetryableAttempts = 0
   const nonRetryableWaits = []
   await assert.rejects(
-    prepareWithPendleQuoteRateLimitRetry(
+    prepareWithPendleQuoteRetry(
       'deterministic rejection check',
       async () => {
         nonRetryableAttempts += 1
@@ -4396,12 +4410,12 @@ for (const nonRetryableError of [
 
 const exhaustedRateLimit = new LoopingExecutionError(
   'INVALID_QUOTE',
-  'Pendle quote returned HTTP 429: quota exhausted',
+  'Pendle quote returned HTTP 503: service unavailable',
 )
 let exhaustedAttempts = 0
 const exhaustedWaits = []
 await assert.rejects(
-  prepareWithPendleQuoteRateLimitRetry(
+  prepareWithPendleQuoteRetry(
     'deterministic exhaustion check',
     async () => {
       exhaustedAttempts += 1

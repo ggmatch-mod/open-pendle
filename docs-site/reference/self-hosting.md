@@ -155,7 +155,7 @@ Self-hosting does not automatically enable executable Looping. New entry and lev
 
 Mint entry and Mint leverage increases require all of those controls plus `VITE_LOOPING_MINT_BETA_ENABLED=true` and the matching capability in `app/public/looping-mint-execution-policy.v1.json`. Both policies are fetched without cache and fail closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market.
 
-OpenPendle's main Cloudflare deployment enables Market entry and exit with a time-bounded base policy, but currently forces Mint execution off and ships the Mint policy disabled. Cloudflare previews force all looping write flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve both JSON files with the headers in `public/_headers`.
+OpenPendle's main Cloudflare deployment enables Market entry and exit plus Mint entry with time-bounded policies; Mint increases remain disabled. Cloudflare previews force all looping write flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve both JSON files with the headers in `public/_headers`.
 
 For loopback Vite testing only, enable both the base and Mint entry build flags, then choose either `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<Morpho market id>`. The dev server then serves a one-hour Mint policy for the selected scope; the reviewed registry still blocks unreviewed markets. These two local-policy variables are mutually exclusive and production builds ignore them; the base entry policy must still be fresh and cover the market.
 

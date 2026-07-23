@@ -1,12 +1,12 @@
 # Looping Mint Mode: feasibility and integration plan
 
-**Status:** Full Mint Mode is implemented and fork-verified; production Mint
-entry and increase remain disabled, with no live Mint burner canary
+**Status:** Full Mint Mode is implemented and fork-verified. Production Mint
+entry is enabled for 19 live reviewed markets; Mint increases remain disabled.
 
 **Date:** 2026-07-23
 
-**Scope:** Alternative looping entry and increase flow; implementation,
-validation, and GitHub proposal only. Production activation remains separate.
+**Scope:** Alternative looping entry and increase flow, validation, and
+production entry activation.
 
 ## Executive verdict
 
@@ -428,8 +428,8 @@ only `schema`, `revision`, and `mint.entry` / `mint.increase`. Each capability
 has the exact keys `enabled`, `validUntil`, and `markets`. The policy is fetched
 same-origin with `cache: no-store`, has at most seven days of validity, and
 fails closed when missing, stale, malformed, redirected, cross-origin, or
-mismatched. The canonical Cloudflare main build forces the Mint flag off, and
-the committed Mint policy currently disables both capabilities.
+mismatched. The canonical Cloudflare main build enables the Mint flag; the
+committed policy enables entry for 19 live markets and keeps increase disabled.
 
 Maximum input/debt, borrow-liquidity share, configured maturity runway, and
 route/pin rollout metadata are future rollout controls, not fields in the
@@ -465,7 +465,7 @@ The local implementation now includes:
   pins for all reviewed markets;
 - discriminated Market/Mint previews and signed bundles;
 - PT-only Morpho collateral accounting and YT-to-wallet receipt verification;
-- independent disabled-by-default Mint build and runtime gates;
+- independent action-specific Mint build and runtime gates;
 - mode-bound URL, preview, execution fingerprint, and pending recovery state;
 - Market/Mint selectors for new loops and risk-increasing adjustments; and
 - mode-aware sizing, presentation, registry, policy, pending, and compiler
@@ -479,15 +479,15 @@ or production build unless both the base entry gate and the separate Mint gate
 are deliberately enabled. Reduction, exit, and recovery do not depend on the
 Mint gate.
 
-Production work remains intentionally out of scope here: a lifecycle-filtered
-runtime allowlist, a burner-wallet canary, rollout approval, and activation of
-the disabled production Mint policy. No value-moving Mint burner canary has
-run.
+The production entry capability covers the 19 markets that remain live through
+the policy window. Three matured identities and Mint increases are excluded.
+The user's Ethereum Mint entry and full exit succeeded; no dedicated burner
+canary has run.
 
 ## Implementation and rollout checklist
 
-P1 through P4 are implemented locally and retained below as an audit checklist.
-The current-market P0 audit is complete; P5 production actions remain open.
+P1 through P4 are implemented and retained below as an audit checklist.
+P5 records the production entry rollout.
 
 ### P0 — Product decision and market audit
 
@@ -610,29 +610,18 @@ than assuming the adapter and Bundler began at absolute zero.
 
 ### P5 — Controlled rollout
 
-1. Local implementation and read-only validation are complete; keep production
-   Mint writes disabled.
-2. Revalidate the exact intended production allowlist immediately before
-   release.
-3. Re-run the representative direct and aggregator fork lifecycles on current
-   chain forks.
-4. Only with separate explicit authorization, run the first tiny Mint
-   burner-wallet round-trip canary. This has not run.
-5. Enable one market behind the independent Mint runtime gate and exact
-   lifecycle-filtered allowlist.
-6. Expand market by market only after exact quote and fork evidence.
+1. Revalidate all reviewed identities immediately before release.
+2. Exclude matured markets and enable entry only for live identities.
+3. Re-run representative compiler-fork lifecycles on current chain forks.
+4. Keep Mint increases disabled until a live increase and reduction/exit
+   round trip is completed.
 
 No release step may impair existing reduction, exit, rescue, or recovery paths.
 
 ## Definition of done
 
-Production activation remains blocked until:
-
-- the intended production allowlist is revalidated;
-- the first live Mint burner canary is explicitly authorized and completed;
-- rollout approval is recorded; and
-- the production Mint build flag and action-specific runtime capability are
-  deliberately enabled.
+Production Mint entry is complete when the build flag and fresh lifecycle-
+filtered entry capability are live. Mint increase remains a separate rollout.
 
 No activation step may impair Market Mode, reduction, exit, repayment, rescue,
 or recovery.

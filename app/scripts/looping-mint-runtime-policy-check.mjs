@@ -37,6 +37,10 @@ const mintPolicySource = readFileSync(
   'utf8',
 )
 const mintPolicy = JSON.parse(mintPolicySource)
+const headersSource = readFileSync(
+  new URL('../public/_headers', import.meta.url),
+  'utf8',
+)
 const marketPolicy = JSON.parse(readFileSync(
   new URL('../public/looping-execution-policy.v1.json', import.meta.url),
   'utf8',
@@ -53,12 +57,18 @@ assert.doesNotMatch(
 
 assert.equal(LOOPING_MINT_RUNTIME_POLICY_PATH, '/looping-mint-execution-policy.v1.json')
 assert.equal(mintPolicy.schema, LOOPING_MINT_RUNTIME_POLICY_SCHEMA)
-assert.equal(mintPolicy.revision, 1)
-assert.deepEqual(mintPolicy.mint, {
-  entry: { enabled: false, validUntil: null, markets: [] },
-  increase: { enabled: false, validUntil: null, markets: [] },
+assert.equal(mintPolicy.revision, 2)
+assert.equal(mintPolicy.mint.entry.enabled, true)
+assert.deepEqual(mintPolicy.mint.increase, {
+  enabled: false,
+  validUntil: null,
+  markets: [],
 })
 assert.ok(Buffer.byteLength(mintPolicySource, 'utf8') <= 8_192)
+assert.match(
+  headersSource,
+  /\/looping-mint-execution-policy\.v1\.json\n\s+Cache-Control: no-store, no-cache, must-revalidate, max-age=0\n\s+Cloudflare-CDN-Cache-Control: no-store\n\s+CDN-Cache-Control: no-store/,
+)
 
 // The existing Market Mode v1 contract must not acquire Mint fields.
 assert.deepEqual(Object.keys(marketPolicy).sort(), ['entry', 'revision', 'schema'])
@@ -116,6 +126,39 @@ const registryMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY.map(
 )
 const registryMarketIdentities = registryMarkets.map(
   ({ chainId, morphoMarketId }) => `${chainId}:${morphoMarketId}`,
+)
+assert.equal(
+  mintPolicy.mint.entry.validUntil,
+  marketPolicy.entry.validUntil,
+  'The Mint entry capability must not outlive the base entry capability.',
+)
+const committedEntryValidUntilSeconds =
+  BigInt(Date.parse(mintPolicy.mint.entry.validUntil)) / 1_000n
+const productionEntryMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY
+  .filter((market) => market.pendleMarketExpiry > committedEntryValidUntilSeconds)
+  .map(({ chainId, marketId }) => ({
+    chainId,
+    morphoMarketId: marketId.toLowerCase(),
+  }))
+assert.equal(productionEntryMarkets.length, 19)
+assert.deepEqual(
+  [...mintPolicy.mint.entry.markets].sort((left, right) =>
+    left.chainId - right.chainId ||
+    left.morphoMarketId.localeCompare(right.morphoMarketId)),
+  [...productionEntryMarkets].sort((left, right) =>
+    left.chainId - right.chainId ||
+    left.morphoMarketId.localeCompare(right.morphoMarketId)),
+  'The committed Mint entry capability must cover exactly the live registry.',
+)
+const committedPolicyRemainingMs =
+  Date.parse(mintPolicy.mint.entry.validUntil) - Date.now()
+assert.ok(
+  committedPolicyRemainingMs >= LOOPING_MINT_RUNTIME_POLICY_MIN_REMAINING_MS,
+  'The committed Mint entry capability must still be live.',
+)
+assert.ok(
+  committedPolicyRemainingMs <= LOOPING_MINT_RUNTIME_POLICY_MAX_VALIDITY_MS,
+  'The committed Mint entry capability must not exceed seven days.',
 )
 
 assert.equal(
@@ -256,6 +299,14 @@ const enabledPolicy = {
     increase: enabledCapability,
   },
 }
+const disabledPolicy = {
+  schema: LOOPING_MINT_RUNTIME_POLICY_SCHEMA,
+  revision: 1,
+  mint: {
+    entry: { enabled: false, validUntil: null, markets: [] },
+    increase: { enabled: false, validUntil: null, markets: [] },
+  },
+}
 
 function responseFor(requestUrl, policy, {
   responseUrl = requestUrl.toString(),
@@ -304,6 +355,17 @@ for (const action of ['entry', 'increase']) {
     )
   }
 }
+for (const policyMarket of mintPolicy.mint.entry.markets) {
+  const result = await assertLoopingMintRuntimeActionEnabled({
+    action: 'entry',
+    chainId: policyMarket.chainId,
+    marketId: policyMarket.morphoMarketId,
+    origin: 'https://openpendle.com',
+    fetchPolicy: policyFetcher(mintPolicy),
+    clock: Date.now,
+  })
+  assert.equal(result.mint.entry.enabled, true)
+}
 
 await assert.rejects(
   assertLoopingMintRuntimeActionEnabled({
@@ -349,8 +411,22 @@ await assert.rejects(
     chainId: market.chainId,
     marketId: market.marketId,
     origin: 'https://app.openpendle.example',
-    fetchPolicy: policyFetcher(mintPolicy),
+    fetchPolicy: policyFetcher(disabledPolicy),
     clock: policyClock(),
+  }),
+  (error) =>
+    error instanceof LoopingMintRuntimePolicyError &&
+    /currently paused/.test(error.message),
+)
+
+await assert.rejects(
+  assertLoopingMintRuntimeActionEnabled({
+    action: 'increase',
+    chainId: market.chainId,
+    marketId: market.marketId,
+    origin: 'https://openpendle.com',
+    fetchPolicy: policyFetcher(mintPolicy),
+    clock: Date.now,
   }),
   (error) =>
     error instanceof LoopingMintRuntimePolicyError &&
@@ -417,5 +493,5 @@ await assert.rejects(
 )
 
 console.log(
-  'looping Mint registry, 22-market local policy, and independent disabled-by-default runtime policy verified',
+  'looping Mint registry, 22-market local policy, and 19-market production entry policy verified',
 )

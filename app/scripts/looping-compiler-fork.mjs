@@ -68,7 +68,7 @@ const ORACLE_PRICE_SCALE = 10n ** 36n
 const MORPHO_VIRTUAL_ASSETS = 1n
 const MORPHO_VIRTUAL_SHARES = 1_000_000n
 const INCREASE_STEP_WAD = WAD / 5n
-const PENDLE_PREPARE_RATE_LIMIT_RETRY_DELAYS_MS = Object.freeze([
+const PENDLE_PREPARE_RETRY_DELAYS_MS = Object.freeze([
   5_000,
   15_000,
   45_000,
@@ -99,21 +99,35 @@ function fail(message) {
   throw new Error(message)
 }
 
-function isPendleQuoteRateLimit(error) {
-  return (
-    error instanceof LoopingExecutionError &&
-    error.code === 'INVALID_QUOTE' &&
-    /^Pendle quote returned HTTP 429(?:[.:]|$)/.test(error.message)
+function isRetryablePendleQuoteHttpError(error) {
+  if (!(error instanceof LoopingExecutionError)) return false
+  const retryableQuoteFailure =
+    /^Pendle quote returned HTTP (?:429|5\d\d)(?:[.:]|$)/
+  if (error.code === 'INVALID_QUOTE') {
+    return retryableQuoteFailure.test(error.message)
+  }
+  if (error.code !== 'ROUTE_NOT_ALLOWED') return false
+
+  const combinedFailurePrefix =
+    'Pendle returned no strictly valid mint route: '
+  if (!error.message.startsWith(combinedFailurePrefix)) return false
+  const failures = error.message
+    .slice(combinedFailurePrefix.length)
+    .split(' | ')
+  return failures.length > 0 && failures.every((failure) =>
+    /^(?:direct|aggregated): Pendle quote returned HTTP (?:429|5\d\d)(?:[.:]|$)/.test(
+      failure,
+    ),
   )
 }
 
-export async function prepareWithPendleQuoteRateLimitRetry(
+export async function prepareWithPendleQuoteRetry(
   label,
   prepare,
   options = {},
 ) {
   const retryDelaysMs =
-    options.retryDelaysMs ?? PENDLE_PREPARE_RATE_LIMIT_RETRY_DELAYS_MS
+    options.retryDelaysMs ?? PENDLE_PREPARE_RETRY_DELAYS_MS
   const wait = options.wait ?? (
     (delay) => new Promise((resolve) => setTimeout(resolve, delay))
   )
@@ -127,11 +141,11 @@ export async function prepareWithPendleQuoteRateLimitRetry(
       return await prepare()
     } catch (error) {
       const retryDelayMs = retryDelaysMs[attempt]
-      if (!isPendleQuoteRateLimit(error) || retryDelayMs === undefined) {
+      if (!isRetryablePendleQuoteHttpError(error) || retryDelayMs === undefined) {
         throw error
       }
       warn(
-        `  Pendle rate-limited ${label}; retrying the complete preparation in ${retryDelayMs / 1_000}s`,
+        `  Pendle quote service interrupted ${label}; retrying the complete preparation in ${retryDelayMs / 1_000}s`,
       )
       await wait(retryDelayMs)
     }
@@ -542,7 +556,7 @@ async function executeCompiledEntry({
     amount: initialUsdc,
     localRpcUrl,
   })
-  const preview = await prepareWithPendleQuoteRateLimitRetry(
+  const preview = await prepareWithPendleQuoteRetry(
     'compiled entry',
     () => prepareLoopingEntryExecution({
       client: publicClient,
@@ -630,7 +644,7 @@ async function executeCompiledIncrease({
   acquisitionMode,
   localRpcUrl,
 }) {
-  const preview = await prepareWithPendleQuoteRateLimitRetry(
+  const preview = await prepareWithPendleQuoteRetry(
     'compiled leverage increase',
     () => prepareLoopingIncreaseExecution({
       client: publicClient,
@@ -716,7 +730,7 @@ async function executeCompiledDecrease({
   targetLeverageWad,
   localRpcUrl,
 }) {
-  const preview = await prepareWithPendleQuoteRateLimitRetry(
+  const preview = await prepareWithPendleQuoteRetry(
     'compiled partial leverage decrease',
     () => prepareLoopingDecreaseExecution({
       client: publicClient,
@@ -783,7 +797,7 @@ async function executeCompiledExit({
   market,
   localRpcUrl,
 }) {
-  const preview = await prepareWithPendleQuoteRateLimitRetry(
+  const preview = await prepareWithPendleQuoteRetry(
     'compiled exit',
     () => prepareLoopingExitExecution({
       client: publicClient,

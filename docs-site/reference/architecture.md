@@ -121,7 +121,7 @@ Catalog freshness and live market freshness are separate. A stale card can still
 
 [PT looping](/guides/looping) joins the factory-indexed Pendle PT inventory to Morpho markets by exact chain and collateral address. The directory and scenario model remain wallet-less, but directory inclusion is not execution approval.
 
-An executable action must match OpenPendle's reviewed market registry, including the Pendle market, PT, Morpho tuple, SY route tokens, and deployed contract policy. Every new entry or leverage increase additionally requires the base entry build flag and a fresh same-origin runtime policy covering the exact market. Mint Mode also requires its independent build flag and the matching entry or increase capability in a separate same-origin Mint policy. A Mint-policy failure pauses Mint without disabling Market Mode, reductions, exits, or recovery. Production currently leaves Mint execution disabled.
+An executable action must match OpenPendle's reviewed market registry, including the Pendle market, PT, Morpho tuple, SY route tokens, and deployed contract policy. Every new entry or leverage increase additionally requires the base entry build flag and a fresh same-origin runtime policy covering the exact market. Mint Mode also requires its independent build flag and the matching entry or increase capability in a separate same-origin Mint policy. A Mint-policy failure pauses Mint without disabling Market Mode, reductions, exits, or recovery. Production enables Mint entry for currently live reviewed markets; Mint increases remain disabled.
 
 The connected wallet's selected-chain RPC supplies pinned safety reads and unsigned simulation; the wallet signs authorizations and broadcasts the final transaction.
 

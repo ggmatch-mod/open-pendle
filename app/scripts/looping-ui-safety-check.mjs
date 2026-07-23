@@ -291,8 +291,10 @@ check(
     /entryPreview\?\.health\.liquidationBufferBps/.test(loopingEstimateCards) &&
     /const currentPreview = quoteExpired \? undefined : matchingPreview/.test(loopingEstimateCards) &&
     /Math\.max\(nowMs, Date\.now\(\)\) >= matchingPreview\.validUntilMs/.test(loopingEstimateCards) &&
+    /const mintIncrementalSpread = candidate\.pendle\.underlyingApy === null[\s\S]*?candidate\.pendle\.underlyingApy - candidate\.morpho\.state\.borrowApy/.test(loopingEstimateCards) &&
+    /changes the estimate by \$\{formatPercent\(mintIncrementalSpread\)\} per additional 1×/.test(loopingEstimateCards) &&
     !/underlyingApy: candidate\.pendle\.impliedApy/.test(loopingEstimateCards),
-  'Mint return must use paired PT+YT underlying yield, while collateral and liquidation distance use guaranteed PT only.',
+  'Mint return must use and explain paired PT+YT carry, while collateral and liquidation distance use guaranteed PT only.',
 )
 check(
   'shared economics cards are mounted inside the preview provider',

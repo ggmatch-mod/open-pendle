@@ -1,11 +1,88 @@
 {
   "schema": "openpendle.looping-mint-execution-policy.v1",
-  "revision": 1,
+  "revision": 2,
   "mint": {
     "entry": {
-      "enabled": false,
-      "validUntil": null,
-      "markets": []
+      "enabled": true,
+      "validUntil": "2026-07-30T14:00:00.000Z",
+      "markets": [
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x02bb03bf55f07c3ed3eee8a25d8df60fb9d09a38db612f0e07cf5c4d3df0100d"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x1749e02006bc6bd6a86af52d231511f6911d5e42318e028e51a28dfabc68dd47"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x42c2b592fc759fad461fb5c80d5ea214a496f70d8594398d69af68c2f3798de6"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x4483b864209c50da2be8fc75371db0e92fdc6bc8920d86fc9b56ea7383f8c9d1"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x4bb22a5f6313fc9d7b5e1438967bfcd0a513a839d26662dd8d235629942400e2"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x62878115c6ee109c256237eb6daef589d006258202682d2e210cad3bb19e0f09"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x69ef7fd17b42cd7df6d885aee1b11380837afbc1664b25587041cf193b31617b"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x6acd18854e43f93f5a90446004c35c72a68af1ad99f08cb247782ce6457914ca"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x908b037029b5c0671ba3b362eaf289c3199560d1d4632e6cb527cc7240fa006e"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0x9464b3d42133c10c8b216d3d9429b43e98c2f3856a87940ef18b8bdd3e7bd831"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xb37c30f34bff11c81ee8400133965f450a5f7c5d81ba2cf5740076f49eabc95c"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xd86df29b48f2d88a0453027212247a29e68ff52c6589c46054f57285da2fa7e3"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xdf6ca97d41975a6996e9db491cb38152b65d7c00807dfe15d95d8d76e5d122e0"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xebd23a871b52e0a8c92bd719f4413600101b69e946cb72923b3a33fb5bc6ec85"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xf02d2e8f427a2b91785b3d09690ef9d3811bf674ba97b00bafc7665004a6dd97"
+        },
+        {
+          "chainId": 1,
+          "morphoMarketId": "0xf8c5aa31ea6b2a068a9eddb46dd110cae57bf0f12be9583a3f9a818effecba89"
+        },
+        {
+          "chainId": 143,
+          "morphoMarketId": "0x93a7a013b5501cee5d9bee0d29bb3fca790196134c4c7058365e5bc6d2ad80a2"
+        },
+        {
+          "chainId": 42161,
+          "morphoMarketId": "0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985"
+        }
+      ]
     },
     "increase": {
       "enabled": false,

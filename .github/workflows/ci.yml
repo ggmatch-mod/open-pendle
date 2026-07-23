@@ -27,6 +27,7 @@ jobs:
       - run: npm run check:looping-execution
       - run: npm run check:looping-pending
       - run: npm run check:looping-rpc-beta
+      - run: npm run check:looping-mint-runtime-policy
       - run: npm run check:looping-ui-safety
       - run: npm run check:looping-live-canary
       - run: npm run check:looping-markets
@@ -81,4 +82,13 @@ jobs:
         working-directory: app
       - name: Run the Monad production-compiler looping fixture
         run: npm run test:looping-fork:monad
+        working-directory: app
+      - name: Run the Ethereum Mint production-compiler fixture
+        run: npm run test:looping-fork:mint:ethereum
+        working-directory: app
+      - name: Run the Monad Mint production-compiler fixture
+        run: npm run test:looping-fork:mint:monad
+        working-directory: app
+      - name: Run the Arbitrum Mint production-compiler fixture
+        run: npm run test:looping-fork:mint:arbitrum
         working-directory: app
