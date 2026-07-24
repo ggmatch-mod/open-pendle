@@ -8,9 +8,13 @@ import {
   LOOPING_PENDING_STORAGE_PREFIX,
   LOOPING_PENDING_VERSION,
   clearLoopingPendingOperation,
+  classifyLoopingAuthorizationAllowanceCleanupRecheck,
+  classifyLoopingAuthorizationCleanupRecheck,
+  loopingAuthorizationCleanupStorageKey,
   loopingPendingStorageKey,
   parseLoopingPendingOperation,
   readLoopingPendingOperation,
+  replaceLoopingPendingOperation,
   serializeLoopingPendingOperation,
   writeLoopingPendingOperation,
 } from '../src/lib/loopingPending.ts'
@@ -73,6 +77,25 @@ const decreaseFamily = {
     maxCollateral: '700000000000000000',
   },
 }
+const authorizationCleanup = {
+  version: LOOPING_PENDING_VERSION,
+  operation: 'authorization-cleanup',
+  chainId: 42161,
+  owner: OWNER,
+  marketId: MARKET,
+  walletTxNonce: '18',
+  startingMorphoNonce: '9',
+  authorizationDeadline: '1800000240',
+  authorizationCleanupStage: 'signature-requested',
+  createdAt: NOW,
+  expectedPosition: {
+    supplyShares: '0',
+    minBorrowShares: '250000',
+    maxBorrowShares: '250000',
+    minCollateral: '700000000000000000',
+    maxCollateral: '700000000000000000',
+  },
+}
 
 function createMemoryStorage() {
   const values = new Map()
@@ -101,6 +124,545 @@ for (const adjustmentRecord of [increaseFamily, mintIncreaseFamily, decreaseFami
   assert.deepEqual(JSON.parse(serializedRecord), adjustmentRecord)
   assert.deepEqual(parseLoopingPendingOperation(JSON.parse(serializedRecord)), adjustmentRecord)
 }
+
+console.log('Authorization cleanup persists wallet-wide, non-sensitive recovery evidence')
+const cleanupMemory = createMemoryStorage()
+assert.equal(
+  writeLoopingPendingOperation(authorizationCleanup, cleanupMemory.storage),
+  true,
+)
+const authorizationCleanupKey =
+  `${LOOPING_PENDING_STORAGE_PREFIX}.authorization-cleanup.42161.${OWNER}`
+assert.equal(
+  loopingAuthorizationCleanupStorageKey(authorizationCleanup),
+  authorizationCleanupKey,
+)
+assert.equal(cleanupMemory.values.has(authorizationCleanupKey), true)
+assert.equal(
+  cleanupMemory.values.has(loopingPendingStorageKey(authorizationCleanup)),
+  false,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: cleanupMemory.storage,
+    nowMs: NOW,
+  }),
+  authorizationCleanup,
+)
+const conflictingSupplyCleanup = {
+  ...authorizationCleanup,
+  expectedPosition: {
+    ...authorizationCleanup.expectedPosition,
+    supplyShares: '12',
+  },
+}
+assert.deepEqual(
+  parseLoopingPendingOperation(conflictingSupplyCleanup),
+  conflictingSupplyCleanup,
+)
+const submittedAuthorizationCleanup = {
+  ...authorizationCleanup,
+  authorizationCleanupStage: 'submitted',
+  txHash: HASH,
+}
+const allowanceReadyCleanup = {
+  ...authorizationCleanup,
+  authorizationCleanupStage: 'allowance-ready',
+}
+const allowanceSubmittingCleanup = {
+  ...authorizationCleanup,
+  authorizationCleanupStage: 'allowance-submitting',
+}
+const allowanceSubmittedCleanup = {
+  ...authorizationCleanup,
+  authorizationCleanupStage: 'allowance-submitted',
+  txHash: HASH,
+}
+for (const stagedCleanup of [
+  allowanceReadyCleanup,
+  allowanceSubmittingCleanup,
+  allowanceSubmittedCleanup,
+]) {
+  assert.deepEqual(
+    parseLoopingPendingOperation(stagedCleanup),
+    stagedCleanup,
+  )
+  assert.equal(stagedCleanup.startingMorphoNonce, '9')
+  assert.deepEqual(stagedCleanup.expectedPosition, authorizationCleanup.expectedPosition)
+}
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    submittedAuthorizationCleanup,
+    cleanupMemory.storage,
+  ),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: cleanupMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(
+    { ...authorizationCleanup, marketId: OTHER_MARKET },
+    { storage: cleanupMemory.storage, nowMs: NOW },
+  ),
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    { ...authorizationCleanup, marketId: OTHER_MARKET },
+    cleanupMemory.storage,
+  ),
+  false,
+)
+for (const wrongGlobalScope of [
+  { ...authorizationCleanup, chainId: 1 },
+  { ...authorizationCleanup, owner: OTHER_OWNER },
+]) {
+  assert.equal(
+    readLoopingPendingOperation(wrongGlobalScope, {
+      storage: cleanupMemory.storage,
+      nowMs: NOW,
+    }),
+    undefined,
+  )
+}
+const priorityMemory = createMemoryStorage()
+assert.equal(
+  writeLoopingPendingOperation(submittedAuthorizationCleanup, priorityMemory.storage),
+  true,
+)
+const otherMarketEntry = { ...valid, marketId: OTHER_MARKET }
+assert.equal(writeLoopingPendingOperation(otherMarketEntry, priorityMemory.storage), true)
+assert.deepEqual(
+  readLoopingPendingOperation(otherMarketEntry, {
+    storage: priorityMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.equal(clearLoopingPendingOperation(otherMarketEntry, priorityMemory.storage), false)
+assert.deepEqual(
+  readLoopingPendingOperation(otherMarketEntry, {
+    storage: priorityMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    priorityMemory.storage,
+  ),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(otherMarketEntry, {
+    storage: priorityMemory.storage,
+    nowMs: NOW,
+  }),
+  otherMarketEntry,
+)
+const sameMarketPriorityMemory = createMemoryStorage()
+assert.equal(
+  writeLoopingPendingOperation(valid, sameMarketPriorityMemory.storage),
+  true,
+)
+assert.equal(
+  writeLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    sameMarketPriorityMemory.storage,
+  ),
+  true,
+)
+assert.equal(
+  sameMarketPriorityMemory.values.has(loopingPendingStorageKey(valid)),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(valid, {
+    storage: sameMarketPriorityMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  clearLoopingPendingOperation(valid, sameMarketPriorityMemory.storage),
+  false,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(valid, {
+    storage: sameMarketPriorityMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    sameMarketPriorityMemory.storage,
+  ),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(valid, {
+    storage: sameMarketPriorityMemory.storage,
+    nowMs: NOW,
+  }),
+  valid,
+)
+const staleStageMemory = createMemoryStorage()
+assert.equal(
+  writeLoopingPendingOperation(authorizationCleanup, staleStageMemory.storage),
+  true,
+)
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    submittedAuthorizationCleanup,
+    staleStageMemory.storage,
+  ),
+  true,
+)
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    allowanceReadyCleanup,
+    staleStageMemory.storage,
+  ),
+  false,
+)
+assert.equal(
+  writeLoopingPendingOperation(allowanceReadyCleanup, staleStageMemory.storage),
+  false,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: staleStageMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+const legacyAuthorizationKey = loopingPendingStorageKey(authorizationCleanup)
+const legacyWriteMemory = createMemoryStorage()
+legacyWriteMemory.storage.setItem(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(authorizationCleanup),
+)
+assert.equal(
+  writeLoopingPendingOperation(
+    authorizationCleanup,
+    legacyWriteMemory.storage,
+  ),
+  true,
+)
+assert.equal(legacyWriteMemory.values.has(legacyAuthorizationKey), false)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: legacyWriteMemory.storage,
+    nowMs: NOW,
+  }),
+  authorizationCleanup,
+)
+
+const conflictingLegacyWriteMemory = createMemoryStorage()
+conflictingLegacyWriteMemory.storage.setItem(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(authorizationCleanup),
+)
+assert.equal(
+  writeLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    conflictingLegacyWriteMemory.storage,
+  ),
+  false,
+)
+assert.equal(
+  conflictingLegacyWriteMemory.values.has(authorizationCleanupKey),
+  false,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: conflictingLegacyWriteMemory.storage,
+    nowMs: NOW,
+  }),
+  authorizationCleanup,
+)
+
+const legacyReplaceMemory = createMemoryStorage()
+legacyReplaceMemory.storage.setItem(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(authorizationCleanup),
+)
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    submittedAuthorizationCleanup,
+    legacyReplaceMemory.storage,
+  ),
+  true,
+)
+assert.equal(legacyReplaceMemory.values.has(legacyAuthorizationKey), false)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: legacyReplaceMemory.storage,
+    nowMs: NOW,
+  }),
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    allowanceReadyCleanup,
+    legacyReplaceMemory.storage,
+  ),
+  false,
+)
+
+const legacyClearMemory = createMemoryStorage()
+legacyClearMemory.storage.setItem(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(submittedAuthorizationCleanup),
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    legacyClearMemory.storage,
+  ),
+  true,
+)
+assert.equal(legacyClearMemory.values.has(legacyAuthorizationKey), false)
+
+const competingMigrationMemory = createMemoryStorage()
+competingMigrationMemory.storage.setItem(
+  authorizationCleanupKey,
+  serializeLoopingPendingOperation(submittedAuthorizationCleanup),
+)
+competingMigrationMemory.storage.setItem(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(authorizationCleanup),
+)
+assert.equal(
+  replaceLoopingPendingOperation(
+    authorizationCleanup,
+    allowanceReadyCleanup,
+    competingMigrationMemory.storage,
+  ),
+  false,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    authorizationCleanup,
+    competingMigrationMemory.storage,
+  ),
+  false,
+)
+assert.equal(
+  competingMigrationMemory.values.has(authorizationCleanupKey),
+  true,
+)
+assert.equal(
+  competingMigrationMemory.values.has(legacyAuthorizationKey),
+  true,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    competingMigrationMemory.storage,
+  ),
+  true,
+)
+assert.equal(
+  competingMigrationMemory.values.has(authorizationCleanupKey),
+  false,
+)
+assert.equal(
+  competingMigrationMemory.values.has(legacyAuthorizationKey),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: competingMigrationMemory.storage,
+    nowMs: NOW,
+  }),
+  authorizationCleanup,
+)
+
+const reentrantClearMemory = createMemoryStorage()
+reentrantClearMemory.values.set(
+  authorizationCleanupKey,
+  serializeLoopingPendingOperation(submittedAuthorizationCleanup),
+)
+reentrantClearMemory.values.set(
+  legacyAuthorizationKey,
+  serializeLoopingPendingOperation(submittedAuthorizationCleanup),
+)
+const reentrantClearStorage = {
+  getItem: reentrantClearMemory.storage.getItem,
+  setItem: reentrantClearMemory.storage.setItem,
+  removeItem: (key) => {
+    reentrantClearMemory.values.delete(key)
+    if (key === authorizationCleanupKey) {
+      reentrantClearMemory.values.set(
+        legacyAuthorizationKey,
+        serializeLoopingPendingOperation(allowanceReadyCleanup),
+      )
+    }
+  },
+}
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    reentrantClearStorage,
+  ),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(authorizationCleanup, {
+    storage: reentrantClearStorage,
+    nowMs: NOW,
+  }),
+  allowanceReadyCleanup,
+)
+assert.equal(
+  clearLoopingPendingOperation(
+    submittedAuthorizationCleanup,
+    cleanupMemory.storage,
+  ),
+  true,
+)
+assert.equal(cleanupMemory.values.has(authorizationCleanupKey), false)
+const serializedAuthorizationCleanup = serializeLoopingPendingOperation(
+  submittedAuthorizationCleanup,
+)
+assert.equal(
+  /signature|calldata|signedBundle|transactionRequest|privateKey|acquisitionMode|mintDelivery/.test(
+    serializedAuthorizationCleanup,
+  ),
+  false,
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: undefined,
+    currentMorphoNonce: 9n,
+    adapterAuthorized: true,
+    receiptMined: false,
+  }),
+  'start',
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: authorizationCleanup,
+    currentMorphoNonce: 9n,
+    adapterAuthorized: true,
+    receiptMined: false,
+  }),
+  'wait-for-mined-state',
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    currentMorphoNonce: 9n,
+    adapterAuthorized: true,
+    receiptMined: false,
+  }),
+  'wait-for-mined-state',
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    currentMorphoNonce: 9n,
+    adapterAuthorized: true,
+    receiptMined: true,
+  }),
+  'roll-forward',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    adapterAllowance: 0n,
+    receiptMined: false,
+  }),
+  'proven',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    adapterAllowance: 1n,
+    receiptMined: false,
+  }),
+  'stage-ready',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceReadyCleanup,
+    adapterAllowance: 1n,
+    receiptMined: false,
+  }),
+  'submit',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceSubmittingCleanup,
+    adapterAllowance: 1n,
+    receiptMined: false,
+  }),
+  'wait-for-mined-state',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceSubmittingCleanup,
+    adapterAllowance: 0n,
+    receiptMined: false,
+  }),
+  'proven',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceSubmittedCleanup,
+    adapterAllowance: 1n,
+    receiptMined: false,
+  }),
+  'wait-for-mined-state',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceSubmittedCleanup,
+    adapterAllowance: 1n,
+    receiptMined: true,
+  }),
+  'roll-forward',
+)
+assert.equal(
+  classifyLoopingAuthorizationAllowanceCleanupRecheck({
+    record: allowanceSubmittedCleanup,
+    adapterAllowance: 0n,
+    receiptMined: false,
+  }),
+  'proven',
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    currentMorphoNonce: 10n,
+    adapterAuthorized: false,
+    receiptMined: false,
+  }),
+  'proven',
+)
+assert.equal(
+  classifyLoopingAuthorizationCleanupRecheck({
+    record: submittedAuthorizationCleanup,
+    currentMorphoNonce: 10n,
+    adapterAuthorized: true,
+    receiptMined: true,
+  }),
+  'roll-forward',
+)
 
 for (const wrongScope of [
   { chainId: 1, owner: OWNER, marketId: MARKET },
@@ -143,6 +705,44 @@ const malformedValues = [
   { ...valid, acquisitionMode: 'market', mintDelivery: mintIncreaseFamily.mintDelivery },
   { ...valid, mintDelivery: mintIncreaseFamily.mintDelivery },
   {
+    ...authorizationCleanup,
+    authorizationCleanupStage: undefined,
+  },
+  {
+    ...authorizationCleanup,
+    authorizationCleanupStage: 'prepared',
+  },
+  {
+    ...authorizationCleanup,
+    authorizationCleanupStage: 'submitted',
+  },
+  {
+    ...authorizationCleanup,
+    authorizationCleanupStage: 'allowance-ready',
+    txHash: HASH,
+  },
+  {
+    ...authorizationCleanup,
+    authorizationCleanupStage: 'allowance-submitting',
+    txHash: HASH,
+  },
+  {
+    ...authorizationCleanup,
+    authorizationCleanupStage: 'allowance-submitted',
+  },
+  {
+    ...authorizationCleanup,
+    txHash: HASH,
+  },
+  {
+    ...authorizationCleanup,
+    expectedPosition: undefined,
+  },
+  {
+    ...valid,
+    authorizationCleanupStage: 'signature-requested',
+  },
+  {
     ...valid,
     acquisitionMode: 'mint',
     mintDelivery: { ...mintIncreaseFamily.mintDelivery, yieldToken: '0xdead' },
@@ -177,6 +777,71 @@ assert.equal(
 )
 assert.equal(clearLoopingPendingOperation(stale, staleMemory.storage), true)
 
+const staleAuthorizationMemory = createMemoryStorage()
+const staleAuthorization = {
+  ...authorizationCleanup,
+  createdAt: NOW - LOOPING_PENDING_MAX_AGE_MS - 1,
+}
+assert.equal(
+  writeLoopingPendingOperation(staleAuthorization, staleAuthorizationMemory.storage),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(staleAuthorization, {
+    storage: staleAuthorizationMemory.storage,
+    nowMs: NOW,
+  }),
+  staleAuthorization,
+)
+assert.equal(
+  clearLoopingPendingOperation(staleAuthorization, staleAuthorizationMemory.storage),
+  true,
+)
+const staleLegacyAuthorizationMemory = createMemoryStorage()
+staleLegacyAuthorizationMemory.storage.setItem(
+  loopingPendingStorageKey(staleAuthorization),
+  serializeLoopingPendingOperation(staleAuthorization),
+)
+assert.deepEqual(
+  readLoopingPendingOperation(staleAuthorization, {
+    storage: staleLegacyAuthorizationMemory.storage,
+    nowMs: NOW,
+  }),
+  staleAuthorization,
+)
+const futureAuthorizationMemory = createMemoryStorage()
+const futureAuthorization = {
+  ...authorizationCleanup,
+  createdAt: NOW + LOOPING_PENDING_FUTURE_SKEW_MS + 1,
+}
+assert.equal(
+  writeLoopingPendingOperation(futureAuthorization, futureAuthorizationMemory.storage),
+  true,
+)
+assert.deepEqual(
+  readLoopingPendingOperation(futureAuthorization, {
+    storage: futureAuthorizationMemory.storage,
+    nowMs: NOW,
+  }),
+  futureAuthorization,
+)
+assert.equal(
+  clearLoopingPendingOperation(futureAuthorization, futureAuthorizationMemory.storage),
+  true,
+)
+const futureLegacyAuthorizationMemory = createMemoryStorage()
+futureLegacyAuthorizationMemory.storage.setItem(
+  loopingPendingStorageKey(futureAuthorization),
+  serializeLoopingPendingOperation(futureAuthorization),
+)
+assert.deepEqual(
+  readLoopingPendingOperation(futureAuthorization, {
+    storage: futureLegacyAuthorizationMemory.storage,
+    nowMs: NOW,
+  }),
+  futureAuthorization,
+)
+
 const futureMemory = createMemoryStorage()
 const future = { ...valid, createdAt: NOW + LOOPING_PENDING_FUTURE_SKEW_MS + 1 }
 assert.equal(writeLoopingPendingOperation(future, futureMemory.storage), true)
@@ -203,6 +868,22 @@ assert.equal(
 )
 assert.equal(clearLoopingPendingOperation(valid, malformedStorage.storage), false)
 assert.equal(malformedStorage.values.has(copiedKey), true)
+
+const malformedGlobalMemory = createMemoryStorage()
+malformedGlobalMemory.values.set(authorizationCleanupKey, '{broken')
+malformedGlobalMemory.values.set(copiedKey, JSON.stringify(valid))
+assert.deepEqual(
+  readLoopingPendingOperation(valid, {
+    storage: malformedGlobalMemory.storage,
+    nowMs: NOW,
+  }),
+  valid,
+)
+assert.equal(
+  clearLoopingPendingOperation(valid, malformedGlobalMemory.storage),
+  true,
+)
+assert.equal(malformedGlobalMemory.values.has(authorizationCleanupKey), true)
 
 console.log('Signatures, calldata, and arbitrary payloads cannot be serialized')
 for (const sensitive of [

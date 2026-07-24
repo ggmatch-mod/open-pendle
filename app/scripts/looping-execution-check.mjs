@@ -2544,6 +2544,21 @@ await expectExecutionRejection(
 )
 assert.equal(insufficientBalanceQuoteCalled, false)
 
+console.log('Imported adapter authorization has a dedicated fail-closed cleanup code')
+let activeAuthorizationQuoteCalled = false
+await expectExecutionRejection(
+  prepareEntry({
+    client: createPreflightClient({ adapterAuthorized: true }),
+    fetcher: async () => {
+      activeAuthorizationQuoteCalled = true
+      throw new Error('Quote must not run with an active adapter authorization.')
+    },
+  }),
+  'ACTIVE_ADAPTER_AUTHORIZATION',
+  /already authorized/i,
+)
+assert.equal(activeAuthorizationQuoteCalled, false)
+
 console.log('Preflight pins every code, storage, and state read to one latest block')
 const preview = await prepareEntry({
   client: createPreflightClient({ requireExactPreflightReads: true }),
@@ -4158,6 +4173,22 @@ assert.equal(
   nonceBurnPreview.request.message.deadline - nonceBurnPreview.blockTimestamp,
   market.launchPolicy.authorizationLifetimeSeconds,
 )
+const historicalNonceBurnClient = createPreflightClient()
+const getHistoricalNonceBurnBlock =
+  historicalNonceBurnClient.getBlock.bind(historicalNonceBurnClient)
+historicalNonceBurnClient.getBlock = async (args) => {
+  assert.equal(args.blockNumber, PINNED_BLOCK_NUMBER)
+  assert.equal(args.blockTag, undefined)
+  return getHistoricalNonceBurnBlock(args)
+}
+const historicalNonceBurnPreview =
+  await prepareLoopingAuthorizationNonceBurn({
+    client: historicalNonceBurnClient,
+    owner: OWNER_ACCOUNT.address,
+    market,
+    blockNumber: PINNED_BLOCK_NUMBER,
+  })
+assert.equal(historicalNonceBurnPreview.blockNumber, PINNED_BLOCK_NUMBER)
 const nonceBurnSignature = await OWNER_ACCOUNT.sign({
   hash: nonceBurnPreview.request.digest,
 })
@@ -4173,7 +4204,10 @@ const decodedNonceBurn = decodeFunctionData({
 assert.equal(decodedNonceBurn.functionName, 'setAuthorizationWithSig')
 assert.equal(decodedNonceBurn.args[0].nonce, 7n)
 assert.equal(decodedNonceBurn.args[0].isAuthorized, false)
+assert.equal(nonceBurnIntent.to, contracts.morpho)
+assert.equal(nonceBurnIntent.value, 0n)
 assert.equal(nonceBurnIntent.expectedPostconditions.nonce, 8n)
+assert.equal(nonceBurnIntent.expectedPostconditions.adapterAuthorized, false)
 await expectExecutionRejection(
   buildLoopingAuthorizationNonceBurnIntent({
     client: createPreflightClient({ nonce: 8n }),

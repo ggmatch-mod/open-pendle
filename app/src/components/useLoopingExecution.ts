@@ -3,6 +3,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import {
   decodeEventLog,
   parseAbi,
+  TransactionReceiptNotFoundError,
   type Address,
   type Hash,
   type Hex,
@@ -80,10 +81,13 @@ import { parseLoopingTargetLeverageWad } from '../lib/loopingAdjustmentMath'
 import { useTransactionGuard } from '../lib/hooks'
 import {
   LOOPING_PENDING_VERSION,
+  classifyLoopingAuthorizationAllowanceCleanupRecheck,
   clearLoopingPendingOperation,
   readLoopingPendingOperation,
+  replaceLoopingPendingOperation,
   writeLoopingPendingOperation,
   type LoopingExpectedPositionBounds,
+  type LoopingAuthorizationCleanupStage,
   type LoopingPendingAcquisitionMode,
   type LoopingPendingMintDelivery,
   type LoopingPendingOperation,
@@ -142,6 +146,7 @@ interface LoopingExecutionState {
   noticeTone?: 'success' | 'danger'
   txHash?: Hash
   pendingRecord?: LoopingPendingOperation
+  authorizationCleanupRequired?: boolean
 }
 
 interface OperationContext {
@@ -192,13 +197,16 @@ export interface UseLoopingExecutionResult {
   noticeTone?: 'success' | 'danger'
   txHash?: Hash
   pendingRecord?: LoopingPendingOperation
+  authorizationCleanupRequired: boolean
   busy: boolean
   canPrepare: boolean
   canExecute: boolean
   canRecover: boolean
+  canSecureAuthorization: boolean
   prepare: () => Promise<void>
   execute: (acceptance?: LoopingRiskAcceptance) => Promise<void>
   recover: () => Promise<void>
+  secureAuthorization: () => Promise<void>
   connectWallet: () => void
   switchToMarketChain: () => void
 }
@@ -238,7 +246,12 @@ class LoopingUiSafetyError extends Error {
 }
 
 function leaseScope(owner: Address, market: Readonly<LoopingExecutionMarket>): string {
-  return `${market.chainId}:${owner.toLowerCase()}:${market.marketId.toLowerCase()}`
+  return [
+    market.chainId,
+    owner.toLowerCase(),
+    market.contracts.morpho.toLowerCase(),
+    market.contracts.generalAdapter1.toLowerCase(),
+  ].join(':')
 }
 
 function leaseStorageKey(scope: string): string {
@@ -445,13 +458,43 @@ function errorCode(error: unknown): string {
 }
 
 function looksLikeSafetyBlock(error: unknown): boolean {
-  return /INPUT|UNSUPPORTED|CAP|BOUND|BUFFER|HEALTH|ALLOW|ROUTE|QUOTE|MARKET|POSITION|WIRING|STATE|STALE|SIGNATURE|SIMULATION|POLICY/i.test(
+  return /INPUT|UNSUPPORTED|CAP|BOUND|BUFFER|HEALTH|ALLOW|AUTHORIZATION|ROUTE|QUOTE|MARKET|POSITION|WIRING|STATE|STALE|SIGNATURE|SIMULATION|POLICY/i.test(
     errorCode(error),
   )
 }
 
+function requiresAuthorizationCleanup(error: unknown): boolean {
+  return errorCode(error) === 'ACTIVE_ADAPTER_AUTHORIZATION'
+}
+
 function sameHex(left: string, right: string): boolean {
   return left.toLowerCase() === right.toLowerCase()
+}
+
+type LoopingTransactionConfirmation =
+  | { state: 'not-found' }
+  | { state: 'underconfirmed'; receipt: TransactionReceipt }
+  | { state: 'confirmed'; receipt: TransactionReceipt }
+
+async function getLoopingTransactionConfirmation(
+  client: PublicClient,
+  hash: Hash,
+): Promise<LoopingTransactionConfirmation> {
+  let receipt: TransactionReceipt
+  try {
+    receipt = await client.getTransactionReceipt({ hash })
+  } catch (error) {
+    if (error instanceof TransactionReceiptNotFoundError) {
+      return { state: 'not-found' }
+    }
+    throw error
+  }
+  const latestBlock = await client.getBlockNumber()
+  const confirmationFloor =
+    receipt.blockNumber + BigInt(LOOPING_RECEIPT_CONFIRMATIONS - 1)
+  return latestBlock >= confirmationFloor
+    ? { state: 'confirmed', receipt }
+    : { state: 'underconfirmed', receipt }
 }
 
 function previewOperation(
@@ -688,7 +731,7 @@ function exactPositionBounds(
   position: Readonly<LoopingPositionSnapshot>,
 ): LoopingExpectedPositionBounds {
   return {
-    supplyShares: '0',
+    supplyShares: position.supplyShares.toString(),
     minBorrowShares: position.borrowShares.toString(),
     maxBorrowShares: position.borrowShares.toString(),
     minCollateral: position.collateral.toString(),
@@ -709,6 +752,77 @@ function positionMatchesBounds(
     position.borrowShares <= maxBorrowShares &&
     position.collateral >= minCollateral &&
     position.collateral <= maxCollateral
+}
+
+async function readAuthorizationCleanupSnapshot(args: {
+  client: PublicClient
+  owner: Address
+  market: Readonly<LoopingExecutionMarket>
+  blockNumber?: bigint
+}): Promise<{
+  burn: Awaited<ReturnType<typeof prepareLoopingAuthorizationNonceBurn>>
+  position: LoopingPositionSnapshot
+  adapterAllowance: bigint
+  blockTimestamp: bigint
+}> {
+  const burn = await prepareLoopingAuthorizationNonceBurn(args)
+  const [position, adapterAllowance, block] = await Promise.all([
+    readLoopingExecutionPosition({
+      client: args.client,
+      owner: args.owner,
+      market: args.market,
+      blockNumber: burn.blockNumber,
+    }),
+    args.client.readContract({
+      address: args.market.morphoMarketParams.loanToken,
+      abi: loopingErc20Abi,
+      functionName: 'allowance',
+      args: [args.owner, args.market.contracts.generalAdapter1],
+      blockNumber: burn.blockNumber,
+    }),
+    args.client.getBlock({ blockNumber: burn.blockNumber }),
+  ])
+  return { burn, position, adapterAllowance, blockTimestamp: block.timestamp }
+}
+
+async function readConfirmedAuthorizationCleanupSnapshot(args: {
+  client: PublicClient
+  owner: Address
+  market: Readonly<LoopingExecutionMarket>
+}): Promise<Awaited<ReturnType<typeof readAuthorizationCleanupSnapshot>>> {
+  const latestBlock = await args.client.getBlockNumber()
+  const confirmationOffset = BigInt(LOOPING_RECEIPT_CONFIRMATIONS - 1)
+  if (latestBlock < confirmationOffset) {
+    throw new LoopingUiSafetyError(
+      'STATE_CONFLICT',
+      'Permission cleanup cannot establish its confirmation floor.',
+    )
+  }
+  return readAuthorizationCleanupSnapshot({
+    ...args,
+    blockNumber: latestBlock - confirmationOffset,
+  })
+}
+
+function authorizationCleanupRevokeProven(args: {
+  snapshot: Readonly<
+    Awaited<ReturnType<typeof readAuthorizationCleanupSnapshot>>
+  >
+  record: Readonly<LoopingPendingOperation> | undefined
+  requiredNonce: bigint | undefined
+}): boolean {
+  return !args.snapshot.burn.adapterAuthorized &&
+    (
+      (
+        args.requiredNonce !== undefined &&
+        args.snapshot.burn.startingNonce >= args.requiredNonce
+      ) ||
+      (
+        args.record !== undefined &&
+        args.snapshot.blockTimestamp >
+          BigInt(args.record.authorizationDeadline)
+      )
+    )
 }
 
 function expectedPostOperationBounds(
@@ -971,6 +1085,7 @@ function makePendingRecord(args: {
   expectedPosition?: LoopingExpectedPositionBounds
   txHash?: Hash
   walletTxNonce?: number
+  authorizationCleanupStage?: LoopingAuthorizationCleanupStage
   acquisitionMode?: LoopingPendingAcquisitionMode
   mintDelivery?: LoopingPendingMintDelivery
 }): LoopingPendingOperation {
@@ -990,6 +1105,9 @@ function makePendingRecord(args: {
     ...(args.expectedPosition === undefined
       ? {}
       : { expectedPosition: args.expectedPosition }),
+    ...(args.authorizationCleanupStage === undefined
+      ? {}
+      : { authorizationCleanupStage: args.authorizationCleanupStage }),
     ...(args.acquisitionMode === undefined
       ? {}
       : { acquisitionMode: args.acquisitionMode }),
@@ -997,6 +1115,27 @@ function makePendingRecord(args: {
       ? {}
       : { mintDelivery: args.mintDelivery }),
   }
+}
+
+function restageAuthorizationCleanupRecord(
+  record: Readonly<LoopingPendingOperation>,
+  stage: LoopingAuthorizationCleanupStage,
+  options: {
+    txHash?: Hash
+    walletTxNonce?: number
+  } = {},
+): LoopingPendingOperation {
+  const next: LoopingPendingOperation = {
+    ...record,
+    authorizationCleanupStage: stage,
+  }
+  delete next.txHash
+  delete next.walletTxNonce
+  if (options.txHash !== undefined) next.txHash = options.txHash
+  if (options.walletTxNonce !== undefined) {
+    next.walletTxNonce = BigInt(options.walletTxNonce).toString()
+  }
+  return next
 }
 
 export function useLoopingExecution({
@@ -1115,6 +1254,12 @@ export function useLoopingExecution({
         marketId: market.marketId,
       })
       if (pendingRecord !== undefined) {
+        const pendingFromAnotherMarket =
+          !sameHex(pendingRecord.marketId, market.marketId)
+        const authorizationCleanupStage =
+          pendingRecord.operation === 'authorization-cleanup'
+            ? pendingRecord.authorizationCleanupStage
+            : undefined
         unresolvedRef.current = true
         setState({
           phase: 'ambiguous',
@@ -1127,6 +1272,15 @@ export function useLoopingExecution({
             ? 'A previous attempt may have left an exact adapter allowance. Verify and clear it before trying again.'
             : pendingRecord.operation === 'metadata-cleanup'
               ? 'A previous unsigned attempt left browser recovery metadata that must be removed.'
+              : pendingRecord.operation === 'authorization-cleanup'
+                ? pendingFromAnotherMarket
+                  ? 'A wallet-wide Morpho permission cleanup is unresolved. Reselect its original market before continuing.'
+                  : authorizationCleanupStage === 'allowance-ready'
+                    ? 'Morpho permission is revoked; the remaining adapter token allowance is ready to clear.'
+                    : authorizationCleanupStage === 'allowance-submitting' ||
+                        authorizationCleanupStage === 'allowance-submitted'
+                      ? 'An adapter-allowance cleanup is unresolved. Recheck it before continuing.'
+                      : 'A Morpho permission-cleanup transaction is unresolved. Recheck it before continuing.'
               : 'A previous looping transaction is unresolved. It will not be retried automatically.',
         })
         return
@@ -1141,7 +1295,24 @@ export function useLoopingExecution({
       : { phase: 'idle', fingerprint },
   [fingerprint, state])
   const busy = BUSY_PHASES.has(boundState.phase)
-  useTransactionGuard(busy || boundState.phase === 'ambiguous')
+  const authorizationCleanupContextMismatch =
+    boundState.phase === 'ambiguous' &&
+    boundState.pendingRecord?.operation === 'authorization-cleanup' &&
+    (
+      owner === undefined ||
+      owner.toLowerCase() !== boundState.pendingRecord.owner.toLowerCase() ||
+      market === undefined ||
+      market.chainId !== boundState.pendingRecord.chainId ||
+      !sameHex(boundState.pendingRecord.marketId, market.marketId) ||
+      walletChainId !== boundState.pendingRecord.chainId
+    )
+  useTransactionGuard(
+    busy ||
+    (
+      boundState.phase === 'ambiguous' &&
+      !authorizationCleanupContextMismatch
+    ),
+  )
 
   const captureContext = useCallback((): OperationContext => {
     if (owner === undefined || market === undefined || walletClient === undefined) {
@@ -1296,8 +1467,30 @@ export function useLoopingExecution({
       setState({
         phase: 'blocked',
         fingerprint,
-        message: 'Another OpenPendle tab is already handling this wallet and market.',
+        message: 'Another OpenPendle tab is already handling this wallet on this chain.',
       })
+      finishRun(run)
+      return
+    }
+    const lockedPending = readLoopingPendingOperation({
+      chainId: market.chainId,
+      owner,
+      marketId: market.marketId,
+    })
+    if (lockedPending !== undefined) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        operation: lockedPending.operation === 'exit' ? 'exit' :
+          lockedPending.operation === 'entry' ? 'entry' : undefined,
+        txHash: lockedPending.txHash,
+        pendingRecord: lockedPending,
+        message: lockedPending.operation === 'authorization-cleanup'
+          ? 'A Morpho permission cleanup is already unresolved for this wallet. Reconcile its original market before continuing.'
+          : 'Another unresolved looping operation must be reconciled before execution.',
+      })
+      lease.release()
       finishRun(run)
       return
     }
@@ -1306,6 +1499,21 @@ export function useLoopingExecution({
     try {
       lease.assertOwned()
       assertContext(operationContext)
+      const activeAuthorization = await withWalletRead(
+        (client) => prepareDirectLoopingAuthorizationRevoke({
+          client,
+          owner,
+          market,
+        }),
+      )
+      lease.assertOwned()
+      assertContext(operationContext)
+      if (activeAuthorization.value !== undefined) {
+        throw new LoopingUiSafetyError(
+          'ACTIVE_ADAPTER_AUTHORIZATION',
+          'GeneralAdapter1 is already authorized for this wallet.',
+        )
+      }
       const prepared = await freshPreview()
       if (!runIsCurrent(run)) return
       assertContext(operationContext)
@@ -1317,10 +1525,14 @@ export function useLoopingExecution({
         position: prepared.position,
       })
     } catch (error) {
+      const authorizationCleanupRequired = requiresAuthorizationCleanup(error)
       setState({
         phase: looksLikeSafetyBlock(error) ? 'blocked' : 'error',
         fingerprint,
-        message: readableError(error),
+        authorizationCleanupRequired,
+        message: authorizationCleanupRequired
+          ? 'This wallet has a pre-existing Morpho adapter permission. Secure it before using OpenPendle; the position will not be moved.'
+          : readableError(error),
       })
     } finally {
       lease.release()
@@ -1328,7 +1540,7 @@ export function useLoopingExecution({
     }
   }, [assertContext, beginRun, boundState.phase, captureContext, fingerprint,
     finishRun, freshPreview, isConnected, market, owner, runIsCurrent, walletChainId,
-    walletReadClient])
+    walletReadClient, withWalletRead])
 
   const waitForApprovalReceipt = useCallback(async (
     hash: Hash,
@@ -1532,8 +1744,30 @@ export function useLoopingExecution({
         fingerprint,
         operation,
         preview: initialPreview,
-        message: 'Another OpenPendle tab is already handling this wallet and market.',
+        message: 'Another OpenPendle tab is already handling this wallet on this chain.',
       })
+      finishRun(run)
+      return
+    }
+    const lockedPending = readLoopingPendingOperation({
+      chainId: market.chainId,
+      owner,
+      marketId: market.marketId,
+    })
+    if (lockedPending !== undefined) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        operation: lockedPending.operation === 'exit' ? 'exit' :
+          lockedPending.operation === 'entry' ? 'entry' : undefined,
+        txHash: lockedPending.txHash,
+        pendingRecord: lockedPending,
+        message: lockedPending.operation === 'authorization-cleanup'
+          ? 'A Morpho permission cleanup is already unresolved for this wallet. Reconcile its original market before continuing.'
+          : 'Another unresolved looping operation must be reconciled before execution.',
+      })
+      lease.release()
       finishRun(run)
       return
     }
@@ -1878,11 +2112,9 @@ export function useLoopingExecution({
           readiness: verifiedReadiness,
           transactionHash: verifiedTransactionHash,
         }))
-      const pendingCleared = clearLoopingPendingOperation({
-        chainId: market.chainId,
-        owner,
-        marketId: market.marketId,
-      })
+      const pendingCleared =
+        pendingRecord !== undefined &&
+        clearLoopingPendingOperation(pendingRecord)
       if (!pendingCleared) {
         unresolvedRef.current = true
         setState({
@@ -1971,18 +2203,18 @@ export function useLoopingExecution({
         return
       }
       if (partialPendingRecord !== undefined) {
-        const pendingCleared = clearLoopingPendingOperation({
-          chainId: market.chainId,
-          owner,
-          marketId: market.marketId,
-        })
+        const pendingCleared =
+          clearLoopingPendingOperation(partialPendingRecord)
         if (!pendingCleared) {
           const metadataRecord: LoopingPendingOperation = {
             ...partialPendingRecord,
             operation: 'metadata-cleanup',
             createdAt: Date.now(),
           }
-          writeLoopingPendingOperation(metadataRecord)
+          const metadataReplaced = replaceLoopingPendingOperation(
+            partialPendingRecord,
+            metadataRecord,
+          )
           recoveryRef.current = undefined
           unresolvedRef.current = true
           setState({
@@ -1990,8 +2222,10 @@ export function useLoopingExecution({
             fingerprint,
             operation,
             preview,
-            pendingRecord: metadataRecord,
-            message: 'No Morpho authorization signature was exposed, but browser recovery metadata could not be removed. Retry browser cleanup before starting another operation.',
+            pendingRecord: metadataReplaced ? metadataRecord : partialPendingRecord,
+            message: metadataReplaced
+              ? 'No Morpho authorization signature was exposed, but browser recovery metadata could not be removed. Retry browser cleanup before starting another operation.'
+              : 'Browser recovery metadata changed in another tab. Reload before continuing.',
           })
           return
         }
@@ -1999,12 +2233,16 @@ export function useLoopingExecution({
       recoveryRef.current = undefined
       unresolvedRef.current = false
       if (!runIsCurrent(run)) return
+      const authorizationCleanupRequired = requiresAuthorizationCleanup(error)
       setState({
         phase: looksLikeSafetyBlock(error) ? 'blocked' : 'error',
         fingerprint,
         operation,
         preview,
-        message: readableError(error),
+        authorizationCleanupRequired,
+        message: authorizationCleanupRequired
+          ? 'A pre-existing Morpho adapter permission appeared before submission. Secure it, then create a fresh preview.'
+          : readableError(error),
       })
     } finally {
       lease.release()
@@ -2017,6 +2255,995 @@ export function useLoopingExecution({
     walletReadClient,
     withWalletRead])
 
+  const secureAuthorization = useCallback(async (): Promise<void> => {
+    if (
+      market === undefined ||
+      owner === undefined ||
+      walletReadClient === undefined ||
+      walletChainId !== market.chainId
+    ) return
+    const persistedPending = readLoopingPendingOperation({
+      chainId: market.chainId,
+      owner,
+      marketId: market.marketId,
+    })
+    const scopedPending = persistedPending ?? boundState.pendingRecord
+    if (
+      scopedPending !== undefined &&
+      scopedPending.operation !== 'authorization-cleanup'
+    ) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        operation: scopedPending.operation === 'exit' ? 'exit' :
+          scopedPending.operation === 'entry' ? 'entry' : undefined,
+        txHash: scopedPending.txHash,
+        pendingRecord: scopedPending,
+        message: 'Another unresolved looping operation must be reconciled before changing Morpho permissions.',
+      })
+      return
+    }
+    let cleanupPending = scopedPending?.operation === 'authorization-cleanup'
+      ? scopedPending
+      : undefined
+    const startingCleanup =
+      boundState.phase === 'blocked' &&
+      boundState.authorizationCleanupRequired === true
+    const resumingCleanup =
+      boundState.phase === 'ambiguous' &&
+      cleanupPending !== undefined
+    if (!startingCleanup && !resumingCleanup) return
+    if (
+      cleanupPending !== undefined &&
+      (
+        cleanupPending.owner.toLowerCase() !== owner.toLowerCase() ||
+        cleanupPending.chainId !== market.chainId
+      )
+    ) {
+      setState({
+        ...boundState,
+        message: 'Reconnect the wallet that started this permission cleanup.',
+      })
+      return
+    }
+    if (
+      cleanupPending !== undefined &&
+      !sameHex(cleanupPending.marketId, market.marketId)
+    ) {
+      setState({
+        ...boundState,
+        pendingRecord: cleanupPending,
+        message: 'Reselect the original market to finish this wallet-wide Morpho permission cleanup.',
+      })
+      return
+    }
+
+    const run = beginRun()
+    if (run === undefined) return
+    const operationContext = captureContext()
+    const lease = await acquireExecutionLease(operationContext.owner, market)
+    if (lease === undefined) {
+      setState({
+        ...boundState,
+        message: 'Another OpenPendle tab is already handling this wallet on this chain.',
+      })
+      finishRun(run)
+      return
+    }
+    const lockedPending = readLoopingPendingOperation({
+      chainId: market.chainId,
+      owner,
+      marketId: market.marketId,
+    })
+    if (
+      lockedPending !== undefined &&
+      lockedPending.operation !== 'authorization-cleanup'
+    ) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        operation: lockedPending.operation === 'exit' ? 'exit' :
+          lockedPending.operation === 'entry' ? 'entry' : undefined,
+        txHash: lockedPending.txHash,
+        pendingRecord: lockedPending,
+        message: 'Another unresolved looping operation must be reconciled before changing Morpho permissions.',
+      })
+      lease.release()
+      finishRun(run)
+      return
+    }
+    if (lockedPending?.operation === 'authorization-cleanup') {
+      cleanupPending = lockedPending
+    }
+    if (
+      cleanupPending !== undefined &&
+      (
+        cleanupPending.owner.toLowerCase() !== owner.toLowerCase() ||
+        cleanupPending.chainId !== market.chainId ||
+        !sameHex(cleanupPending.marketId, market.marketId)
+      )
+    ) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        txHash: cleanupPending.txHash,
+        pendingRecord: cleanupPending,
+        message:
+          cleanupPending.owner.toLowerCase() === owner.toLowerCase() &&
+          cleanupPending.chainId === market.chainId
+            ? 'Reselect the original market to finish this wallet-wide Morpho permission cleanup.'
+            : 'Reconnect the wallet that started this permission cleanup.',
+      })
+      lease.release()
+      finishRun(run)
+      return
+    }
+    if (resumingCleanup && lockedPending === undefined) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        txHash: cleanupPending?.txHash,
+        pendingRecord: cleanupPending,
+        message: 'Permission-cleanup metadata changed in another tab. Reload before continuing.',
+      })
+      lease.release()
+      finishRun(run)
+      return
+    }
+
+    let latestPending = cleanupPending
+    let latestHash = cleanupPending?.txHash ?? boundState.txHash
+    let expectedPosition = cleanupPending?.expectedPosition
+    let requiredNonce = cleanupPending === undefined
+      ? undefined
+      : BigInt(cleanupPending.startingMorphoNonce) + 1n
+    setState({
+      phase: 'recovering',
+      fingerprint,
+      pendingRecord: cleanupPending,
+      txHash: latestHash,
+      message: cleanupPending === undefined
+        ? 'Preparing a revoke-only Morpho permission cleanup…'
+        : 'Rechecking the Morpho permission-cleanup transaction…',
+    })
+
+    try {
+      lease.assertOwned()
+      assertContext(operationContext)
+      let live = (await withWalletRead(
+        (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+      )).value
+      lease.assertOwned()
+      assertContext(operationContext)
+      expectedPosition ??= exactPositionBounds(live.position)
+      if (!positionMatchesBounds(live.position, expectedPosition)) {
+        throw new LoopingUiSafetyError(
+          'STATE_CONFLICT',
+          'The Morpho position changed after permission cleanup was prepared.',
+        )
+      }
+
+      const cleanupStage = cleanupPending?.authorizationCleanupStage
+      const allowanceCleanupStarted =
+        cleanupStage === 'allowance-ready' ||
+        cleanupStage === 'allowance-submitting' ||
+        cleanupStage === 'allowance-submitted'
+      let nonceBurnProven = authorizationCleanupRevokeProven({
+        snapshot: live,
+        record: cleanupPending,
+        requiredNonce,
+      })
+      let minedBurnNeedsReplacement = false
+      let cleanupRecordToReplace: LoopingPendingOperation | undefined
+      let forceCleanupReplacement = false
+      if (allowanceCleanupStarted && !nonceBurnProven) {
+        throw new LoopingUiSafetyError(
+          'STATE_CONFLICT',
+          'The prior Morpho nonce-burn proof no longer matches this allowance cleanup.',
+        )
+      }
+
+      if (
+        cleanupPending?.authorizationCleanupStage === 'submitted' &&
+        cleanupPending.txHash !== undefined
+      ) {
+        const priorConfirmation = (await withWalletRead(
+          (client) => getLoopingTransactionConfirmation(
+            client,
+            cleanupPending.txHash!,
+          ),
+        )).value
+        if (priorConfirmation.state === 'underconfirmed') {
+          unresolvedRef.current = true
+          setState({
+            phase: 'ambiguous',
+            fingerprint,
+            txHash: cleanupPending.txHash,
+            pendingRecord: cleanupPending,
+            message: 'The permission-cleanup transaction is awaiting two confirmations. It will not be retried automatically.',
+          })
+          return
+        }
+        if (priorConfirmation.state === 'not-found') {
+          const storedStartingNonce = BigInt(
+            cleanupPending.startingMorphoNonce,
+          )
+          const signatureExpired =
+            live.blockTimestamp >
+            BigInt(cleanupPending.authorizationDeadline)
+          const priorSignatureInvalidated =
+            live.burn.startingNonce > storedStartingNonce
+          if (!nonceBurnProven) {
+            if (!signatureExpired && !priorSignatureInvalidated) {
+              unresolvedRef.current = true
+              setState({
+                phase: 'ambiguous',
+                fingerprint,
+                txHash: cleanupPending.txHash,
+                pendingRecord: cleanupPending,
+                message: 'The permission-cleanup hash is not currently indexed. Recheck after its revoke-only signature expires; OpenPendle will not retry it early.',
+              })
+              return
+            }
+            cleanupRecordToReplace = cleanupPending
+            forceCleanupReplacement = true
+            nonceBurnProven = false
+          }
+        } else {
+          live = (await withWalletRead(
+            (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+          )).value
+          lease.assertOwned()
+          assertContext(operationContext)
+          if (!positionMatchesBounds(live.position, expectedPosition)) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The Morpho position changed while permission cleanup was reconciling.',
+            )
+          }
+          nonceBurnProven =
+            !live.burn.adapterAuthorized &&
+            requiredNonce !== undefined &&
+            live.burn.startingNonce >= requiredNonce
+          if (!nonceBurnProven) {
+            minedBurnNeedsReplacement = true
+          }
+        }
+      }
+      if (
+        cleanupPending?.authorizationCleanupStage ===
+          'signature-requested' &&
+        cleanupPending.txHash === undefined
+      ) {
+        const storedStartingNonce = BigInt(
+          cleanupPending.startingMorphoNonce,
+        )
+        const signatureExpired =
+          live.blockTimestamp >
+          BigInt(cleanupPending.authorizationDeadline)
+        const priorSignatureInvalidated =
+          live.burn.startingNonce > storedStartingNonce
+        if (!nonceBurnProven) {
+          if (
+            !signatureExpired &&
+            !priorSignatureInvalidated
+          ) {
+            unresolvedRef.current = true
+            setState({
+              phase: 'ambiguous',
+              fingerprint,
+              pendingRecord: cleanupPending,
+              message: 'No cleanup transaction hash was saved. Recheck after the revoke-only signature expires; OpenPendle will not retry it early.',
+            })
+            return
+          }
+          cleanupRecordToReplace = cleanupPending
+          forceCleanupReplacement = true
+          nonceBurnProven = false
+        }
+      }
+
+      if (!nonceBurnProven) {
+        live = (await withWalletRead(
+          (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+        )).value
+        lease.assertOwned()
+        assertContext(operationContext)
+        if (!positionMatchesBounds(live.position, expectedPosition)) {
+          throw new LoopingUiSafetyError(
+            'STATE_CONFLICT',
+            'The Morpho position changed before permission cleanup could be signed.',
+          )
+        }
+
+        nonceBurnProven =
+          !forceCleanupReplacement &&
+          authorizationCleanupRevokeProven({
+            snapshot: live,
+            record: latestPending,
+            requiredNonce,
+          })
+        if (!nonceBurnProven) {
+          if (minedBurnNeedsReplacement) {
+            if (latestPending === undefined) {
+              throw new LoopingUiSafetyError(
+                'STATE_CONFLICT',
+                'The mined cleanup record is missing its recovery generation.',
+              )
+            }
+            cleanupRecordToReplace = latestPending
+          }
+
+          let walletTxNonce: number | undefined
+          try {
+            walletTxNonce = (await withWalletRead(
+              (client) => client.getTransactionCount({ address: owner, blockTag: 'pending' }),
+            )).value
+          } catch {
+            // The Morpho nonce and deadline remain the primary recovery binding.
+          }
+          lease.assertOwned()
+          assertContext(operationContext)
+          const cleanupRecord = makePendingRecord({
+            operation: 'authorization-cleanup',
+            owner,
+            market,
+            startingNonce: live.burn.startingNonce,
+            deadline: live.burn.request.message.deadline,
+            expectedPosition,
+            walletTxNonce,
+            authorizationCleanupStage: 'signature-requested',
+          })
+          const cleanupRecordPersisted =
+            cleanupRecordToReplace === undefined
+              ? writeLoopingPendingOperation(cleanupRecord)
+              : replaceLoopingPendingOperation(
+                  cleanupRecordToReplace,
+                  cleanupRecord,
+                )
+          if (!cleanupRecordPersisted) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'This browser cannot persist permission-cleanup metadata.',
+            )
+          }
+          latestHash = undefined
+          unresolvedRef.current = true
+          latestPending = cleanupRecord
+          requiredNonce = live.burn.startingNonce + 1n
+          setState({
+            phase: 'recovering',
+            fingerprint,
+            pendingRecord: cleanupRecord,
+            message: 'Sign one revoke-only Morpho message. It cannot increase permissions.',
+          })
+
+          lease.assertOwned()
+          assertContext(operationContext)
+          const request = live.burn.request
+          const signature = await signTypedDataAsync({
+            account: owner,
+            domain: request.domain,
+            types: request.types,
+            primaryType: request.primaryType,
+            message: request.message,
+          })
+          lease.assertOwned()
+          assertContext(operationContext)
+          const burnIntent = (await withWalletRead(
+            (client) => buildLoopingAuthorizationNonceBurnIntent({
+              client,
+              preview: live.burn,
+              signature,
+            }),
+          )).value
+          lease.assertOwned()
+          assertContext(operationContext)
+          let cleanupHash = await sendTransactionAsync({
+            account: owner,
+            chainId: operationContext.chainId,
+            to: burnIntent.to,
+            data: burnIntent.data,
+            value: burnIntent.value,
+          })
+          latestHash = cleanupHash
+          const submittedCleanupRecord: LoopingPendingOperation = {
+            ...cleanupRecord,
+            authorizationCleanupStage: 'submitted',
+            txHash: cleanupHash,
+          }
+          if (!replaceLoopingPendingOperation(
+            cleanupRecord,
+            submittedCleanupRecord,
+          )) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The submitted cleanup hash could not be persisted.',
+            )
+          }
+          latestPending = submittedCleanupRecord
+          lease.assertOwned()
+          assertContext(operationContext)
+          setState({
+            phase: 'recovering',
+            fingerprint,
+            txHash: cleanupHash,
+            pendingRecord: latestPending,
+            message: 'Waiting for the Morpho permission-cleanup transaction…',
+          })
+          let unsafeReplacement: 'cancelled' | 'replaced' | undefined
+          let replacementPersistenceLost = false
+          const receipt = (await withWalletRead(
+            (client) => client.waitForTransactionReceipt({
+              hash: cleanupHash,
+              confirmations: LOOPING_RECEIPT_CONFIRMATIONS,
+              onReplaced: (replacement) => {
+                cleanupHash = replacement.transaction.hash
+                latestHash = cleanupHash
+                if (latestPending !== undefined) {
+                  const previousPending = latestPending
+                  const replacementPending = {
+                    ...previousPending,
+                    txHash: cleanupHash,
+                  }
+                  if (!replaceLoopingPendingOperation(
+                    previousPending,
+                    replacementPending,
+                  )) {
+                    replacementPersistenceLost = true
+                  } else {
+                    latestPending = replacementPending
+                  }
+                }
+                if (replacement.reason !== 'repriced') unsafeReplacement = replacement.reason
+              },
+            }),
+          )).value
+          lease.assertOwned()
+          assertContext(operationContext)
+          if (replacementPersistenceLost) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The replacement cleanup hash could not be persisted safely.',
+            )
+          }
+          const postBurn = (await withWalletRead(
+            (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+          )).value
+          if (
+            postBurn.burn.adapterAuthorized ||
+            postBurn.burn.startingNonce < burnIntent.expectedPostconditions.nonce ||
+            !positionMatchesBounds(postBurn.position, expectedPosition)
+          ) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              unsafeReplacement === undefined && receipt.status === 'success'
+                ? 'The Morpho permission cleanup is not yet proven safe.'
+                : `The Morpho permission cleanup was ${unsafeReplacement ?? 'reverted'}. Recheck it; OpenPendle will not retry automatically.`,
+            )
+          }
+          live = postBurn
+          nonceBurnProven = true
+        }
+      }
+
+      let allowanceDecision: ReturnType<
+        typeof classifyLoopingAuthorizationAllowanceCleanupRecheck
+      >
+      if (
+        latestPending?.authorizationCleanupStage === 'allowance-submitted' &&
+        latestPending.txHash !== undefined
+      ) {
+        const allowanceConfirmation = (await withWalletRead(
+          (client) => getLoopingTransactionConfirmation(
+            client,
+            latestPending!.txHash!,
+          ),
+        )).value
+        if (allowanceConfirmation.state === 'underconfirmed') {
+          unresolvedRef.current = true
+          setState({
+            phase: 'ambiguous',
+            fingerprint,
+            txHash: latestPending.txHash,
+            pendingRecord: latestPending,
+            message: 'The adapter-allowance cleanup is awaiting two confirmations. It will not be retried automatically.',
+          })
+          return
+        }
+        if (allowanceConfirmation.state === 'not-found') {
+          lease.assertOwned()
+          assertContext(operationContext)
+          const allowanceReadyRecord = restageAuthorizationCleanupRecord(
+            latestPending,
+            'allowance-ready',
+          )
+          if (!replaceLoopingPendingOperation(
+            latestPending,
+            allowanceReadyRecord,
+          )) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The unindexed allowance cleanup could not be restaged safely.',
+            )
+          }
+          latestPending = allowanceReadyRecord
+          latestHash = undefined
+          unresolvedRef.current = true
+          setState({
+            phase: 'ambiguous',
+            fingerprint,
+            pendingRecord: allowanceReadyRecord,
+            message: 'The saved allowance-cleanup hash is no longer indexed. Check wallet activity, then use Clear adapter allowance to explicitly retry approve-zero.',
+          })
+          return
+        }
+        live = (await withWalletRead(
+          (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+        )).value
+        lease.assertOwned()
+        assertContext(operationContext)
+        if (
+          !authorizationCleanupRevokeProven({
+            snapshot: live,
+            record: latestPending,
+            requiredNonce,
+          }) ||
+          !positionMatchesBounds(live.position, expectedPosition)
+        ) {
+          throw new LoopingUiSafetyError(
+            'STATE_CONFLICT',
+            'The confirmed allowance cleanup no longer matches its permission or position proof.',
+          )
+        }
+        allowanceDecision =
+          classifyLoopingAuthorizationAllowanceCleanupRecheck({
+            record: latestPending,
+            adapterAllowance: live.adapterAllowance,
+            receiptMined: true,
+          })
+      } else {
+        allowanceDecision =
+          classifyLoopingAuthorizationAllowanceCleanupRecheck({
+            record: latestPending,
+            adapterAllowance: live.adapterAllowance,
+            receiptMined: false,
+          })
+      }
+      if (allowanceDecision === 'wait-for-mined-state') {
+        const hashlessAllowanceRecord =
+          latestPending?.authorizationCleanupStage ===
+            'allowance-submitting' &&
+          latestPending.txHash === undefined
+            ? latestPending
+            : undefined
+        let noAllowanceTransactionObserved = false
+        if (
+          hashlessAllowanceRecord?.walletTxNonce !== undefined
+        ) {
+          try {
+            const [latestWalletNonce, pendingWalletNonce] =
+              (await withWalletRead((client) => Promise.all([
+                client.getTransactionCount({
+                  address: owner,
+                  blockTag: 'latest',
+                }),
+                client.getTransactionCount({
+                  address: owner,
+                  blockTag: 'pending',
+                }),
+            ]))).value
+            const stagedWalletNonce = BigInt(
+              hashlessAllowanceRecord.walletTxNonce,
+            )
+            noAllowanceTransactionObserved =
+              BigInt(latestWalletNonce) <= stagedWalletNonce &&
+              BigInt(pendingWalletNonce) <= stagedWalletNonce
+          } catch {
+            // A wallet nonce is only evidence; never infer absence on RPC error.
+          }
+        }
+        if (hashlessAllowanceRecord !== undefined) {
+          lease.assertOwned()
+          assertContext(operationContext)
+          const allowanceReadyRecord = restageAuthorizationCleanupRecord(
+            hashlessAllowanceRecord,
+            'allowance-ready',
+          )
+          if (!replaceLoopingPendingOperation(
+            hashlessAllowanceRecord,
+            allowanceReadyRecord,
+          )) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The hashless allowance cleanup could not be restaged safely.',
+            )
+          }
+          latestPending = allowanceReadyRecord
+          latestHash = undefined
+          unresolvedRef.current = true
+          setState({
+            phase: 'ambiguous',
+            fingerprint,
+            pendingRecord: allowanceReadyRecord,
+            message: noAllowanceTransactionObserved
+              ? 'No allowance transaction was visible at the saved wallet nonce. Check wallet activity, then use Clear adapter allowance to explicitly retry.'
+              : 'No allowance cleanup hash was saved. Check wallet activity, then use Clear adapter allowance to explicitly retry approve-zero.',
+          })
+          return
+        }
+        unresolvedRef.current = true
+        setState({
+          phase: 'ambiguous',
+          fingerprint,
+          pendingRecord: latestPending,
+          message: 'An adapter-allowance cleanup may have been requested, but no transaction hash was saved. OpenPendle will not submit another cleanup automatically.',
+        })
+        return
+      }
+      if (
+        allowanceDecision === 'stage-ready' ||
+        allowanceDecision === 'roll-forward'
+      ) {
+        if (latestPending === undefined) {
+          throw new LoopingUiSafetyError(
+            'STATE_CONFLICT',
+            'Persisted Morpho permission proof is required before allowance cleanup.',
+          )
+        }
+        lease.assertOwned()
+        assertContext(operationContext)
+        const allowanceReadyRecord = restageAuthorizationCleanupRecord(
+          latestPending,
+          'allowance-ready',
+        )
+        if (!replaceLoopingPendingOperation(
+          latestPending,
+          allowanceReadyRecord,
+        )) {
+          throw new LoopingUiSafetyError(
+            'STATE_CONFLICT',
+            'The adapter-allowance cleanup could not be staged safely.',
+          )
+        }
+        latestPending = allowanceReadyRecord
+        latestHash = undefined
+        unresolvedRef.current = true
+        setState({
+          phase: 'ambiguous',
+          fingerprint,
+          pendingRecord: allowanceReadyRecord,
+          message: allowanceDecision === 'roll-forward'
+            ? 'The prior allowance cleanup mined without proving zero allowance. Recheck before retrying; OpenPendle will not retry automatically.'
+            : 'Morpho permission is revoked. Recheck to clear the remaining adapter token allowance.',
+        })
+        return
+      }
+      if (allowanceDecision === 'submit') {
+        live = (await withWalletRead(
+          (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+        )).value
+        lease.assertOwned()
+        assertContext(operationContext)
+        if (
+          !authorizationCleanupRevokeProven({
+            snapshot: live,
+            record: latestPending,
+            requiredNonce,
+          }) ||
+          !positionMatchesBounds(live.position, expectedPosition)
+        ) {
+          throw new LoopingUiSafetyError(
+            'STATE_CONFLICT',
+            'The Morpho permission or position changed before allowance cleanup.',
+          )
+        }
+        if (live.adapterAllowance !== 0n) {
+          const cleanupPlan = (await withWalletRead(
+            (client) => prepareDirectLoopingRescue({ client, owner, market }),
+          )).value
+          const cleanupIntent = cleanupPlan.intents[0]
+          if (
+            cleanupPlan.owner.toLowerCase() !== owner.toLowerCase() ||
+            !sameHex(cleanupPlan.marketId, market.marketId) ||
+            cleanupPlan.phase !== 'clear-adapter-allowance' ||
+            cleanupPlan.intents.length !== 1 ||
+            cleanupIntent?.step !== 'clear-adapter-allowance' ||
+            cleanupPlan.startingState.adapterAuthorized ||
+            cleanupPlan.startingState.adapterAllowance === 0n ||
+            !positionMatchesBounds(cleanupPlan.position, expectedPosition)
+          ) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The compiler did not return one bounded adapter-allowance cleanup.',
+            )
+          }
+          let walletTxNonce: number | undefined
+          try {
+            walletTxNonce = (await withWalletRead(
+              (client) => client.getTransactionCount({
+                address: owner,
+                blockTag: 'pending',
+              }),
+            )).value
+          } catch {
+            // The exact staged cleanup remains bound to owner, chain, and market.
+          }
+          if (latestPending === undefined) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'Persisted Morpho permission proof is required before allowance cleanup.',
+            )
+          }
+          lease.assertOwned()
+          assertContext(operationContext)
+          const allowanceSubmittingRecord =
+            restageAuthorizationCleanupRecord(
+              latestPending,
+              'allowance-submitting',
+              { walletTxNonce },
+            )
+          if (!replaceLoopingPendingOperation(
+            latestPending,
+            allowanceSubmittingRecord,
+          )) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'This browser cannot persist allowance-cleanup metadata.',
+            )
+          }
+          latestPending = allowanceSubmittingRecord
+          latestHash = undefined
+          unresolvedRef.current = true
+          setState({
+            phase: 'recovering',
+            fingerprint,
+            pendingRecord: allowanceSubmittingRecord,
+            message: 'Confirm one transaction to clear the adapter token allowance.',
+          })
+          lease.assertOwned()
+          assertContext(operationContext)
+          let allowanceHash = await sendTransactionAsync({
+            account: owner,
+            chainId: operationContext.chainId,
+            to: cleanupIntent.to,
+            data: cleanupIntent.data,
+            value: cleanupIntent.value,
+          })
+          latestHash = allowanceHash
+          const allowanceSubmittedRecord = restageAuthorizationCleanupRecord(
+            allowanceSubmittingRecord,
+            'allowance-submitted',
+            { txHash: allowanceHash },
+          )
+          if (!replaceLoopingPendingOperation(
+            allowanceSubmittingRecord,
+            allowanceSubmittedRecord,
+          )) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The submitted allowance-cleanup hash could not be persisted.',
+            )
+          }
+          latestPending = allowanceSubmittedRecord
+          lease.assertOwned()
+          assertContext(operationContext)
+          setState({
+            phase: 'recovering',
+            fingerprint,
+            txHash: allowanceHash,
+            pendingRecord: latestPending,
+            message: 'Waiting for the adapter-allowance cleanup transaction…',
+          })
+          let unsafeAllowanceReplacement: 'cancelled' | 'replaced' | undefined
+          let allowanceReplacementPersistenceLost = false
+          const allowanceReceipt = (await withWalletRead(
+            (client) => client.waitForTransactionReceipt({
+              hash: allowanceHash,
+              confirmations: LOOPING_RECEIPT_CONFIRMATIONS,
+              onReplaced: (replacement) => {
+                allowanceHash = replacement.transaction.hash
+                latestHash = allowanceHash
+                if (latestPending !== undefined) {
+                  const previousPending = latestPending
+                  const replacementPending = restageAuthorizationCleanupRecord(
+                    previousPending,
+                    'allowance-submitted',
+                    { txHash: allowanceHash },
+                  )
+                  if (!replaceLoopingPendingOperation(
+                    previousPending,
+                    replacementPending,
+                  )) {
+                    allowanceReplacementPersistenceLost = true
+                  } else {
+                    latestPending = replacementPending
+                  }
+                }
+                if (replacement.reason !== 'repriced') {
+                  unsafeAllowanceReplacement = replacement.reason
+                }
+              },
+            }),
+          )).value
+          lease.assertOwned()
+          assertContext(operationContext)
+          if (allowanceReplacementPersistenceLost) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              'The replacement allowance-cleanup hash could not be persisted safely.',
+            )
+          }
+          const postAllowance = (await withWalletRead(
+            (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+          )).value
+          if (
+            !authorizationCleanupRevokeProven({
+              snapshot: postAllowance,
+              record: latestPending,
+              requiredNonce,
+            }) ||
+            postAllowance.adapterAllowance !== 0n ||
+            !positionMatchesBounds(postAllowance.position, expectedPosition)
+          ) {
+            throw new LoopingUiSafetyError(
+              'STATE_CONFLICT',
+              unsafeAllowanceReplacement === undefined &&
+                allowanceReceipt.status === 'success'
+                ? 'The adapter-allowance cleanup is not yet proven safe.'
+                : `The adapter-allowance cleanup was ${unsafeAllowanceReplacement ?? 'reverted'}. Recheck it; OpenPendle will not retry automatically.`,
+            )
+          }
+          live = postAllowance
+        }
+      }
+
+      const confirmedFinalState = (await withWalletRead(
+        (client) => readConfirmedAuthorizationCleanupSnapshot({
+          client,
+          owner,
+          market,
+        }),
+      )).value
+      lease.assertOwned()
+      assertContext(operationContext)
+      const confirmedFinalRevokeProven = authorizationCleanupRevokeProven({
+        snapshot: confirmedFinalState,
+        record: latestPending,
+        requiredNonce,
+      })
+      if (
+        !confirmedFinalRevokeProven ||
+        confirmedFinalState.adapterAllowance !== 0n ||
+        !positionMatchesBounds(
+          confirmedFinalState.position,
+          expectedPosition,
+        )
+      ) {
+        unresolvedRef.current = true
+        setState({
+          phase: 'ambiguous',
+          fingerprint,
+          txHash: latestHash,
+          pendingRecord: latestPending,
+          message: 'Permission cleanup is awaiting two-confirmation state proof. It will not be retried automatically.',
+        })
+        return
+      }
+
+      const finalState = (await withWalletRead(
+        (client) => readAuthorizationCleanupSnapshot({ client, owner, market }),
+      )).value
+      lease.assertOwned()
+      assertContext(operationContext)
+      const finalRevokeProven = authorizationCleanupRevokeProven({
+        snapshot: finalState,
+        record: latestPending,
+        requiredNonce,
+      })
+      if (
+        !finalRevokeProven ||
+        finalState.adapterAllowance !== 0n ||
+        !positionMatchesBounds(finalState.position, expectedPosition)
+      ) {
+        throw new LoopingUiSafetyError(
+          'STATE_CONFLICT',
+          'Permission cleanup did not preserve the exact position and remove adapter access.',
+        )
+      }
+      const pendingCleared =
+        latestPending === undefined ||
+        clearLoopingPendingOperation(latestPending)
+      if (!pendingCleared) {
+        throw new LoopingUiSafetyError(
+          'STATE_CONFLICT',
+          'The completed permission-cleanup record could not be removed.',
+        )
+      }
+      unresolvedRef.current = false
+      recoveryRef.current = undefined
+      setState({
+        phase: 'confirmed',
+        fingerprint,
+        txHash: latestHash,
+        position: finalState.position,
+        notice: 'Morpho permission secured. Refresh the live position to preview the adjustment.',
+      })
+    } catch (error) {
+      if (
+        isUserRejection(error) &&
+        latestPending?.authorizationCleanupStage === 'allowance-submitting' &&
+        latestPending.txHash === undefined
+      ) {
+        const allowanceReadyRecord = restageAuthorizationCleanupRecord(
+          latestPending,
+          'allowance-ready',
+        )
+        const pendingRestaged = replaceLoopingPendingOperation(
+          latestPending,
+          allowanceReadyRecord,
+        )
+        unresolvedRef.current = true
+        setState({
+          phase: 'ambiguous',
+          fingerprint,
+          pendingRecord: pendingRestaged
+            ? allowanceReadyRecord
+            : latestPending,
+          message: pendingRestaged
+            ? 'Allowance cleanup was declined. Recheck when you are ready.'
+            : 'Allowance cleanup was declined, but its recovery stage could not be restored safely.',
+        })
+        return
+      }
+      const userRejectedBeforeSubmission =
+        isUserRejection(error) && latestHash === undefined
+      if (userRejectedBeforeSubmission) {
+        const pendingCleared =
+          latestPending === undefined ||
+          clearLoopingPendingOperation(latestPending)
+        if (!pendingCleared) {
+          unresolvedRef.current = true
+          setState({
+            phase: 'ambiguous',
+            fingerprint,
+            pendingRecord: latestPending,
+            message: 'Permission cleanup was declined, but its browser recovery record could not be removed.',
+          })
+          return
+        }
+        unresolvedRef.current = false
+        setState({
+          phase: 'blocked',
+          fingerprint,
+          authorizationCleanupRequired: true,
+          message: 'Permission cleanup was declined. The Morpho position was not changed.',
+        })
+      } else {
+        unresolvedRef.current = latestPending !== undefined
+        setState({
+          phase: latestPending === undefined ? 'blocked' : 'ambiguous',
+          fingerprint,
+          authorizationCleanupRequired: latestPending === undefined,
+          txHash: latestHash,
+          pendingRecord: latestPending,
+          message: isUserRejection(error)
+            ? 'Permission cleanup submission was declined. Recheck before continuing.'
+            : readableError(error),
+        })
+      }
+    } finally {
+      lease.release()
+      finishRun(run)
+    }
+  }, [assertContext, beginRun, boundState, captureContext, fingerprint, finishRun,
+    market, owner, sendTransactionAsync, signTypedDataAsync, walletChainId,
+    walletReadClient, withWalletRead])
+
   const recover = useCallback(async (): Promise<void> => {
     if (
       boundState.phase !== 'ambiguous' ||
@@ -2026,11 +3253,12 @@ export function useLoopingExecution({
       walletChainId !== market.chainId
     ) return
     const inMemoryRecovery = recoveryRef.current
-    const storedPending = boundState.pendingRecord ?? readLoopingPendingOperation({
+    const persistedPending = readLoopingPendingOperation({
       chainId: market.chainId,
       owner,
       marketId: market.marketId,
     })
+    let storedPending = persistedPending ?? boundState.pendingRecord
     if (inMemoryRecovery === undefined && storedPending === undefined) return
     if (
       inMemoryRecovery !== undefined &&
@@ -2052,7 +3280,13 @@ export function useLoopingExecution({
     ) {
       setState({
         ...boundState,
-        message: 'Reconnect the wallet that created this pending operation before recovery.',
+        pendingRecord: storedPending,
+        message:
+          storedPending.operation === 'authorization-cleanup' &&
+          storedPending.owner.toLowerCase() === owner.toLowerCase() &&
+          storedPending.chainId === market.chainId
+            ? 'Reselect the original market to finish the wallet-wide Morpho permission cleanup.'
+            : 'Reconnect the wallet that created this pending operation before recovery.',
       })
       return
     }
@@ -2063,10 +3297,46 @@ export function useLoopingExecution({
     if (lease === undefined) {
       setState({
         ...boundState,
-        message: 'Another OpenPendle tab is already handling this wallet and market.',
+        message: 'Another OpenPendle tab is already handling this wallet on this chain.',
       })
       finishRun(run)
       return
+    }
+    const lockedPending = readLoopingPendingOperation({
+      chainId: market.chainId,
+      owner,
+      marketId: market.marketId,
+    })
+    if (lockedPending?.operation === 'authorization-cleanup') {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        txHash: lockedPending.txHash,
+        pendingRecord: lockedPending,
+        message: sameHex(lockedPending.marketId, market.marketId)
+          ? 'Finish the wallet-wide Morpho permission cleanup before recovering this operation.'
+          : 'Reselect the original market to finish the wallet-wide Morpho permission cleanup.',
+      })
+      lease.release()
+      finishRun(run)
+      return
+    }
+    if (lockedPending !== undefined) {
+      storedPending = lockedPending
+    } else if (inMemoryRecovery === undefined) {
+      unresolvedRef.current = true
+      setState({
+        phase: 'ambiguous',
+        fingerprint,
+        pendingRecord: storedPending,
+        message: 'Pending recovery metadata changed in another tab. Reload before continuing.',
+      })
+      lease.release()
+      finishRun(run)
+      return
+    } else {
+      storedPending = undefined
     }
     const operation = inMemoryRecovery?.pair.operation ??
       (storedPending?.operation === 'exit' ? 'exit' : 'entry')
@@ -2111,11 +3381,9 @@ export function useLoopingExecution({
       lease.assertOwned()
       assertContext(operationContext)
       if (metadataOnly) {
-        const pendingCleared = clearLoopingPendingOperation({
-          chainId: market.chainId,
-          owner,
-          marketId: market.marketId,
-        })
+        const pendingCleared =
+          storedPending !== undefined &&
+          clearLoopingPendingOperation(storedPending)
         if (!pendingCleared) {
           throw new LoopingUiSafetyError(
             'STATE_CONFLICT',
@@ -2587,12 +3855,10 @@ export function useLoopingExecution({
             minimumReturnedAssets: EXIT_QUOTE_DISCOVERY_FLOOR,
           }),
         )
-        const pendingCleared = clearLoopingPendingOperation({
-          chainId: market.chainId,
-          owner,
-          marketId: market.marketId,
-        })
-        if (latestPending !== undefined && !pendingCleared) {
+        const pendingCleared =
+          latestPending === undefined ||
+          clearLoopingPendingOperation(latestPending)
+        if (!pendingCleared) {
           throw new LoopingUiSafetyError(
             'STATE_CONFLICT',
             'The secured operation could not be removed from browser recovery storage.',
@@ -2620,12 +3886,10 @@ export function useLoopingExecution({
         )
       }
 
-      const pendingCleared = clearLoopingPendingOperation({
-        chainId: market.chainId,
-        owner,
-        marketId: market.marketId,
-      })
-      if (latestPending !== undefined && !pendingCleared) {
+      const pendingCleared =
+        latestPending === undefined ||
+        clearLoopingPendingOperation(latestPending)
+      if (!pendingCleared) {
         throw new LoopingUiSafetyError(
           'STATE_CONFLICT',
           'The secured operation could not be removed from browser recovery storage.',
@@ -2681,6 +3945,35 @@ export function useLoopingExecution({
     !riskIncreaseEligibility.eligible
       ? riskIncreaseEligibility.message
       : undefined
+  const authorizationCleanupRequired = Boolean(
+    boundState.authorizationCleanupRequired ||
+    boundState.pendingRecord?.operation === 'authorization-cleanup',
+  )
+  const selectedMarketOwnsAuthorizationCleanup =
+    boundState.pendingRecord?.operation !== 'authorization-cleanup' ||
+    (
+      owner !== undefined &&
+      market !== undefined &&
+      boundState.pendingRecord.owner.toLowerCase() === owner.toLowerCase() &&
+      boundState.pendingRecord.chainId === market.chainId &&
+      sameHex(boundState.pendingRecord.marketId, market.marketId)
+    )
+  const authorizationCleanupMessage =
+    boundState.phase === 'ambiguous' &&
+    boundState.pendingRecord?.operation === 'authorization-cleanup' &&
+    owner !== undefined &&
+    market !== undefined &&
+    boundState.pendingRecord.owner.toLowerCase() === owner.toLowerCase() &&
+    boundState.pendingRecord.chainId === market.chainId
+      ? !sameHex(boundState.pendingRecord.marketId, market.marketId)
+        ? 'A wallet-wide Morpho permission cleanup is unresolved. Reselect its original market before continuing.'
+        : boundState.pendingRecord.authorizationCleanupStage === 'allowance-ready'
+          ? 'Morpho permission is revoked; the remaining adapter token allowance is ready to clear.'
+          : boundState.pendingRecord.authorizationCleanupStage === 'allowance-submitting' ||
+              boundState.pendingRecord.authorizationCleanupStage === 'allowance-submitted'
+            ? 'An adapter-allowance cleanup is unresolved. Recheck it before continuing.'
+            : 'A Morpho permission-cleanup transaction is unresolved. Recheck it before continuing.'
+      : undefined
 
   return {
     phase: externalPhase,
@@ -2694,17 +3987,23 @@ export function useLoopingExecution({
     borrowAssets,
     preview: boundState.preview,
     position: boundState.position,
-    message: boundState.message ?? riskIncreaseMessage,
+    message:
+      authorizationCleanupMessage ??
+      boundState.message ??
+      riskIncreaseMessage,
     notice: boundState.notice,
     noticeTone: boundState.noticeTone,
     txHash: boundState.txHash,
     pendingRecord: boundState.pendingRecord,
+    authorizationCleanupRequired,
     busy,
     canPrepare: Boolean(
       market && isConnected && owner &&
       walletReadClient &&
       walletChainId === market.chainId &&
-      !busy && externalPhase !== 'ambiguous',
+      !busy &&
+      externalPhase !== 'ambiguous' &&
+      !authorizationCleanupRequired,
     ),
     canExecute: Boolean(
       (boundState.operation === 'entry'
@@ -2720,11 +4019,28 @@ export function useLoopingExecution({
       boundState.phase === 'ambiguous' &&
       walletReadClient &&
       (recoveryRef.current !== undefined || boundState.pendingRecord !== undefined) &&
+      boundState.pendingRecord?.operation !== 'authorization-cleanup' &&
       !busy,
+    ),
+    canSecureAuthorization: Boolean(
+      walletReadClient &&
+      !busy &&
+      (
+        (
+          boundState.phase === 'blocked' &&
+          boundState.authorizationCleanupRequired === true
+        ) ||
+        (
+          boundState.phase === 'ambiguous' &&
+          boundState.pendingRecord?.operation === 'authorization-cleanup' &&
+          selectedMarketOwnsAuthorizationCleanup
+        )
+      ),
     ),
     prepare,
     execute,
     recover,
+    secureAuthorization,
     connectWallet: () => openConnectModal?.(),
     switchToMarketChain: () => {
       if (market !== undefined) switchChain({ chainId: market.chainId })

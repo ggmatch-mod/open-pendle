@@ -14,6 +14,10 @@ const compiler = readFileSync(
   new URL('../src/lib/loopingExecution.ts', import.meta.url),
   'utf8',
 )
+const pending = readFileSync(
+  new URL('../src/lib/loopingPending.ts', import.meta.url),
+  'utf8',
+)
 const loopPositions = readFileSync(
   new URL('../src/components/LoopPositionsSection.tsx', import.meta.url),
   'utf8',
@@ -79,6 +83,9 @@ function everyIndexInside(indexes, ranges) {
 
 const sendExactStart = hook.indexOf('const sendExactApproval = useCallback')
 const executeStart = hook.indexOf('const execute = useCallback')
+const secureAuthorizationStart = hook.indexOf(
+  'const secureAuthorization = useCallback',
+)
 const recoverStart = hook.indexOf('const recover = useCallback')
 const externalPhaseStart = hook.indexOf('const externalPhase: LoopingExecutionPhase')
 
@@ -91,8 +98,14 @@ const sendExact = region(
 const execute = region(
   hook,
   'const execute = useCallback',
-  'const recover = useCallback',
+  'const secureAuthorization = useCallback',
   'main execution',
+)
+const secureAuthorization = region(
+  hook,
+  'const secureAuthorization = useCallback',
+  'const recover = useCallback',
+  'imported authorization cleanup',
 )
 const recover = region(
   hook,
@@ -111,6 +124,12 @@ const canRecoverCapability = region(
   'canRecover: Boolean(',
   '    prepare,',
   'public recovery capability',
+)
+const canSecureAuthorizationCapability = region(
+  hook,
+  'canSecureAuthorization: Boolean(',
+  '    prepare,',
+  'public authorization-cleanup capability',
 )
 const walletReadPath = region(
   hook,
@@ -432,6 +451,187 @@ check(
   'A scoped ambiguous record must still expose recovery after entry and exit are disabled.',
 )
 
+console.log('# imported active-authorization cleanup')
+check(
+  'active adapter authorization has one dedicated compiler error',
+  /\| 'ACTIVE_ADAPTER_AUTHORIZATION'/.test(compiler) &&
+    /if \(adapterAuthorized\) \{[\s\S]*?fail\([\s\S]*?'ACTIVE_ADAPTER_AUTHORIZATION'[\s\S]*?GeneralAdapter1 is already authorized/.test(compiler),
+  'Imported permission must be distinguishable from ordinary state conflicts before any quote or signature.',
+)
+check(
+  'only the dedicated compiler error offers imported-authorization cleanup',
+  /function requiresAuthorizationCleanup\(error: unknown\): boolean \{[\s\S]*?return errorCode\(error\) === 'ACTIVE_ADAPTER_AUTHORIZATION'/.test(hook) &&
+    /const authorizationCleanupRequired = requiresAuthorizationCleanup\(error\)[\s\S]*?authorizationCleanupRequired,[\s\S]*?pre-existing Morpho adapter permission/.test(hook),
+  'Generic preparation failures must not expose a permission-changing recovery action.',
+)
+check(
+  'authorization cleanup is an explicit user action',
+  /canSecureAuthorization: boolean/.test(hook) &&
+    /secureAuthorization: \(\) => Promise<void>/.test(hook) &&
+    /execution\.authorizationCleanupRequired[\s\S]*?onClick=\{\(\) => void execution\.secureAuthorization\(\)\}[\s\S]*?disabled=\{!execution\.canSecureAuthorization\}[\s\S]*?Secure Morpho permission/.test(primaryAction) &&
+    !/useEffect\([\s\S]{0,500}?secureAuthorization\(/.test(hook),
+  'Detecting an imported permission must stop preparation and render a dedicated confirmation button, never auto-submit cleanup.',
+)
+check(
+  'the public cleanup capability is restricted to its blocked or persisted state',
+  !/LOOPING_(?:EXECUTION|EXIT)_BETA_ENABLED/.test(canSecureAuthorizationCapability) &&
+    /walletReadClient/.test(canSecureAuthorizationCapability) &&
+    /boundState\.phase === 'blocked'[\s\S]*?boundState\.authorizationCleanupRequired === true/.test(canSecureAuthorizationCapability) &&
+    /boundState\.phase === 'ambiguous'[\s\S]*?boundState\.pendingRecord\?\.operation === 'authorization-cleanup'/.test(canSecureAuthorizationCapability) &&
+    /selectedMarketOwnsAuthorizationCleanup/.test(canSecureAuthorizationCapability) &&
+    /!busy/.test(canSecureAuthorizationCapability) &&
+    /boundState\.pendingRecord\?\.operation !== 'authorization-cleanup'/.test(canRecoverCapability),
+  'Ordinary recovery and imported-permission cleanup must remain separate explicit capabilities.',
+)
+check(
+  'active authorization is discovered before position input and quote preparation',
+  ordered(hook.slice(hook.indexOf('const prepare = useCallback'), hook.indexOf('const waitForApprovalReceipt')), [
+    'prepareDirectLoopingAuthorizationRevoke({',
+    "'ACTIVE_ADAPTER_AUTHORIZATION'",
+    'const prepared = await freshPreview()',
+  ]) &&
+    count(hook, /const authorizationCleanupRequired = requiresAuthorizationCleanup\(error\)/g) >= 2,
+  'Global adapter authorization must expose cleanup even when position inputs or a later execution refresh would otherwise fail first.',
+)
+check(
+  'authorization cleanup never overwrites another pending operation',
+  count(secureAuthorization, /operation !== 'authorization-cleanup'/g) >= 2 &&
+    /const lockedPending = readLoopingPendingOperation\([\s\S]*?lockedPending\.operation !== 'authorization-cleanup'[\s\S]*?phase: 'ambiguous'[\s\S]*?pendingRecord: lockedPending[\s\S]*?lease\.release\(\)[\s\S]*?return/.test(secureAuthorization),
+  'The scoped record must be checked before and after the global lease is acquired.',
+)
+check(
+  'unmined or hashless cleanup is never retried automatically',
+  /authorizationCleanupStage === 'submitted'[\s\S]*?getLoopingTransactionConfirmation\([\s\S]*?priorConfirmation\.state === 'underconfirmed'[\s\S]*?awaiting two confirmations\. It will not be retried automatically\.[\s\S]*?return[\s\S]*?priorConfirmation\.state === 'not-found'[\s\S]*?!signatureExpired && !priorSignatureInvalidated[\s\S]*?will not retry it early\.[\s\S]*?return/.test(secureAuthorization) &&
+    /authorizationCleanupStage ===[\s\S]*?'signature-requested'[\s\S]*?cleanupPending\.txHash === undefined[\s\S]*?const signatureExpired =[\s\S]*?const priorSignatureInvalidated =[\s\S]*?!signatureExpired &&[\s\S]*?!priorSignatureInvalidated[\s\S]*?will not retry it early\.[\s\S]*?return/.test(secureAuthorization),
+  'An uncertain broadcast must remain attached until mined state proves safety.',
+)
+const minedCleanupRollForward = secureAuthorization.slice(
+  secureAuthorization.indexOf(
+    "if (priorConfirmation.state === 'not-found')",
+  ),
+  secureAuthorization.indexOf('let allowanceDecision'),
+)
+check(
+  'a mined cancelled or replaced cleanup can roll forward on explicit recheck',
+  ordered(minedCleanupRollForward, [
+    "} else {\n          live = (await withWalletRead",
+    'readAuthorizationCleanupSnapshot({ client, owner, market })',
+    'positionMatchesBounds(live.position, expectedPosition)',
+    'nonceBurnProven =',
+    '!live.burn.adapterAuthorized',
+    'live.burn.startingNonce >= requiredNonce',
+    'minedBurnNeedsReplacement = true',
+    'if (!nonceBurnProven)',
+    'readAuthorizationCleanupSnapshot({ client, owner, market })',
+    '!forceCleanupReplacement &&',
+    'authorizationCleanupRevokeProven({',
+    'if (!nonceBurnProven)',
+    'if (minedBurnNeedsReplacement)',
+    'cleanupRecordToReplace = latestPending',
+    'makePendingRecord({',
+    'replaceLoopingPendingOperation(',
+    'cleanupRecordToReplace,',
+    'cleanupRecord,',
+  ]),
+  'Fresh post-receipt state must prove the original burn before its record can be replaced with another signed generation.',
+)
+check(
+  'a hashless revoke resolves only after expiry or nonce invalidation',
+  /live\.blockTimestamp >[\s\S]*?BigInt\(cleanupPending\.authorizationDeadline\)/.test(secureAuthorization) &&
+    /const priorSignatureInvalidated =[\s\S]*?live\.burn\.startingNonce > storedStartingNonce/.test(secureAuthorization) &&
+    !/live\.burn\.startingNonce < storedStartingNonce/.test(secureAuthorization) &&
+    count(secureAuthorization, /cleanupRecordToReplace = cleanupPending/g) >= 2 &&
+    count(secureAuthorization, /forceCleanupReplacement = true/g) === 2 &&
+    ordered(secureAuthorization, [
+      'let nonceBurnProven = authorizationCleanupRevokeProven({',
+      "if (priorConfirmation.state === 'not-found')",
+      'if (!nonceBurnProven)',
+      '!signatureExpired &&',
+      '!priorSignatureInvalidated',
+      'return',
+      'cleanupRecordToReplace = cleanupPending',
+      'forceCleanupReplacement = true',
+      "'signature-requested'",
+      'if (!nonceBurnProven)',
+      '!signatureExpired &&',
+      '!priorSignatureInvalidated',
+      'return',
+      'cleanupRecordToReplace = cleanupPending',
+      'forceCleanupReplacement = true',
+      '!forceCleanupReplacement &&',
+      'const cleanupRecord = makePendingRecord({',
+      'cleanupRecordToReplace === undefined',
+      'replaceLoopingPendingOperation(',
+      'cleanupRecordToReplace,',
+      'cleanupRecord,',
+      'const signature = await signTypedDataAsync',
+    ]) &&
+    !/cleanupRecordToReplace = cleanupPending[\s\S]{0,1500}?clearLoopingPendingOperation/.test(secureAuthorization),
+  'A saved revoke rotates only after expiry or nonce invalidation; an already-proven safe revoke proceeds without another burn, including after a nonce reorg.',
+)
+check(
+  'authorization cleanup has one wallet-wide owner-chain sentinel',
+  pending.includes('export function loopingAuthorizationCleanupStorageKey(') &&
+    pending.includes("'authorization-cleanup',") &&
+    pending.includes('const authorizationKey = loopingAuthorizationCleanupStorageKey(record)') &&
+    pending.includes('const currentAuthorization = readStoredRecord(storage, authorizationKey)') &&
+    pending.includes('storage.setItem(authorizationKey, serialized)') &&
+    pending.includes('const authorizationRecord = readKey(') &&
+    pending.includes('const exactRecord = readKey(loopingPendingStorageKey(scope), true)') &&
+    pending.includes('export function replaceLoopingPendingOperation(') &&
+    pending.includes('!sameRecord(current, previous)') &&
+    pending.includes('storage.setItem(nextKey, JSON.stringify(next))') &&
+    pending.includes('!sameRecord(current, expected)') &&
+    pending.includes('storage.removeItem(expectedKey)'),
+  'A market switch or reload must still discover the same unresolved Morpho nonce burn.',
+)
+check(
+  'authorization cleanup stages use generation-checked replacements',
+  count(secureAuthorization, /replaceLoopingPendingOperation\(/g) >= 7 &&
+    /replacementPersistenceLost[\s\S]*?replacement cleanup hash could not be persisted safely/.test(secureAuthorization) &&
+    /allowanceReplacementPersistenceLost[\s\S]*?replacement allowance-cleanup hash could not be persisted safely/.test(secureAuthorization),
+  'A stale tab must not overwrite a newer cleanup stage or replacement hash.',
+)
+check(
+  'reload cleanup waits for the full confirmation depth',
+  /async function getLoopingTransactionConfirmation\([\s\S]*?TransactionReceiptNotFoundError[\s\S]*?getBlockNumber\(\)[\s\S]*?LOOPING_RECEIPT_CONFIRMATIONS - 1[\s\S]*?state: 'confirmed'[\s\S]*?state: 'underconfirmed'/.test(hook) &&
+    /async function readConfirmedAuthorizationCleanupSnapshot\([\s\S]*?getBlockNumber\(\)[\s\S]*?LOOPING_RECEIPT_CONFIRMATIONS - 1[\s\S]*?blockNumber: latestBlock - confirmationOffset/.test(hook) &&
+    count(secureAuthorization, /getLoopingTransactionConfirmation\(/g) === 2 &&
+    /authorizationCleanupStage === 'submitted'[\s\S]*?getLoopingTransactionConfirmation\([\s\S]*?state === 'underconfirmed'[\s\S]*?return/.test(secureAuthorization) &&
+    /authorizationCleanupStage === 'allowance-submitted'[\s\S]*?getLoopingTransactionConfirmation\([\s\S]*?state === 'underconfirmed'[\s\S]*?return/.test(secureAuthorization) &&
+    ordered(secureAuthorization, [
+      'const confirmedFinalState =',
+      'readConfirmedAuthorizationCleanupSnapshot({',
+      'const confirmedFinalRevokeProven =',
+      'confirmedFinalState.adapterAllowance !== 0n',
+      'positionMatchesBounds(',
+      "phase: 'ambiguous'",
+      'awaiting two-confirmation state proof',
+      'return',
+      'const finalState =',
+      'clearLoopingPendingOperation(latestPending)',
+    ]),
+  'Receipts and hashless or unindexed state fallbacks must all satisfy the same two-confirmation floor before cleanup metadata can clear.',
+)
+check(
+  'main execution rechecks the global sentinel after acquiring its lease',
+  ordered(execute, [
+    'const lease = await acquireExecutionLease(operationContext.owner, market)',
+    'const lockedPending = readLoopingPendingOperation({',
+    "lockedPending.operation === 'authorization-cleanup'",
+    'lease.release()',
+    'return',
+    'recoveryRef.current = undefined',
+  ]),
+  'A ready preview from another tab must not reach approval or signing after a wallet-wide cleanup starts.',
+)
+check(
+  'allowance cleanup labels disclose when a transaction can be submitted',
+  /cleanupStage === 'allowance-ready'[\s\S]*?'Clear adapter allowance'[\s\S]*?cleanupStage === 'allowance-submitting'[\s\S]*?cleanupStage === 'allowance-submitted'[\s\S]*?'Recheck adapter allowance'/.test(primaryAction) &&
+    /authorizationCleanupStage === 'allowance-ready'[\s\S]*?remaining adapter token allowance is ready to clear[\s\S]*?authorizationCleanupStage === 'allowance-submitting'[\s\S]*?authorizationCleanupStage === 'allowance-submitted'[\s\S]*?adapter-allowance cleanup is unresolved/.test(hook),
+  'The button and reload copy must distinguish a permission recheck from an explicit approve-zero transaction.',
+)
+
 const writeCalls = [
   ...callIndexes(hook, /\bwriteContractAsync\s*\(\s*\{/g),
   ...callIndexes(hook, /\bsendTransactionAsync\s*\(\s*\{/g),
@@ -440,10 +640,11 @@ check(
   'all recognized wallet write calls live in reviewed execution or recovery regions',
   writeCalls.length >= 2 && everyIndexInside(writeCalls, [
     [sendExactStart, executeStart],
-    [executeStart, recoverStart],
+    [executeStart, secureAuthorizationStart],
+    [secureAuthorizationStart, recoverStart],
     [recoverStart, externalPhaseStart],
   ]),
-  'A wallet write was added outside sendExactApproval, execute, or the bounded recovery plane.',
+  'A wallet write was added outside sendExactApproval, execute, explicit authorization cleanup, or the bounded recovery plane.',
 )
 check(
   'no direct wallet-client or raw-RPC write bypass is present',
@@ -528,6 +729,146 @@ check(
   'The base and Mint emergency switches are risk-increase-only; exit, decrease, and recovery must not depend on either endpoint.',
 )
 
+const firstCleanupSignature = secureAuthorization.indexOf(
+  'const signature = await signTypedDataAsync',
+)
+const cleanupMetadataWrite = secureAuthorization.indexOf(
+  'const cleanupRecordPersisted =',
+)
+check(
+  'authorization cleanup persists exact recovery metadata before signing',
+  cleanupMetadataWrite >= 0 &&
+    firstCleanupSignature > cleanupMetadataWrite &&
+    /cleanupRecordToReplace === undefined[\s\S]*?writeLoopingPendingOperation\(cleanupRecord\)[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?cleanupRecordToReplace,[\s\S]*?cleanupRecord,[\s\S]*?if \(!cleanupRecordPersisted\)/.test(secureAuthorization) &&
+    /makePendingRecord\(\{[\s\S]*?operation: 'authorization-cleanup',[\s\S]*?owner,[\s\S]*?market,[\s\S]*?startingNonce: live\.burn\.startingNonce,[\s\S]*?deadline: live\.burn\.request\.message\.deadline,[\s\S]*?expectedPosition,[\s\S]*?walletTxNonce/.test(secureAuthorization),
+  'The false-only signature must not be requested until scoped nonce, deadline, wallet nonce, and exact position metadata are durable.',
+)
+check(
+  'authorization cleanup refreshes its false-only nonce-burn preview before signing',
+  ordered(secureAuthorization, [
+    'if (!nonceBurnProven)',
+    'live = (await withWalletRead',
+    'readAuthorizationCleanupSnapshot({ client, owner, market })',
+    'makePendingRecord({',
+    "authorizationCleanupStage: 'signature-requested'",
+    'const request = live.burn.request',
+    'const signature = await signTypedDataAsync',
+    'buildLoopingAuthorizationNonceBurnIntent({',
+  ]) &&
+    /async function readAuthorizationCleanupSnapshot[\s\S]*?const burn = await prepareLoopingAuthorizationNonceBurn\(args\)[\s\S]*?blockNumber: burn\.blockNumber/.test(hook) &&
+    /args\.preview\.request\.message\.isAuthorized \|\|/.test(compiler) &&
+    /isAuthorized: false,[\s\S]*?operation: 'nonce-burn'/.test(compiler),
+  'Cleanup must sign a newly prepared false authorization; a cached, forged, or permission-granting request is unsafe.',
+)
+check(
+  'submitted authorization cleanup remains persisted until final proof',
+  /const submittedCleanupRecord:[\s\S]*?\.\.\.cleanupRecord,[\s\S]*?authorizationCleanupStage: 'submitted',[\s\S]*?txHash: cleanupHash,[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?cleanupRecord,[\s\S]*?submittedCleanupRecord/.test(secureAuthorization) &&
+    /phase: latestPending === undefined \? 'blocked' : 'ambiguous'[\s\S]*?pendingRecord: latestPending/.test(secureAuthorization) &&
+    ordered(secureAuthorization, [
+      "authorizationCleanupStage: 'submitted'",
+      'waitForTransactionReceipt({',
+      'const finalState =',
+      'clearLoopingPendingOperation(latestPending)',
+    ]),
+  'Once a cleanup transaction may exist, its scoped record must survive rejection, replacement, receipt, and final verification.',
+)
+check(
+  'declined cleanup fails closed when its persisted record cannot be removed',
+  /if \(userRejectedBeforeSubmission\) \{[\s\S]*?latestPending === undefined \|\|[\s\S]*?clearLoopingPendingOperation\(latestPending\)[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?unresolvedRef\.current = true[\s\S]*?phase: 'ambiguous'[\s\S]*?pendingRecord: latestPending[\s\S]*?return[\s\S]*?authorizationCleanupRequired: true/.test(secureAuthorization),
+  'A rejected false-only signature must not report a clean blocked state while authorization-cleanup metadata remains stored.',
+)
+check(
+  'authorization cleanup preserves the exact position and never trusts pending allowance state',
+  /expectedPosition \?\?= exactPositionBounds\(live\.position\)/.test(secureAuthorization) &&
+    count(secureAuthorization, /positionMatchesBounds\(live\.position, expectedPosition\)/g) >= 2 &&
+    /address: args\.market\.morphoMarketParams\.loanToken,[\s\S]*?functionName: 'allowance',[\s\S]*?args: \[args\.owner, args\.market\.contracts\.generalAdapter1\],[\s\S]*?blockNumber: burn\.blockNumber/.test(hook) &&
+    /const finalRevokeProven = authorizationCleanupRevokeProven\([\s\S]*?!finalRevokeProven \|\|[\s\S]*?finalState\.adapterAllowance !== 0n \|\|[\s\S]*?!positionMatchesBounds\(finalState\.position, expectedPosition\)/.test(secureAuthorization) &&
+    /function authorizationCleanupRevokeProven[\s\S]*?!args\.snapshot\.burn\.adapterAuthorized[\s\S]*?args\.snapshot\.burn\.startingNonce >= args\.requiredNonce[\s\S]*?args\.snapshot\.blockTimestamp >[\s\S]*?BigInt\(args\.record\.authorizationDeadline\)/.test(hook) &&
+    !/blockTag: 'pending'[\s\S]{0,300}?functionName: 'allowance'/.test(secureAuthorization),
+  'Permission and allowance completion must use pinned latest state and preserve the exact imported position.',
+)
+check(
+  'nonzero adapter allowance is staged for a second explicit action',
+  ordered(secureAuthorization, [
+    'classifyLoopingAuthorizationAllowanceCleanupRecheck({',
+    "allowanceDecision === 'stage-ready'",
+    "'allowance-ready'",
+    'replaceLoopingPendingOperation(',
+    'allowanceReadyRecord',
+    'Morpho permission is revoked. Recheck to clear the remaining adapter token allowance.',
+    'return',
+    "if (allowanceDecision === 'submit')",
+  ]) &&
+    /allowanceCleanupStarted[\s\S]*?'allowance-ready'[\s\S]*?'allowance-submitting'[\s\S]*?'allowance-submitted'[\s\S]*?if \(allowanceCleanupStarted && !nonceBurnProven\)/.test(secureAuthorization),
+  'The nonce burn and token-allowance cleanup must be separated by another user click while retaining the original nonce proof.',
+)
+check(
+  'adapter allowance cleanup accepts only one compiler-bounded approval-zero intent',
+  /prepareDirectLoopingRescue\(\{ client, owner, market \}\)[\s\S]*?cleanupPlan\.phase !== 'clear-adapter-allowance'[\s\S]*?cleanupPlan\.intents\.length !== 1[\s\S]*?cleanupIntent\?\.step !== 'clear-adapter-allowance'[\s\S]*?cleanupPlan\.startingState\.adapterAuthorized[\s\S]*?cleanupPlan\.startingState\.adapterAllowance === 0n[\s\S]*?!positionMatchesBounds\(cleanupPlan\.position, expectedPosition\)/.test(secureAuthorization) &&
+    count(secureAuthorization, /\bsendTransactionAsync\s*\(\s*\{/g) === 2,
+  'The dedicated cleanup may add only one explicit approve-zero transaction and cannot advance into position rescue.',
+)
+check(
+  'allowance cleanup persists pre-send and submitted stages',
+  /restageAuthorizationCleanupRecord\([\s\S]*?latestPending,[\s\S]*?'allowance-submitting'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?latestPending,[\s\S]*?allowanceSubmittingRecord[\s\S]*?let allowanceHash = await sendTransactionAsync\(\{[\s\S]*?restageAuthorizationCleanupRecord\([\s\S]*?allowanceSubmittingRecord,[\s\S]*?'allowance-submitted'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?allowanceSubmittingRecord,[\s\S]*?allowanceSubmittedRecord[\s\S]*?waitForTransactionReceipt\(\{[\s\S]*?const postAllowance =/.test(secureAuthorization) &&
+    /authorizationCleanupStage === 'allowance-submitted'[\s\S]*?getLoopingTransactionConfirmation\([\s\S]*?state === 'underconfirmed'[\s\S]*?awaiting two confirmations[\s\S]*?return[\s\S]*?state === 'not-found'[\s\S]*?'allowance-ready'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?saved allowance-cleanup hash is no longer indexed[\s\S]*?return[\s\S]*?readAuthorizationCleanupSnapshot[\s\S]*?authorizationCleanupRevokeProven\([\s\S]*?positionMatchesBounds\([\s\S]*?receiptMined: true/.test(secureAuthorization) &&
+    /authorizationCleanupStage === 'allowance-submitting'[\s\S]*?return 'wait-for-mined-state'/.test(pending) &&
+    /allowanceDecision === 'wait-for-mined-state'[\s\S]*?restageAuthorizationCleanupRecord\([\s\S]*?'allowance-ready'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?use Clear adapter allowance to explicitly retry[\s\S]*?return/.test(secureAuthorization),
+  'Reloads must reconcile the exact allowance hash or remain fail-closed without another submission.',
+)
+const hashlessAllowanceRestage = secureAuthorization.slice(
+  secureAuthorization.indexOf('const hashlessAllowanceRecord ='),
+  secureAuthorization.indexOf(
+    "allowanceDecision === 'stage-ready' ||",
+  ),
+)
+check(
+  'hashless allowance cleanup needs a later explicit retry',
+  /blockTag: 'latest'[\s\S]*?blockTag: 'pending'[\s\S]*?BigInt\(latestWalletNonce\) <= stagedWalletNonce[\s\S]*?BigInt\(pendingWalletNonce\) <= stagedWalletNonce/.test(hashlessAllowanceRestage) &&
+    /const hashlessAllowanceRecord =[\s\S]*?if \(hashlessAllowanceRecord !== undefined\)/.test(hashlessAllowanceRestage) &&
+    ordered(hashlessAllowanceRestage, [
+      'hashlessAllowanceRecord',
+      "restageAuthorizationCleanupRecord(\n            hashlessAllowanceRecord,\n            'allowance-ready'",
+      'replaceLoopingPendingOperation(',
+      'Check wallet activity, then use Clear adapter allowance',
+      'return',
+    ]) &&
+    !/sendTransactionAsync/.test(hashlessAllowanceRestage),
+  'A missing approve-zero hash may only become ready on explicit recheck, and another click must perform the idempotent retry after fresh state checks.',
+)
+check(
+  'returned cleanup hashes are persisted before post-send lease checks',
+  ordered(secureAuthorization.slice(
+    secureAuthorization.indexOf('let cleanupHash = await sendTransactionAsync'),
+    secureAuthorization.indexOf('let unsafeReplacement'),
+  ), [
+    'latestHash = cleanupHash',
+    "authorizationCleanupStage: 'submitted'",
+    'replaceLoopingPendingOperation(',
+    'latestPending = submittedCleanupRecord',
+    'lease.assertOwned()',
+    'assertContext(operationContext)',
+  ]) &&
+    ordered(secureAuthorization.slice(
+      secureAuthorization.indexOf('let allowanceHash = await sendTransactionAsync'),
+      secureAuthorization.indexOf('let unsafeAllowanceReplacement'),
+    ), [
+      'latestHash = allowanceHash',
+      "restageAuthorizationCleanupRecord(\n            allowanceSubmittingRecord,\n            'allowance-submitted'",
+      'replaceLoopingPendingOperation(',
+      'latestPending = allowanceSubmittedRecord',
+      'lease.assertOwned()',
+      'assertContext(operationContext)',
+    ]),
+  'A sleeping tab must save an exact-generation transaction hash before a fallback lease assertion can abort its continuation.',
+)
+check(
+  'a mined incomplete allowance cleanup rolls forward without retrying in the same click',
+  /allowanceDecision === 'stage-ready' \|\|[\s\S]*?allowanceDecision === 'roll-forward'[\s\S]*?restageAuthorizationCleanupRecord\([\s\S]*?'allowance-ready'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?allowanceReadyRecord[\s\S]*?will not retry automatically\.[\s\S]*?return/.test(secureAuthorization) &&
+    /!authorizationCleanupRevokeProven\(\{[\s\S]*?snapshot: postAllowance,[\s\S]*?record: latestPending,[\s\S]*?requiredNonce,[\s\S]*?\}\) \|\|[\s\S]*?postAllowance\.adapterAllowance !== 0n \|\|[\s\S]*?!positionMatchesBounds\(postAllowance\.position, expectedPosition\)/.test(secureAuthorization),
+  'A mined revert or replacement can become ready only for a later explicit click, while zero allowance can complete from pinned chain state.',
+)
+
 const recoverySendCount = count(recover, /\bsendTransactionAsync\s*\(\s*\{/g)
 const guardedRecoveryWrites = count(recover, /if \(!writeLoopingPendingOperation\([^)]*\)\) \{/g)
 check(
@@ -566,7 +907,7 @@ check(
   ordered(signedHappyPath, [
     "if (receipt.status !== 'success')",
     'verifyReceiptForPreview({',
-    'clearLoopingPendingOperation({',
+    'clearLoopingPendingOperation(pendingRecord)',
   ]) &&
     /verifyLoopingEntryReceiptState\(\{/.test(receiptVerificationDispatch) &&
     /verifyLoopingIncreaseReceiptState\(\{/.test(receiptVerificationDispatch) &&
@@ -629,9 +970,40 @@ check(
   'A valid persisted record must expose recovery instead of resetting to idle.',
 )
 check(
+  'a persisted authorization cleanup reloads into the explicit secure action',
+  /pendingRecord\.operation === 'authorization-cleanup'[\s\S]*?Morpho permission-cleanup transaction is unresolved/.test(reloadEffect) &&
+    /boundState\.pendingRecord\?\.operation === 'authorization-cleanup'/.test(canSecureAuthorizationCapability),
+  'Reloaded permission cleanup metadata must resume through secureAuthorization, not ordinary transaction recovery.',
+)
+check(
   'recover accepts either in-memory data or the scoped reload record',
-  /const storedPending = boundState\.pendingRecord \?\? readLoopingPendingOperation\(\{[\s\S]*?chainId: market\.chainId,[\s\S]*?owner,[\s\S]*?marketId: market\.marketId,[\s\S]*?\}\)[\s\S]*?if \(inMemoryRecovery === undefined && storedPending === undefined\) return/.test(recover),
+  /const persistedPending = readLoopingPendingOperation\(\{[\s\S]*?chainId: market\.chainId,[\s\S]*?owner,[\s\S]*?marketId: market\.marketId,[\s\S]*?\}\)[\s\S]*?let storedPending = persistedPending \?\? boundState\.pendingRecord[\s\S]*?if \(inMemoryRecovery === undefined && storedPending === undefined\) return/.test(recover),
   'Reload recovery must not require signatures or calldata to have survived in memory.',
+)
+check(
+  'recovery rechecks the wallet-wide cleanup after acquiring its lease',
+  ordered(recover, [
+    'const lease = await acquireExecutionLease(operationContext.owner, market)',
+    'const lockedPending = readLoopingPendingOperation({',
+    "lockedPending?.operation === 'authorization-cleanup'",
+    "phase: 'ambiguous'",
+    'pendingRecord: lockedPending',
+    'lease.release()',
+    'return',
+    'const operation =',
+  ]),
+  'An already-mounted market must not resume writes after another market starts wallet-wide permission cleanup.',
+)
+check(
+  'cross-market cleanup leaves market selection available',
+  /const authorizationCleanupContextMismatch =[\s\S]*?pendingRecord\?\.operation === 'authorization-cleanup'[\s\S]*?owner === undefined[\s\S]*?market === undefined[\s\S]*?!sameHex\(boundState\.pendingRecord\.marketId, market\.marketId\)[\s\S]*?walletChainId !== boundState\.pendingRecord\.chainId[\s\S]*?useTransactionGuard\([\s\S]*?!authorizationCleanupContextMismatch/.test(hook),
+  'The user must be able to reconnect, switch chain, or reselect the cleanup origin while all transaction actions remain disabled.',
+)
+check(
+  'authorization cleanup copy follows the currently selected market',
+  /const authorizationCleanupMessage =[\s\S]*?!sameHex\(boundState\.pendingRecord\.marketId, market\.marketId\)[\s\S]*?Reselect its original market before continuing\.[\s\S]*?Morpho permission-cleanup transaction is unresolved\. Recheck it before continuing\./.test(hook.slice(externalPhaseStart)) &&
+    /message:[\s\S]*?authorizationCleanupMessage \?\?[\s\S]*?boundState\.message/.test(hook.slice(externalPhaseStart)),
+  'Selecting the origin market must replace stale reselect copy with the correct recheck instruction.',
 )
 check(
   'the public recovery capability includes a persisted pending record',
@@ -695,9 +1067,10 @@ check(
 
 console.log('# cross-tab lease')
 check(
-  'the lease scope binds chain owner and market',
-  /return `\$\{market\.chainId\}:\$\{owner\.toLowerCase\(\)\}:\$\{market\.marketId\.toLowerCase\(\)\}`/.test(hook),
-  'A broader lease could block unrelated markets; a narrower lease could permit duplicate signing.',
+  'the lease globally binds owner chain Morpho and adapter',
+  /function leaseScope\([\s\S]*?return \[[\s\S]*?market\.chainId,[\s\S]*?owner\.toLowerCase\(\),[\s\S]*?market\.contracts\.morpho\.toLowerCase\(\),[\s\S]*?market\.contracts\.generalAdapter1\.toLowerCase\(\),[\s\S]*?\]\.join\(':'\)/.test(hook) &&
+    !/function leaseScope\([\s\S]{0,500}?marketId/.test(hook),
+  'Morpho authorization and its nonce are global across markets, so every market sharing this owner, chain, Morpho, and adapter must share one lease.',
 )
 check(
   'navigator.locks uses a non-waiting exclusive lock',
@@ -720,21 +1093,23 @@ check(
   'Do not fall through to an unlocked write when navigator.locks itself errors.',
 )
 check(
-  'both main execution and recovery acquire and enforce the scoped lease',
+  'execution authorization cleanup and recovery all enforce the global lease',
   count(execute, /acquireExecutionLease\(operationContext\.owner, market\)/g) === 1 &&
+    count(secureAuthorization, /acquireExecutionLease\(operationContext\.owner, market\)/g) === 1 &&
     count(recover, /acquireExecutionLease\(operationContext\.owner, market\)/g) === 1 &&
     /if \(lease === undefined\)[\s\S]*?return/.test(execute) &&
+    /if \(lease === undefined\)[\s\S]*?return/.test(secureAuthorization) &&
     /if \(lease === undefined\)[\s\S]*?return/.test(recover),
-  'Every signing/write flow must stop when the owner-chain-market lease is unavailable.',
+  'Every signing/write flow must stop when the owner-chain-Morpho-adapter lease is unavailable.',
 )
 check(
   'lease ownership is rechecked before every signature',
-  callIndexes(hook, /const \w+Signature = await signTypedDataAsync/g).every((index) => {
+  callIndexes(hook, /const (?:\w+Signature|signature) = await signTypedDataAsync/g).every((index) => {
     const previousSignature = hook.lastIndexOf('signTypedDataAsync', index - 1)
     const previousSend = hook.lastIndexOf('sendTransactionAsync({', index - 1)
     const leaseCheck = hook.lastIndexOf('lease.assertOwned()', index)
     return leaseCheck > Math.max(previousSignature, previousSend)
-  }) && count(hook, /const \w+Signature = await signTypedDataAsync/g) > 0,
+  }) && count(hook, /const (?:\w+Signature|signature) = await signTypedDataAsync/g) > 0,
   'A tab that loses its lease must not request another authorization signature.',
 )
 
@@ -779,33 +1154,37 @@ check(
 )
 
 console.log('# postconditions, cleanup, and user wording')
+const pendingClearCount = count(
+  hook,
+  /clearLoopingPendingOperation\(/g,
+)
 check(
   'every pending-record removal captures its boolean result',
-  count(hook, /clearLoopingPendingOperation\(\{/g) === 5 &&
-    count(hook, /const pendingCleared = clearLoopingPendingOperation\(\{/g) === 5,
+  pendingClearCount >= 7 &&
+    !/clearLoopingPendingOperation\(\{/.test(hook),
   'Every known persisted record must fail closed when browser removal is denied.',
 )
 check(
   'verified main execution remains ambiguous when metadata removal fails',
-  /const pendingCleared = clearLoopingPendingOperation\(\{[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?unresolvedRef\.current = true[\s\S]*?phase: 'ambiguous'[\s\S]*?pendingRecord,[\s\S]*?return[\s\S]*?phase: 'confirmed'/.test(signedHappyPath),
+  /const pendingCleared =[\s\S]*?clearLoopingPendingOperation\(pendingRecord\)[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?unresolvedRef\.current = true[\s\S]*?phase: 'ambiguous'[\s\S]*?pendingRecord,[\s\S]*?return[\s\S]*?phase: 'confirmed'/.test(signedHappyPath),
   'A verified transaction must not report confirmed while its known recovery record remains.',
 )
 const unsignedOuterCatch = execute.slice(mainOuterCatch)
 check(
   'unsigned cleanup converts an undeletable partial record to metadata-only recovery',
-  /if \(partialPendingRecord !== undefined\) \{[\s\S]*?const pendingCleared = clearLoopingPendingOperation\(\{[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?operation: 'metadata-cleanup'[\s\S]*?phase: 'ambiguous'[\s\S]*?return/.test(unsignedOuterCatch),
+  /if \(partialPendingRecord !== undefined\) \{[\s\S]*?clearLoopingPendingOperation\(partialPendingRecord\)[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?operation: 'metadata-cleanup'[\s\S]*?replaceLoopingPendingOperation\([\s\S]*?partialPendingRecord,[\s\S]*?metadataRecord[\s\S]*?phase: 'ambiguous'[\s\S]*?return/.test(unsignedOuterCatch),
   'A first-signature rejection must not leave an entry-shaped persisted record or report a clean error.',
 )
 check(
   'metadata-only recovery checks removal before reporting confirmed',
-  /if \(metadataOnly\) \{[\s\S]*?const pendingCleared = clearLoopingPendingOperation\(\{[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?throw new LoopingUiSafetyError[\s\S]*?phase: 'confirmed'/.test(recover),
+  /if \(metadataOnly\) \{[\s\S]*?clearLoopingPendingOperation\(storedPending\)[\s\S]*?if \(!pendingCleared\) \{[\s\S]*?throw new LoopingUiSafetyError[\s\S]*?phase: 'confirmed'/.test(recover),
   'Browser-only recovery must remain ambiguous when its persisted record cannot be removed.',
 )
 check(
   'all four receipts verify position and allowance postconditions before clearing pending state',
   ordered(execute, [
     'verifyReceiptForPreview({',
-    'clearLoopingPendingOperation({',
+    'clearLoopingPendingOperation(pendingRecord)',
   ]) &&
     count(receiptVerificationDispatch, /verifyLooping(?:Entry|Increase|Decrease|Exit)ReceiptState\(\{/g) === 4,
   'Every operation variant must pass its compiler verifier before the pending record is removed.',
@@ -834,7 +1213,7 @@ check(
   'cleanup completion precedes pending-record deletion',
   ordered(recover, [
     'if (!cleanupComplete)',
-    'clearLoopingPendingOperation({',
+    'clearLoopingPendingOperation(latestPending)',
   ]),
   'Do not report recovery success while adapter permission or allowance cleanup remains.',
 )
@@ -847,8 +1226,9 @@ const openPositionExitHandoff = region(
 check(
   'a secured open position clears obsolete recovery metadata before full-exit handoff',
   ordered(openPositionExitHandoff, [
-    'const pendingCleared = clearLoopingPendingOperation({',
-    'if (latestPending !== undefined && !pendingCleared)',
+    'const pendingCleared =',
+    'clearLoopingPendingOperation(latestPending)',
+    'if (!pendingCleared)',
     "throw new LoopingUiSafetyError(\n            'STATE_CONFLICT'",
     "phase: 'ready'",
     "operation: 'exit'",
@@ -856,12 +1236,12 @@ check(
   'The fresh normal full-exit preview must not inherit an uncleared or attached recovery record.',
 )
 const finalRecoveryClear = recover.slice(recover.lastIndexOf(
-  'const pendingCleared = clearLoopingPendingOperation({',
+  'clearLoopingPendingOperation(latestPending)',
 ))
 check(
   'final recovery checks removal before reporting confirmed',
   ordered(finalRecoveryClear, [
-    'if (latestPending !== undefined && !pendingCleared)',
+    'if (!pendingCleared)',
     "throw new LoopingUiSafetyError(\n          'STATE_CONFLICT'",
     "phase: 'confirmed'",
   ]),
@@ -906,7 +1286,7 @@ check(
   /postExecutionRiskWarning:[\s\S]*?verification\.belowModelBuffer/.test(hook) &&
     ordered(execute, [
       'const receiptVerification = await withWalletRead',
-      'const pendingCleared = clearLoopingPendingOperation({',
+      'clearLoopingPendingOperation(pendingRecord)',
       "phase: 'confirmed'",
       "noticeTone: receiptVerification.value.postExecutionRiskWarning",
       'Reduce leverage or exit immediately.',

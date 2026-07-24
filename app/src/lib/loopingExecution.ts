@@ -118,6 +118,7 @@ export type LoopingExecutionErrorCode =
   | 'INVALID_QUOTE'
   | 'ROUTE_NOT_ALLOWED'
   | 'STATE_CONFLICT'
+  | 'ACTIVE_ADAPTER_AUTHORIZATION'
   | 'POSITION_UNSAFE'
   | 'QUOTE_EXPIRED'
   | 'INVALID_SIGNATURE'
@@ -2701,7 +2702,10 @@ async function readStaticLoopingWiring(args: {
     assertAddressArrayContains(tokensOut, token, `Allowlisted redeem token ${token}`)
   }
   if (adapterAuthorized) {
-    fail('STATE_CONFLICT', 'GeneralAdapter1 is already authorized for this wallet.')
+    fail(
+      'ACTIVE_ADAPTER_AUTHORIZATION',
+      'GeneralAdapter1 is already authorized for this wallet.',
+    )
   }
   if (!sameAddress(bundlerInitiator, zeroAddress)) {
     fail('STATE_CONFLICT', 'Bundler3 has a nonzero transient initiator.')
@@ -6439,10 +6443,13 @@ export async function prepareLoopingAuthorizationNonceBurn(args: {
   client: PublicClient
   owner: Address
   market: Readonly<LoopingExecutionMarket>
+  blockNumber?: bigint
 }): Promise<LoopingAuthorizationNonceBurnPreview> {
   const market = canonicalExecutionMarket(args.market)
   const owner = getAddress(args.owner)
-  const block = await args.client.getBlock({ blockTag: 'latest' })
+  const block = args.blockNumber === undefined
+    ? await args.client.getBlock({ blockTag: 'latest' })
+    : await args.client.getBlock({ blockNumber: args.blockNumber })
   if (block.number === null || block.hash === null) {
     fail('STATE_CONFLICT', 'Authorization nonce cleanup could not pin a block.')
   }

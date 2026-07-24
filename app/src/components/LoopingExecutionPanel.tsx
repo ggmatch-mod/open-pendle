@@ -167,6 +167,30 @@ function LoopingExecutionActionView({
     action = <button type="button" onClick={execution.connectWallet} className={enabledClass}>Connect wallet</button>
   } else if (execution.phase === 'wrong-network') {
     action = <button type="button" onClick={execution.switchToMarketChain} className={warningClass}>Switch wallet to {executionChainName}</button>
+  } else if (execution.busy) {
+    action = <button type="button" disabled className={disabledClass}>{activeStep ?? 'Working…'}</button>
+  } else if (execution.authorizationCleanupRequired) {
+    const cleanupStage = execution.pendingRecord?.operation === 'authorization-cleanup'
+      ? execution.pendingRecord.authorizationCleanupStage
+      : undefined
+    const cleanupLabel = cleanupStage === 'allowance-ready'
+      ? 'Clear adapter allowance'
+      : cleanupStage === 'allowance-submitting' ||
+          cleanupStage === 'allowance-submitted'
+        ? 'Recheck adapter allowance'
+        : cleanupStage === undefined
+          ? 'Secure Morpho permission'
+          : 'Recheck Morpho permission'
+    action = (
+      <button
+        type="button"
+        onClick={() => void execution.secureAuthorization()}
+        disabled={!execution.canSecureAuthorization}
+        className={execution.canSecureAuthorization ? warningClass : disabledClass}
+      >
+        {cleanupLabel}
+      </button>
+    )
   } else if (execution.phase === 'ambiguous') {
     const cleanupOnly = execution.pendingRecord?.operation === 'allowance-cleanup'
     const metadataOnly = execution.pendingRecord?.operation === 'metadata-cleanup'
@@ -190,8 +214,6 @@ function LoopingExecutionActionView({
           : 'Pending operation needs review'}
       </button>
     )
-  } else if (execution.busy) {
-    action = <button type="button" disabled className={disabledClass}>{activeStep ?? 'Working…'}</button>
   } else if (preview !== undefined && execution.phase === 'ready') {
     const label = preview.kind === 'entry-preview'
       ? preview.acquisitionMode === 'mint'
