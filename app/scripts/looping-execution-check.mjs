@@ -1802,9 +1802,33 @@ const PINNED_BLOCK_NUMBER = 321_000_000n
 const PINNED_BLOCK_HASH = `0x${'ab'.repeat(32)}`
 const TEST_TRANSACTION_HASH = `0x${'cd'.repeat(32)}`
 const SMALL_RUNTIME_CODE = '0x60006000'
+const MAX_UINT256 = (1n << 256n) - 1n
 const transferEventTopic = keccak256(
   toHex('Transfer(address,address,uint256)'),
 )
+
+function assertMaxCollateralSupply(call, owner = OWNER_ACCOUNT.address) {
+  assert.equal(call.to, contracts.generalAdapter1)
+  assert.equal(call.value, 0n)
+  assert.equal(call.skipRevert, false)
+  assert.equal(call.callbackHash, `0x${'00'.repeat(32)}`)
+  const decoded = decodeFunctionData({
+    abi: generalAdapter1Abi,
+    data: call.data,
+  })
+  assert.equal(decoded.functionName, 'morphoSupplyCollateral')
+  assert.equal(decoded.args[0].loanToken, market.morphoMarketParams.loanToken)
+  assert.equal(
+    decoded.args[0].collateralToken,
+    market.morphoMarketParams.collateralToken,
+  )
+  assert.equal(decoded.args[0].oracle, market.morphoMarketParams.oracle)
+  assert.equal(decoded.args[0].irm, market.morphoMarketParams.irm)
+  assert.equal(decoded.args[0].lltv, market.morphoMarketParams.lltv)
+  assert.equal(decoded.args[1], MAX_UINT256)
+  assert.equal(decoded.args[2], owner)
+  assert.equal(decoded.args[3], '0x')
+}
 
 function mintYtTransferLog(value, overrides = {}) {
   const from = overrides.from ?? contracts.generalAdapter1
@@ -2670,6 +2694,7 @@ assert.equal(entryIntent.account, OWNER_ACCOUNT.address)
 assert.equal(entryIntent.chainId, market.chainId)
 assert.equal(entryIntent.acquisitionMode, 'market')
 assert.equal(entryIntent.calls.length, 8)
+assertMaxCollateralSupply(entryIntent.calls[5])
 assert.equal(
   entryIntent.calls.some((call) =>
     call.to.toLowerCase() === contracts.morpho.toLowerCase()),
@@ -2866,6 +2891,7 @@ const supplyCall = decodeFunctionData({
   data: decodedBundle.args[0][5].data,
 })
 assert.equal(supplyCall.functionName, 'morphoSupplyCollateral')
+assert.equal(supplyCall.args[1], bundle.minimumCollateral - 1n)
 const callbackData = supplyCall.args[3]
 const [callbackCalls] = decodeAbiParameters(
   bundler3CallArrayParameters,
@@ -2882,6 +2908,7 @@ assert.equal(
   ),
   true,
 )
+assertMaxCollateralSupply(bundle.calls[6])
 const firstAuthorization = decodeFunctionData({
   abi: morphoBlueAbi,
   data: decodedBundle.args[0][0].data,
@@ -2981,7 +3008,7 @@ await expectExecutionRejection(
   'UNSAFE_WIRING',
 )
 
-console.log('Entry receipt checks bind the successful transaction and exact position')
+console.log('Entry receipt checks bind the successful transaction and bounded position')
 const entryReceiptPosition = [
   0n,
   preview.bounds.observedBorrowShares,
@@ -3013,6 +3040,52 @@ assert.equal(entryReceiptCheck.minimumYtOut, 0n)
 assert.equal(entryReceiptCheck.deliveredYtOut, 0n)
 assert.equal(entryReceiptCheck.position.collateral, bundle.minimumCollateral)
 assert.equal(entryReceiptCheck.adapterAuthorized, false)
+const excessEntryReceiptPosition = [
+  0n,
+  preview.bounds.observedBorrowShares,
+  preview.quotes.expectedCollateral,
+]
+const excessEntryReceiptCheck = await verifyLoopingEntryReceiptState({
+  client: createPreflightClient({
+    ...entryReceiptState,
+    ownerPosition: excessEntryReceiptPosition,
+    accruedPosition: excessEntryReceiptPosition,
+  }),
+  preview,
+  bundle,
+  readiness: entryReadiness,
+  transactionHash: TEST_TRANSACTION_HASH,
+})
+assert.ok(
+  excessEntryReceiptCheck.position.collateral > bundle.minimumCollateral,
+)
+assert.ok(
+  excessEntryReceiptCheck.entryHealth.liquidationBufferBps >=
+    entryReceiptCheck.entryHealth.liquidationBufferBps,
+)
+await expectExecutionRejection(
+  verifyLoopingEntryReceiptState({
+    client: createPreflightClient({
+      ...entryReceiptState,
+      ownerPosition: [
+        0n,
+        preview.bounds.observedBorrowShares,
+        bundle.minimumCollateral - 1n,
+      ],
+      accruedPosition: [
+        0n,
+        preview.bounds.observedBorrowShares,
+        bundle.minimumCollateral - 1n,
+      ],
+    }),
+    preview,
+    bundle,
+    readiness: entryReadiness,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'STATE_CONFLICT',
+  /bounded Morpho position/i,
+)
 for (const identityMismatch of [
   { transactionBlockNumber: PINNED_BLOCK_NUMBER + 1n },
   { transactionBlockHash: `0x${'ef'.repeat(32)}` },
@@ -3147,7 +3220,7 @@ const mintUnsignedSupplyCall = decodeFunctionData({
 assert.equal(mintUnsignedSupplyCall.functionName, 'morphoSupplyCollateral')
 assert.equal(
   mintUnsignedSupplyCall.args[1],
-  mintPreview.quotes.minimumCollateral,
+  mintPreview.quotes.minimumCollateral - 1n,
 )
 const [mintUnsignedCallbackCalls] = decodeAbiParameters(
   bundler3CallArrayParameters,
@@ -3169,8 +3242,9 @@ assert.equal(mintUnsignedYtSweep.functionName, 'erc20Transfer')
 assert.deepEqual(mintUnsignedYtSweep.args, [
   MINT_YT,
   OWNER_ACCOUNT.address,
-  (1n << 256n) - 1n,
+  MAX_UINT256,
 ])
+assertMaxCollateralSupply(mintEntryIntent.calls[6])
 
 const mintEntrySimulation = await simulateUnsignedLoopingIntent({
   client: createPreflightClient(),
@@ -3215,6 +3289,7 @@ const mintSignedYtSweep = decodeFunctionData({
 })
 assert.equal(mintSignedYtSweep.functionName, 'erc20Transfer')
 assert.deepEqual(mintSignedYtSweep.args, mintUnsignedYtSweep.args)
+assertMaxCollateralSupply(mintBundle.calls[7])
 const persistedMintDelivery =
   await readPersistedLoopingMintDeliveryFromTransaction({
     client: createPreflightClient({ transactionData: mintBundle.data }),
@@ -3225,6 +3300,69 @@ const persistedMintDelivery =
 assert.equal(persistedMintDelivery.operation, 'entry')
 assert.equal(persistedMintDelivery.yieldToken, MINT_YT)
 assert.equal(persistedMintDelivery.minimumYtOut, mintBundle.minimumYtOut)
+const legacyMintEntryCalls = mintBundle.calls.map((call) => ({ ...call }))
+const currentMintPrimarySupply = decodeFunctionData({
+  abi: generalAdapter1Abi,
+  data: legacyMintEntryCalls[5].data,
+})
+legacyMintEntryCalls[5] = {
+  ...legacyMintEntryCalls[5],
+  data: encodeFunctionData({
+    abi: generalAdapter1Abi,
+    functionName: 'morphoSupplyCollateral',
+    args: [
+      currentMintPrimarySupply.args[0],
+      mintBundle.minimumCollateral,
+      OWNER_ACCOUNT.address,
+      currentMintPrimarySupply.args[3],
+    ],
+  }),
+}
+legacyMintEntryCalls[7] = {
+  ...legacyMintEntryCalls[7],
+  data: encodeFunctionData({
+    abi: generalAdapter1Abi,
+    functionName: 'erc20Transfer',
+    args: [PT, OWNER_ACCOUNT.address, MAX_UINT256],
+  }),
+}
+const legacyMintEntryData = encodeFunctionData({
+  abi: bundler3Abi,
+  functionName: 'multicall',
+  args: [legacyMintEntryCalls],
+})
+const legacyPersistedMintDelivery =
+  await readPersistedLoopingMintDeliveryFromTransaction({
+    client: createPreflightClient({ transactionData: legacyMintEntryData }),
+    market,
+    owner: OWNER_ACCOUNT.address,
+    transactionHash: TEST_TRANSACTION_HASH,
+  })
+assert.equal(legacyPersistedMintDelivery.operation, 'entry')
+assert.equal(
+  legacyPersistedMintDelivery.minimumYtOut,
+  mintBundle.minimumYtOut,
+)
+const mismatchedMintEntryData = encodeFunctionData({
+  abi: bundler3Abi,
+  functionName: 'multicall',
+  args: [
+    mintBundle.calls.map((call, index) =>
+      index === 5 ? legacyMintEntryCalls[5] : call),
+  ],
+})
+await expectExecutionRejection(
+  readPersistedLoopingMintDeliveryFromTransaction({
+    client: createPreflightClient({
+      transactionData: mismatchedMintEntryData,
+    }),
+    market,
+    owner: OWNER_ACCOUNT.address,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'UNSAFE_WIRING',
+  /legacy PT sweep/i,
+)
 await expectExecutionRejection(
   readPersistedLoopingMintDeliveryFromTransaction({
     client: createPreflightClient({ transactionData: bundle.data }),
@@ -3281,7 +3419,7 @@ await expectExecutionRejection(
 const mintEntryReceiptPosition = [
   0n,
   mintPreview.bounds.observedBorrowShares,
-  mintBundle.minimumCollateral,
+  mintPreview.quotes.expectedCollateral,
 ]
 const mintEntryReceiptState = {
   nonce: mintBundle.startingNonce + 2n,
@@ -3310,6 +3448,7 @@ assert.equal(mintEntryReceipt.acquisitionMode, 'mint')
 assert.equal(mintEntryReceipt.yieldToken, MINT_YT)
 assert.equal(mintEntryReceipt.minimumYtOut, mintBundle.minimumYtOut)
 assert.equal(mintEntryReceipt.deliveredYtOut, mintBundle.minimumYtOut)
+assert.ok(mintEntryReceipt.position.collateral > mintBundle.minimumCollateral)
 assert.equal(mintEntryReceipt.belowEntryValueFloor, undefined)
 await expectExecutionRejection(
   verifyLoopingEntryReceiptState({
@@ -3545,6 +3684,40 @@ assert.ok(
   highRiskIncreasePreview.conservativePost.liquidationBufferBps <
     BigInt(market.launchPolicy.minLiquidationBufferBps),
 )
+const discountedMintQuoteCounter = { calls: 0 }
+const discountedMintIncreasePreview = await prepareLoopingIncreaseExecution({
+  client: createPreflightClient({
+    ownerPosition: adjustmentPosition,
+    accruedPosition: adjustmentPosition,
+    oraclePrice: 880_000_000_000_000_000_000_000n,
+    totalSupplyAssets: 20_000_000n,
+  }),
+  owner: OWNER_ACCOUNT.address,
+  market,
+  acquisitionMode: 'mint',
+  targetLeverageWad: 6_000_000_000_000_000_000n,
+  fetcher: createAdjustmentMintFetcher(discountedMintQuoteCounter),
+  now: () => PREFLIGHT_NOW_MS,
+})
+assert.ok(discountedMintQuoteCounter.calls > 1)
+assert.ok(discountedMintQuoteCounter.calls <= 4)
+assert.ok(
+  discountedMintIncreasePreview.conservativePost.leverageWad <=
+    discountedMintIncreasePreview.targetLeverageWad,
+)
+assert.ok(
+  discountedMintIncreasePreview.targetLeverageWad -
+    discountedMintIncreasePreview.conservativePost.leverageWad <=
+      20_000_000_000_000_000n,
+)
+assert.ok(
+  discountedMintIncreasePreview.conservativePost.liquidationBufferBps >=
+    BigInt(market.launchPolicy.modelMinLiquidationBufferBps),
+)
+assert.ok(
+  discountedMintIncreasePreview.conservativePost.liquidationBufferBps <
+    BigInt(market.launchPolicy.minLiquidationBufferBps),
+)
 const increaseQuoteCounter = { calls: 0 }
 const increaseTargetLeverageWad = 1_450_000_000_000_000_000n
 const increasePreview = await prepareLoopingIncreaseExecution({
@@ -3607,7 +3780,7 @@ const increaseSupplyCall = decodeFunctionData({
   data: decodedIncreaseBundle.args[0][1].data,
 })
 assert.equal(increaseSupplyCall.functionName, 'morphoSupplyCollateral')
-assert.equal(increaseSupplyCall.args[1], increasePreview.quote.minPtOut)
+assert.equal(increaseSupplyCall.args[1], increasePreview.quote.minPtOut - 1n)
 const [increaseCallbackCalls] = decodeAbiParameters(
   bundler3CallArrayParameters,
   increaseSupplyCall.args[3],
@@ -3624,6 +3797,7 @@ assert.equal(
   increaseBorrowCall.args[3],
   increasePreview.bounds.minBorrowSharePriceE27,
 )
+assertMaxCollateralSupply(increaseBundle.calls[2])
 const increaseExposedPair = await decodeExposedLoopingAuthorizationPair({
   market,
   owner: OWNER_ACCOUNT.address,
@@ -3637,6 +3811,7 @@ const increaseIntent = buildUnsignedLoopingIncreaseSimulation(
 assert.equal(increaseIntent.operation, 'entry')
 assert.equal(increaseIntent.acquisitionMode, 'market')
 assert.equal(increaseIntent.calls.length, 4)
+assertMaxCollateralSupply(increaseIntent.calls[1])
 const increaseSimulation = await simulateUnsignedLoopingIntent({
   client: createPreflightClient({
     ownerPosition: adjustmentPosition,
@@ -3656,10 +3831,11 @@ const increaseReadiness = await revalidateSignedLoopingIncrease({
 })
 assert.equal(increaseReadiness.operation, 'entry')
 const actualAddedBorrowShares = increasePreview.bounds.observedBorrowShares
+const actualAddedCollateral = increasePreview.quote.expectedPtOut
 const increasedPosition = [
   0n,
   adjustmentPosition[1] + actualAddedBorrowShares,
-  adjustmentPosition[2] + increasePreview.quote.minPtOut,
+  adjustmentPosition[2] + actualAddedCollateral,
 ]
 const increaseReceiptCheck = await verifyLoopingIncreaseReceiptState({
   client: createPreflightClient({
@@ -3681,7 +3857,63 @@ assert.equal(increaseReceiptCheck.acquisitionMode, 'market')
 assert.equal(increaseReceiptCheck.yieldToken, null)
 assert.equal(increaseReceiptCheck.minimumYtOut, 0n)
 assert.equal(increaseReceiptCheck.deliveredYtOut, 0n)
+assert.ok(
+  increaseReceiptCheck.position.collateral >
+    increaseBundle.startingCollateral +
+      increaseBundle.minimumAddedCollateral,
+)
 assert.ok(increaseReceiptCheck.achieved.leverageWad <= increaseTargetLeverageWad)
+const favorableIncreasePosition = [
+  0n,
+  adjustmentPosition[1] + actualAddedBorrowShares,
+  adjustmentPosition[2] + actualAddedCollateral * 100n,
+]
+const favorableIncreaseReceipt = await verifyLoopingIncreaseReceiptState({
+  client: createPreflightClient({
+    nonce: increaseBundle.startingNonce + 2n,
+    adapterAllowance: increasePreview.wiring.adapterAllowance,
+    ownerPosition: favorableIncreasePosition,
+    accruedPosition: favorableIncreasePosition,
+    totalBorrowAssets: 5_000_000n + increasePreview.borrowAssets,
+    totalBorrowShares: 5_000_000n + actualAddedBorrowShares,
+    transactionData: increaseBundle.data,
+  }),
+  preview: increasePreview,
+  bundle: increaseBundle,
+  readiness: increaseReadiness,
+  transactionHash: TEST_TRANSACTION_HASH,
+})
+assert.ok(
+  favorableIncreaseReceipt.achieved.leverageWad <=
+    increasePreview.current.leverageWad,
+)
+await expectExecutionRejection(
+  verifyLoopingIncreaseReceiptState({
+    client: createPreflightClient({
+      nonce: increaseBundle.startingNonce + 2n,
+      adapterAllowance: increasePreview.wiring.adapterAllowance,
+      ownerPosition: [
+        0n,
+        adjustmentPosition[1] + actualAddedBorrowShares,
+        adjustmentPosition[2] + increasePreview.quote.minPtOut - 1n,
+      ],
+      accruedPosition: [
+        0n,
+        adjustmentPosition[1] + actualAddedBorrowShares,
+        adjustmentPosition[2] + increasePreview.quote.minPtOut - 1n,
+      ],
+      totalBorrowAssets: 5_000_000n + increasePreview.borrowAssets,
+      totalBorrowShares: 5_000_000n + actualAddedBorrowShares,
+      transactionData: increaseBundle.data,
+    }),
+    preview: increasePreview,
+    bundle: increaseBundle,
+    readiness: increaseReadiness,
+    transactionHash: TEST_TRANSACTION_HASH,
+  }),
+  'STATE_CONFLICT',
+  /bounded Morpho adjustment/i,
+)
 
 console.log('Mint Mode increase supplies minted PT and atomically sweeps YT')
 const mintIncreaseQuoteCounter = { calls: 0 }
@@ -3721,7 +3953,10 @@ const mintIncreaseSupplyCall = decodeFunctionData({
   data: mintIncreaseIntent.calls[0].data,
 })
 assert.equal(mintIncreaseSupplyCall.functionName, 'morphoSupplyCollateral')
-assert.equal(mintIncreaseSupplyCall.args[1], mintIncreasePreview.quote.minPyOut)
+assert.equal(
+  mintIncreaseSupplyCall.args[1],
+  mintIncreasePreview.quote.minPyOut - 1n,
+)
 const [mintIncreaseCallbackCalls] = decodeAbiParameters(
   bundler3CallArrayParameters,
   mintIncreaseSupplyCall.args[3],
@@ -3745,8 +3980,9 @@ assert.equal(mintIncreaseYtSweep.functionName, 'erc20Transfer')
 assert.deepEqual(mintIncreaseYtSweep.args, [
   MINT_YT,
   OWNER_ACCOUNT.address,
-  (1n << 256n) - 1n,
+  MAX_UINT256,
 ])
+assertMaxCollateralSupply(mintIncreaseIntent.calls[2])
 
 const mintIncreaseAuthorizeSignature = await OWNER_ACCOUNT.sign({
   hash: mintIncreasePreview.authorizationRequests[0].digest,
@@ -3788,6 +4024,7 @@ const mintIncreaseSignedYtSweep = decodeFunctionData({
   data: mintIncreaseBundle.calls[2].data,
 })
 assert.deepEqual(mintIncreaseSignedYtSweep.args, mintIncreaseYtSweep.args)
+assertMaxCollateralSupply(mintIncreaseBundle.calls[3])
 const persistedMintIncreaseDelivery =
   await readPersistedLoopingMintDeliveryFromTransaction({
     client: createPreflightClient({
@@ -3844,7 +4081,7 @@ const mintAddedBorrowShares =
 const mintIncreasedPosition = [
   0n,
   adjustmentPosition[1] + mintAddedBorrowShares,
-  adjustmentPosition[2] + mintIncreasePreview.quote.minPyOut,
+  adjustmentPosition[2] + mintIncreasePreview.quote.expectedPyOut,
 ]
 const mintIncreaseReceipt = await verifyLoopingIncreaseReceiptState({
   client: createPreflightClient({
@@ -3873,6 +4110,11 @@ assert.equal(
 assert.equal(
   mintIncreaseReceipt.deliveredYtOut,
   mintIncreaseBundle.minimumYtOut,
+)
+assert.ok(
+  mintIncreaseReceipt.position.collateral >
+    mintIncreaseBundle.startingCollateral +
+      mintIncreaseBundle.minimumAddedCollateral,
 )
 assert.ok(
   mintIncreaseReceipt.achieved.leverageWad <= increaseTargetLeverageWad,

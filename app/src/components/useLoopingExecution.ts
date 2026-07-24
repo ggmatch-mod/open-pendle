@@ -102,6 +102,8 @@ import {
 } from '../lib/loopingRegistry'
 import { isUserRejection } from '../lib/txflow'
 
+const MAX_MORPHO_COLLATERAL = (1n << 128n) - 1n
+
 export type LoopingExecutionOperation = 'entry' | 'exit'
 export type LoopingExecutionIntent = 'auto' | 'adjust' | 'full-exit'
 export type LoopingExecutionPreview =
@@ -844,7 +846,7 @@ function expectedPostOperationBounds(
       minBorrowShares: '1',
       maxBorrowShares: bundle.maxBorrowShares.toString(),
       minCollateral: bundle.minimumCollateral.toString(),
-      maxCollateral: bundle.minimumCollateral.toString(),
+      maxCollateral: MAX_MORPHO_COLLATERAL.toString(),
     }
   }
   if (
@@ -860,9 +862,7 @@ function expectedPostOperationBounds(
       minCollateral: (
         bundle.startingCollateral + bundle.minimumAddedCollateral
       ).toString(),
-      maxCollateral: (
-        bundle.startingCollateral + bundle.minimumAddedCollateral
-      ).toString(),
+      maxCollateral: MAX_MORPHO_COLLATERAL.toString(),
     }
   }
   if (
@@ -902,7 +902,7 @@ function expectedPostPreviewBounds(
       minBorrowShares: '1',
       maxBorrowShares: preview.bounds.maxBorrowShares.toString(),
       minCollateral: preview.quotes.minimumCollateral.toString(),
-      maxCollateral: preview.quotes.minimumCollateral.toString(),
+      maxCollateral: MAX_MORPHO_COLLATERAL.toString(),
     }
   }
   if (preview.kind === 'increase-preview') {
@@ -914,7 +914,7 @@ function expectedPostPreviewBounds(
         preview.position.borrowShares + preview.bounds.maxBorrowShares
       ).toString(),
       minCollateral: collateral.toString(),
-      maxCollateral: collateral.toString(),
+      maxCollateral: MAX_MORPHO_COLLATERAL.toString(),
     }
   }
   if (preview.kind === 'decrease-preview') {

@@ -533,13 +533,13 @@ export function buildLoopingTransactionPreview(
       },
       {
         order: 5,
-        label: 'Sweep residue and revoke',
-        detail: 'Return transaction-created token residue, clear temporary allowances, and revoke Morpho authorization as the final action.',
+        label: 'Settle residue and revoke',
+        detail: 'Add remaining transaction-created PT to collateral, return other token residue, clear temporary allowances, and revoke Morpho authorization.',
       },
     ],
     finiteBounds: entryBounds(morpho.collateralAsset.symbol),
     postconditions: [
-      'position collateral equals only the PT committed by the confirmed plan',
+      'position collateral includes every PT produced by the transaction and is not below the confirmed floor',
       'debt shares do not exceed maxBorrowShares',
       'user loan-token allowance to GeneralAdapter1 is zero',
       'GeneralAdapter1 is no longer authorized on Morpho for the account',

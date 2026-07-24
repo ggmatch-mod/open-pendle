@@ -323,6 +323,15 @@ async function setForkErc20Balance({
   fail('Could not locate the forked loan token balance mapping')
 }
 
+function readTokenBalance(publicClient, token, owner) {
+  return publicClient.readContract({
+    address: token,
+    abi: loopingErc20Abi,
+    functionName: 'balanceOf',
+    args: [owner],
+  })
+}
+
 async function signPair(account, requests) {
   return Promise.all(requests.map((request) => account.sign({ hash: request.digest })))
 }
@@ -547,6 +556,11 @@ async function executeCompiledEntry({
   acquisitionMode,
   localRpcUrl,
 }) {
+  const walletPtBefore = await readTokenBalance(
+    publicClient,
+    market.morphoMarketParams.collateralToken,
+    account.address,
+  )
   await approveExact({
     walletClient,
     publicClient,
@@ -615,6 +629,21 @@ async function executeCompiledEntry({
     readiness,
     transactionHash,
   })
+  const [walletPtAfter, adapterPtAfter] = await Promise.all([
+    readTokenBalance(
+      publicClient,
+      market.morphoMarketParams.collateralToken,
+      account.address,
+    ),
+    readTokenBalance(
+      publicClient,
+      market.morphoMarketParams.collateralToken,
+      market.contracts.generalAdapter1,
+    ),
+  ])
+  if (walletPtAfter !== walletPtBefore || adapterPtAfter !== 0n) {
+    fail('Compiled entry did not deposit all transaction PT as collateral')
+  }
   if (
     preview.acquisitionMode !== acquisitionMode ||
     bundle.acquisitionMode !== acquisitionMode ||
@@ -644,6 +673,11 @@ async function executeCompiledIncrease({
   acquisitionMode,
   localRpcUrl,
 }) {
+  const walletPtBefore = await readTokenBalance(
+    publicClient,
+    market.morphoMarketParams.collateralToken,
+    account.address,
+  )
   const preview = await prepareWithPendleQuoteRetry(
     'compiled leverage increase',
     () => prepareLoopingIncreaseExecution({
@@ -702,6 +736,21 @@ async function executeCompiledIncrease({
     readiness,
     transactionHash,
   })
+  const [walletPtAfter, adapterPtAfter] = await Promise.all([
+    readTokenBalance(
+      publicClient,
+      market.morphoMarketParams.collateralToken,
+      account.address,
+    ),
+    readTokenBalance(
+      publicClient,
+      market.morphoMarketParams.collateralToken,
+      market.contracts.generalAdapter1,
+    ),
+  ])
+  if (walletPtAfter !== walletPtBefore || adapterPtAfter !== 0n) {
+    fail('Compiled leverage increase did not deposit all transaction PT')
+  }
   if (
     preview.acquisitionMode !== acquisitionMode ||
     bundle.acquisitionMode !== acquisitionMode ||
