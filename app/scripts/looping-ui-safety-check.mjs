@@ -431,11 +431,13 @@ check(
   'Every Mint entry or increase must pass the ordinary entry policy first and its action-specific Mint policy second.',
 )
 check(
-  'adjustment pending bounds bind the exact expected position family',
-  /preview\.kind === 'increase-preview'[\s\S]*?bundle\.kind === 'signed-increase-bundle'[\s\S]*?startingBorrowShares \+ 1n[\s\S]*?startingBorrowShares \+ bundle\.maxAddedBorrowShares[\s\S]*?startingCollateral \+ bundle\.minimumAddedCollateral/.test(hook) &&
+  'adjustment pending bounds bind the bounded expected position family',
+  /const MAX_MORPHO_COLLATERAL = \(1n << 128n\) - 1n/.test(hook) &&
+    /preview\.kind === 'entry-preview'[\s\S]*?bundle\.kind === 'signed-entry-bundle'[\s\S]*?minCollateral: bundle\.minimumCollateral\.toString\(\),[\s\S]*?maxCollateral: MAX_MORPHO_COLLATERAL\.toString\(\)/.test(hook) &&
+    /preview\.kind === 'increase-preview'[\s\S]*?bundle\.kind === 'signed-increase-bundle'[\s\S]*?startingBorrowShares \+ 1n[\s\S]*?startingBorrowShares \+ bundle\.maxAddedBorrowShares[\s\S]*?startingCollateral \+ bundle\.minimumAddedCollateral[\s\S]*?maxCollateral: MAX_MORPHO_COLLATERAL\.toString\(\)/.test(hook) &&
     /preview\.kind === 'decrease-preview'[\s\S]*?bundle\.kind === 'signed-decrease-bundle'[\s\S]*?startingBorrowShares - bundle\.exactRepayShares[\s\S]*?startingCollateral - bundle\.exactCollateralToSell/.test(hook) &&
     /operation: previewOperation\(args\.preview\)/.test(hook),
-  'Increase must persist bounded additions, decrease exact reductions, while reusing the v1 entry/exit safety families.',
+  'Risk increases must accept favorable collateral above the floor; decreases remain exact.',
 )
 check(
   'recovery remains available independently of both launch flags',
@@ -1361,12 +1363,28 @@ check(
   'A transient catalog or Morpho API failure must not hide the reviewed on-chain exit path or control execution decimals.',
 )
 check(
-  'Positions show accrued debt, LTV, and liquidation headroom rather than raw borrow shares',
+  'Positions show accrued debt, LTV, and drop to liquidation rather than raw borrow shares',
   /inventory\.accruedDebtAssets/.test(loopPositions) &&
     /inventory\.ltvBps/.test(loopPositions) &&
     /inventory\.liquidationBufferBps/.test(loopPositions) &&
+    /Drop to liquidation \{formatBps\(inventory\.liquidationBufferBps\)\}/.test(loopPositions) &&
+    /Oracle-based collateral-price drop to Morpho liquidation at constant debt/.test(loopPositions) &&
     !/borrowShares\.toString\(\)/.test(loopPositions),
   'The user-facing inventory must translate Morpho shares into live risk metrics.',
+)
+check(
+  'Positions estimate current PT loop APY only from exact directory enrichment',
+  /function positionPtLoopApy\([\s\S]*?calculateLoopingScenario\(\{[\s\S]*?ptApy: candidate\.pendle\.impliedApy[\s\S]*?borrowApy: candidate\.morpho\.state\.borrowApy[\s\S]*?headlineLoopApy/.test(loopPositions) &&
+    /positionPtLoopApy\(inventory, directoryCandidate, market\)/.test(loopPositions) &&
+    /Estimated PT loop APY/.test(loopPositions) &&
+    /Excludes separately held YT, rewards, fees, slippage, and gas/.test(loopPositions),
+  'A position return must use exact-matched current rates, remain explicitly estimated, and exclude untracked Mint YT and costs.',
+)
+check(
+  'Positions refresh both on-chain inventory and current APY sources',
+  /Promise\.allSettled\(\[\s*query\.refetch\(\),\s*marketsQuery\.refetch\(\),?\s*\]\)/.test(loopPositions) &&
+    /query\.isFetching \|\|\s*marketsQuery\.isFetching/.test(loopPositions),
+  'The visible Refresh control must not leave the displayed position rate on an older directory snapshot.',
 )
 check(
   'a confirmed in-place action refreshes the loop-position inventory',

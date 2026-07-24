@@ -1150,7 +1150,7 @@ async function verifyConfirmedJournal(runtime, journal) {
       state.position.supplyShares !== 0n ||
       state.position.borrowShares <= 0n ||
       state.position.borrowShares > BigInt(journal.bounds.maxBorrowShares) ||
-      state.position.collateral !== BigInt(journal.bounds.minimumCollateral)
+      state.position.collateral < BigInt(journal.bounds.minimumCollateral)
     ) {
       fail('Confirmed entry journal does not match the bounded live position.')
     }

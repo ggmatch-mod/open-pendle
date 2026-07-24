@@ -21,7 +21,7 @@ The exact flow requested is viable:
 3. Borrow the loan token.
 4. Mint PT+YT with the borrowed loan token.
 5. Add only the guaranteed PT output to Morpho collateral.
-6. Return all minted YT, excess PT, and dust to the user's wallet.
+6. Add excess PT to collateral; return YT and loan-token dust.
 
 The local implementation selects the full-mint interpretation:
 
@@ -96,7 +96,7 @@ The Bundler3 transaction should:
 2. Give Router V4 an exact temporary allowance.
 3. Execute the initial `mintPyFromToken`.
 4. Clear the Router allowance.
-5. Call `morphoSupplyCollateral` for
+5. Call `morphoSupplyCollateral` for one raw PT unit below
    `initialMinPy + borrowedMinPy`, with the user as position owner.
 6. Inside the Morpho callback:
    1. borrow `D` loan tokens to Bundler3 using a bounded share amount;
@@ -105,8 +105,9 @@ The Bundler3 transaction should:
    4. clear the Router allowance.
 7. Return from the callback so Morpho pulls the promised PT.
 8. Transfer all YT to the user.
-9. Transfer excess PT and loan-token dust to the user.
-10. Clear residual allowances and revoke the temporary Morpho authorization.
+9. Supply the adapter's complete remaining PT balance to Morpho.
+10. Transfer loan-token dust to the user.
+11. Clear residual allowances and revoke the temporary Morpho authorization.
 
 ### Literal hybrid variant
 
@@ -134,11 +135,10 @@ increase has one acquisition route:
 1. Calculate additional debt `D` from the position's current on-chain
    collateral/debt state and target LTV.
 2. Obtain and validate `D loan token -> [PT, YT]`.
-3. Call `morphoSupplyCollateral(borrowedMinPy)` with a callback.
+3. Call `morphoSupplyCollateral(borrowedMinPy - 1)` with a callback.
 4. Inside the callback, borrow `D`, approve Router V4, mint PT+YT, and clear the
    approval.
-5. Let Morpho pull `borrowedMinPy` PT and return YT plus excess PT/dust to the
-   user.
+5. Supply all remaining PT to Morpho and return YT plus loan-token dust.
 
 Increase sizing must target the resulting on-chain LTV and liquidation buffer.
 It cannot use entry's `capitalMultiple = (E + D) / E`, because there is no
@@ -537,8 +537,8 @@ Implemented work:
 
 1. Compile the full-Mint atomic call sequence.
 2. Use exact temporary Router approvals and clear them after each leg.
-3. Supply only guaranteed PT.
-4. Sweep all YT, excess PT, and loan-token dust.
+3. Supply all transaction-produced PT, with the quote minimum as the floor.
+4. Sweep YT and loan-token dust.
 5. Include mode and both routes in the execution fingerprint.
 6. Verify debt/collateral bounds, YT delivery, authorization revocation,
    allowance cleanup, and no transaction-created adapter/Bundler residual
@@ -579,8 +579,8 @@ Positive cases:
 - full-Mint initial entry;
 - Mint-based leverage increase on an existing position;
 - direct-SY-input and aggregator routes;
-- exact minimum PT supplied and minimum YT delivered;
-- excess PT/YT and dust returned;
+- minimum PT supplied and minimum YT delivered;
+- excess PT added to collateral; YT and dust returned;
 - Market-based reduction and exit after a Mint increase;
 - exit succeeds when the wallet has no YT;
 - recovery succeeds after reload; and

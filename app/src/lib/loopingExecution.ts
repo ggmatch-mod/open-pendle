@@ -69,6 +69,7 @@ const MAX_QUOTE_ROUTES = 16
 const MAX_ADJUSTMENT_QUOTE_ATTEMPTS = 4
 const MAX_ADJUSTMENT_FIXED_POINT_STEPS = 32
 const ADJUSTMENT_TARGET_TOLERANCE_WAD = 20_000_000_000_000_000n
+const FINAL_COLLATERAL_RESERVE = 1n
 const PENDLE_QUOTE_TRANSPORT_ATTEMPTS = 2
 const PENDLE_QUOTE_RETRY_DELAY_MS = 250
 const MORPHO_IS_AUTHORIZED_MAPPING_SLOT = 6n
@@ -257,6 +258,18 @@ function fail(
     message,
     cause === undefined ? undefined : { cause },
   )
+}
+
+function primaryCollateralAmount(guaranteedCollateral: bigint): bigint {
+  if (guaranteedCollateral <= FINAL_COLLATERAL_RESERVE) {
+    fail(
+      'POSITION_UNSAFE',
+      'The guaranteed PT output is too small to settle collateral safely.',
+    )
+  }
+  // Reserve one raw PT unit so the final balance-wide supply is never a
+  // zero-amount GeneralAdapter1 call, even when execution lands at the floor.
+  return guaranteedCollateral - FINAL_COLLATERAL_RESERVE
 }
 
 function messageOf(error: unknown): string {
@@ -3235,14 +3248,19 @@ function assertAdjustmentOutcome(args: {
   }
 }
 
-function deriveIncreasePost(args: {
+function deriveIncreasePostState(args: {
   market: Readonly<LoopingExecutionMarket>
   position: Readonly<LoopingPositionSnapshot>
   accrued: Readonly<LoopingAccruedMarketSnapshot>
   borrowAssets: bigint
   maxBorrowShares: bigint
   minimumAddedCollateral: bigint
-}): LoopingLeverageSnapshot {
+}): {
+  collateral: bigint
+  borrowShares: bigint
+  debtAssets: bigint
+  oraclePrice: bigint
+} {
   const postBorrowShares = args.position.borrowShares + args.maxBorrowShares
   const postTotalBorrowAssets =
     args.accrued.totalBorrowAssets + args.borrowAssets
@@ -3252,13 +3270,57 @@ function deriveIncreasePost(args: {
     postBorrowShares * (postTotalBorrowAssets + VIRTUAL_ASSETS),
     postTotalBorrowShares + VIRTUAL_SHARES,
   )
-  return deriveLeverageSnapshot({
-    market: args.market,
+  return {
     collateral: args.position.collateral + args.minimumAddedCollateral,
     borrowShares: postBorrowShares,
     debtAssets: worstDebtAssets,
     oraclePrice: args.accrued.oraclePrice,
+  }
+}
+
+function deriveIncreasePost(args: {
+  market: Readonly<LoopingExecutionMarket>
+  position: Readonly<LoopingPositionSnapshot>
+  accrued: Readonly<LoopingAccruedMarketSnapshot>
+  borrowAssets: bigint
+  maxBorrowShares: bigint
+  minimumAddedCollateral: bigint
+}): LoopingLeverageSnapshot {
+  return deriveLeverageSnapshot({
+    market: args.market,
+    ...deriveIncreasePostState(args),
   })
+}
+
+function estimateIncreaseBorrowForTarget(args: {
+  targetLeverageWad: bigint
+  current: Readonly<LoopingLeverageSnapshot>
+  probeBorrowAssets: bigint
+  probeCollateralLoanValue: bigint
+  probeDebtAssets: bigint
+}): bigint | undefined {
+  const addedCollateralLoanValue =
+    args.probeCollateralLoanValue - args.current.collateralLoanValue
+  const addedDebtAssets = args.probeDebtAssets - args.current.debtAssets
+  const targetDebtWeight = args.targetLeverageWad * addedDebtAssets
+  const targetCollateralWeight =
+    (args.targetLeverageWad - WAD) * addedCollateralLoanValue
+  const denominator = targetDebtWeight - targetCollateralWeight
+  const numerator =
+    (args.targetLeverageWad - WAD) * args.current.collateralLoanValue -
+      args.targetLeverageWad * args.current.debtAssets
+  if (
+    args.probeBorrowAssets <= 0n ||
+    addedCollateralLoanValue <= 0n ||
+    addedDebtAssets <= 0n ||
+    denominator <= 0n ||
+    numerator <= 0n
+  ) {
+    return undefined
+  }
+  // Solve T = C / (C - D) from the quote-observed marginal collateral and
+  // debt changes. This remains usable when the first trial itself is unsafe.
+  return args.probeBorrowAssets * numerator / denominator
 }
 
 function deriveDecreasePost(args: {
@@ -3422,7 +3484,7 @@ export async function prepareLoopingEntryExecution(
   const health = deriveEntryHealth({
     market,
     acquisitionMode,
-    collateral: minimumCollateral,
+    collateral: primaryCollateralAmount(minimumCollateral),
     equityAssets: args.equityAssets,
     borrowAssets: args.borrowAssets,
     oraclePrice: accruedSnapshot.accrued.oraclePrice,
@@ -3829,7 +3891,8 @@ async function prepareLoopingIncreaseExecutionCore(
         })
       : await fetchPendleLoopingBuyRoute(quoteArgs)
     const addedCollateralValue =
-      quoteResult.route.minPtOut * accruedSnapshot.accrued.oraclePrice /
+      primaryCollateralAmount(quoteResult.route.minPtOut) *
+        accruedSnapshot.accrued.oraclePrice /
         ORACLE_PRICE_SCALE
     if (
       acquisitionMode === 'market' &&
@@ -3841,18 +3904,30 @@ async function prepareLoopingIncreaseExecutionCore(
         'The guaranteed PT purchase is worth too little versus the added debt.',
       )
     }
-    const post = deriveIncreasePost({
+    const postState = deriveIncreasePostState({
       market,
       position: accruedSnapshot.position,
       accrued: accruedSnapshot.accrued,
       borrowAssets,
       maxBorrowShares: bounds.maxBorrowShares,
-      minimumAddedCollateral: quoteResult.route.minPtOut,
+      minimumAddedCollateral:
+        primaryCollateralAmount(quoteResult.route.minPtOut),
     })
-    const targetGap = post.leverageWad <= args.targetLeverageWad
+    const probeCollateralLoanValue =
+      postState.collateral * postState.oraclePrice / ORACLE_PRICE_SCALE
+    const probeMaxBorrowAssets =
+      probeCollateralLoanValue * market.morphoMarketParams.lltv / WAD
+    // An unsafe trial is an optimizer upper bound, not proof that the user's
+    // lower requested target is unsafe.
+    const post = probeMaxBorrowAssets <= postState.debtAssets
+      ? undefined
+      : deriveLeverageSnapshot({ market, ...postState })
+    const targetGap = post !== undefined &&
+      post.leverageWad <= args.targetLeverageWad
       ? args.targetLeverageWad - post.leverageWad
       : 0n
     if (
+      post !== undefined &&
       post.leverageWad <= args.targetLeverageWad &&
       targetGap <= ADJUSTMENT_TARGET_TOLERANCE_WAD &&
       post.liquidationBufferBps >=
@@ -3870,7 +3945,11 @@ async function prepareLoopingIncreaseExecutionCore(
       finalPost = post
       break
     }
-    if (post.leverageWad > args.targetLeverageWad) {
+    const mustReduceBorrow = post === undefined ||
+      post.liquidationBufferBps <
+        BigInt(market.launchPolicy.modelMinLiquidationBufferBps) ||
+      post.leverageWad > args.targetLeverageWad
+    if (mustReduceBorrow) {
       if (borrowAssets === 0n) break
       upperBorrowAssets = borrowAssets - 1n
     } else {
@@ -3879,19 +3958,22 @@ async function prepareLoopingIncreaseExecutionCore(
     if (lowerBorrowAssets > upperBorrowAssets) break
     let nextBorrowAssets =
       (lowerBorrowAssets + upperBorrowAssets) / 2n
-    if (post.leverageWad > current.leverageWad) {
-      const proportional = borrowAssets *
-        (args.targetLeverageWad - current.leverageWad) /
-        (post.leverageWad - current.leverageWad)
-      if (
-        proportional >= lowerBorrowAssets &&
-        proportional <= upperBorrowAssets
-      ) {
-        nextBorrowAssets = proportional
-      }
+    const quoteAwareEstimate = estimateIncreaseBorrowForTarget({
+      targetLeverageWad: args.targetLeverageWad,
+      current,
+      probeBorrowAssets: borrowAssets,
+      probeCollateralLoanValue,
+      probeDebtAssets: postState.debtAssets,
+    })
+    if (
+      quoteAwareEstimate !== undefined &&
+      quoteAwareEstimate >= lowerBorrowAssets &&
+      quoteAwareEstimate <= upperBorrowAssets
+    ) {
+      nextBorrowAssets = quoteAwareEstimate
     }
     if (nextBorrowAssets === borrowAssets) {
-      nextBorrowAssets = post.leverageWad > args.targetLeverageWad
+      nextBorrowAssets = mustReduceBorrow
         ? borrowAssets - 1n
         : borrowAssets + 1n
     }
@@ -4461,7 +4543,12 @@ function buildEntryActionCalls(
       encodeFunctionData({
         abi: generalAdapter1Abi,
         functionName: 'morphoSupplyCollateral',
-        args: [params, preview.quotes.minimumCollateral, preview.owner, callbackData],
+        args: [
+          params,
+          primaryCollateralAmount(preview.quotes.minimumCollateral),
+          preview.owner,
+          callbackData,
+        ],
       }),
       callbackData,
     ),
@@ -4481,8 +4568,8 @@ function buildEntryActionCalls(
       market.contracts.generalAdapter1,
       encodeFunctionData({
         abi: generalAdapter1Abi,
-        functionName: 'erc20Transfer',
-        args: [params.collateralToken, preview.owner, maxUint256],
+        functionName: 'morphoSupplyCollateral',
+        args: [params, maxUint256, preview.owner, '0x'],
       }),
     ),
     bundlerCall(
@@ -4624,7 +4711,12 @@ function buildIncreaseActionCalls(
       encodeFunctionData({
         abi: generalAdapter1Abi,
         functionName: 'morphoSupplyCollateral',
-        args: [params, preview.quote.minPtOut, preview.owner, callbackData],
+        args: [
+          params,
+          primaryCollateralAmount(preview.quote.minPtOut),
+          preview.owner,
+          callbackData,
+        ],
       }),
       callbackData,
     ),
@@ -4644,8 +4736,8 @@ function buildIncreaseActionCalls(
       market.contracts.generalAdapter1,
       encodeFunctionData({
         abi: generalAdapter1Abi,
-        functionName: 'erc20Transfer',
-        args: [params.collateralToken, preview.owner, maxUint256],
+        functionName: 'morphoSupplyCollateral',
+        args: [params, maxUint256, preview.owner, '0x'],
       }),
     ),
     bundlerCall(
@@ -5932,6 +6024,49 @@ function decodePersistedAdapterTransfer(args: {
   }
 }
 
+function decodePersistedAdapterCollateralSupply(args: {
+  call: Readonly<LoopingBundlerCall>
+  market: Readonly<LoopingExecutionMarket>
+  owner: Address
+  label: string
+}): void {
+  assertPlainBundlerCall(
+    args.call,
+    args.market.contracts.generalAdapter1,
+    args.label,
+  )
+  let decoded: ReturnType<typeof decodeFunctionData<typeof generalAdapter1Abi>>
+  try {
+    decoded = decodeFunctionData({
+      abi: generalAdapter1Abi,
+      data: args.call.data,
+    })
+  } catch (error) {
+    fail('UNSAFE_WIRING', `${args.label} calldata is malformed.`, error)
+  }
+  if (decoded.functionName !== 'morphoSupplyCollateral') {
+    fail('UNSAFE_WIRING', `${args.label} no longer supplies collateral.`)
+  }
+  const [params, collateral, onBehalf, callbackData] = decoded.args
+  assertMarketTuple([
+    params.loanToken,
+    params.collateralToken,
+    params.oracle,
+    params.irm,
+    params.lltv,
+  ], args.market)
+  if (
+    collateral !== maxUint256 ||
+    !sameAddress(onBehalf, args.owner) ||
+    callbackData !== '0x'
+  ) {
+    fail(
+      'UNSAFE_WIRING',
+      `${args.label} changed its amount, owner, or callback.`,
+    )
+  }
+}
+
 function decodePersistedMintRoute(args: {
   call: Readonly<LoopingBundlerCall>
   market: Readonly<LoopingExecutionMarket>
@@ -6023,7 +6158,10 @@ function decodePersistedMintSupplyCallback(args: {
   market: Readonly<LoopingExecutionMarket>
   owner: Address
   initialMinimumCollateral: bigint
-}): bigint {
+}): Readonly<{
+  minimumYtOut: bigint
+  usesFinalCollateralSupply: boolean
+}> {
   const label = 'Persisted Mint Mode collateral callback'
   if (
     !sameAddress(args.call.to, args.market.contracts.generalAdapter1) ||
@@ -6135,9 +6273,19 @@ function decodePersistedMintSupplyCallback(args: {
     market: args.market,
     label: `${label} route`,
   })
+  const guaranteedCollateral =
+    args.initialMinimumCollateral + mint.minimumYtOut
+  const primaryCollateral = guaranteedCollateral -
+    FINAL_COLLATERAL_RESERVE
+  const usesFinalCollateralSupply =
+    guaranteedCollateral > FINAL_COLLATERAL_RESERVE &&
+    collateral === primaryCollateral
   if (
     mint.amountIn !== borrowAssets ||
-    collateral !== args.initialMinimumCollateral + mint.minimumYtOut
+    (
+      collateral !== guaranteedCollateral &&
+      !usesFinalCollateralSupply
+    )
   ) {
     fail(
       'UNSAFE_WIRING',
@@ -6158,7 +6306,10 @@ function decodePersistedMintSupplyCallback(args: {
     amount: 0n,
     label: `${label} approval cleanup`,
   })
-  return mint.minimumYtOut
+  return {
+    minimumYtOut: mint.minimumYtOut,
+    usesFinalCollateralSupply,
+  }
 }
 
 /**
@@ -6204,6 +6355,7 @@ export async function readPersistedLoopingMintDeliveryFromTransaction(args: {
   }
 
   let minimumYtOut: bigint
+  let usesFinalCollateralSupply: boolean
   let operation: PersistedLoopingMintDeliveryEvidence['operation']
   if (calls.length === 11) {
     operation = 'entry'
@@ -6256,21 +6408,25 @@ export async function readPersistedLoopingMintDeliveryFromTransaction(args: {
       amount: 0n,
       label: 'Persisted Mint Mode equity approval cleanup',
     })
-    const borrowedMinimumYtOut = decodePersistedMintSupplyCallback({
+    const callbackEvidence = decodePersistedMintSupplyCallback({
       call: calls[5],
       market,
       owner,
       initialMinimumCollateral: initialMint.minimumYtOut,
     })
-    minimumYtOut = initialMint.minimumYtOut + borrowedMinimumYtOut
+    minimumYtOut =
+      initialMint.minimumYtOut + callbackEvidence.minimumYtOut
+    usesFinalCollateralSupply = callbackEvidence.usesFinalCollateralSupply
   } else {
     operation = 'increase'
-    minimumYtOut = decodePersistedMintSupplyCallback({
+    const callbackEvidence = decodePersistedMintSupplyCallback({
       call: calls[1],
       market,
       owner,
       initialMinimumCollateral: 0n,
     })
+    minimumYtOut = callbackEvidence.minimumYtOut
+    usesFinalCollateralSupply = callbackEvidence.usesFinalCollateralSupply
   }
   const sweepIndex = calls.length === 11 ? 6 : 2
   const collateralSweepIndex = sweepIndex + 1
@@ -6283,14 +6439,23 @@ export async function readPersistedLoopingMintDeliveryFromTransaction(args: {
     amount: maxUint256,
     label: 'Persisted Mint Mode YT sweep',
   })
-  decodePersistedAdapterTransfer({
-    call: calls[collateralSweepIndex],
-    market,
-    token: market.morphoMarketParams.collateralToken,
-    receiver: owner,
-    amount: maxUint256,
-    label: 'Persisted Mint Mode PT sweep',
-  })
+  if (usesFinalCollateralSupply) {
+    decodePersistedAdapterCollateralSupply({
+      call: calls[collateralSweepIndex],
+      market,
+      owner,
+      label: 'Persisted Mint Mode final PT supply',
+    })
+  } else {
+    decodePersistedAdapterTransfer({
+      call: calls[collateralSweepIndex],
+      market,
+      token: market.morphoMarketParams.collateralToken,
+      receiver: owner,
+      amount: maxUint256,
+      label: 'Persisted Mint Mode legacy PT sweep',
+    })
+  }
   decodePersistedAdapterTransfer({
     call: calls[loanSweepIndex],
     market,
@@ -6978,7 +7143,8 @@ export async function revalidateSignedLoopingEntry(args: {
   const entryHealth = deriveEntryHealth({
     market,
     acquisitionMode: args.preview.acquisitionMode,
-    collateral: args.preview.quotes.minimumCollateral,
+    collateral:
+      primaryCollateralAmount(args.preview.quotes.minimumCollateral),
     equityAssets: args.preview.equityAssets,
     borrowAssets: args.preview.borrowAssets,
     oraclePrice: accruedSnapshot.accrued.oraclePrice,
@@ -7170,7 +7336,8 @@ export async function revalidateSignedLoopingIncrease(args: {
     fail('POSITION_UNSAFE', 'Fresh Morpho borrow shares exceed the signed increase bound.')
   }
   const addedCollateralValue =
-    args.preview.quote.minPtOut * accruedSnapshot.accrued.oraclePrice /
+    primaryCollateralAmount(args.preview.quote.minPtOut) *
+      accruedSnapshot.accrued.oraclePrice /
       ORACLE_PRICE_SCALE
   if (
     args.preview.acquisitionMode === 'market' &&
@@ -7190,7 +7357,8 @@ export async function revalidateSignedLoopingIncrease(args: {
     accrued: accruedSnapshot.accrued,
     borrowAssets: args.preview.borrowAssets,
     maxBorrowShares: args.preview.bounds.maxBorrowShares,
-    minimumAddedCollateral: args.preview.quote.minPtOut,
+    minimumAddedCollateral:
+      primaryCollateralAmount(args.preview.quote.minPtOut),
   })
   assertAdjustmentTarget(args.preview.targetLeverageWad, current.leverageWad, 'increase')
   assertAdjustmentOutcome({
@@ -7604,7 +7772,7 @@ export async function verifyLoopingEntryReceiptState(args: {
     snapshot.position.supplyShares !== 0n ||
     snapshot.position.borrowShares <= 0n ||
     snapshot.position.borrowShares > args.bundle.maxBorrowShares ||
-    snapshot.position.collateral !== args.bundle.minimumCollateral
+    snapshot.position.collateral < args.bundle.minimumCollateral
   ) {
     fail('STATE_CONFLICT', 'Entry receipt did not create the bounded Morpho position.')
   }
@@ -7779,7 +7947,7 @@ export async function verifyLoopingIncreaseReceiptState(args: {
     snapshot.position.supplyShares !== 0n ||
     addedBorrowShares <= 0n ||
     addedBorrowShares > args.bundle.maxAddedBorrowShares ||
-    snapshot.position.collateral !==
+    snapshot.position.collateral <
       args.bundle.startingCollateral + args.bundle.minimumAddedCollateral
   ) {
     fail('STATE_CONFLICT', 'Increase receipt did not create the bounded Morpho adjustment.')
@@ -7790,8 +7958,7 @@ export async function verifyLoopingIncreaseReceiptState(args: {
     accrued: snapshot.accrued,
   })
   if (
-    achieved.leverageWad > args.bundle.targetLeverageWad ||
-    achieved.leverageWad <= args.preview.current.leverageWad
+    achieved.leverageWad > args.bundle.targetLeverageWad
   ) {
     fail('STATE_CONFLICT', 'Increase receipt did not achieve the bounded leverage direction.')
   }

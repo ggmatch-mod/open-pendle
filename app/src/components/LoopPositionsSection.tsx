@@ -6,6 +6,7 @@ import type { Address, PublicClient } from 'viem'
 import { supportedChain } from '../lib/addresses'
 import {
   calculateLoopingLeverageCap,
+  calculateLoopingScenario,
   type LoopingMarketCandidate,
 } from '../lib/looping'
 import { evaluateLoopingRiskIncreaseEligibility } from '../lib/loopingEligibility'
@@ -26,7 +27,7 @@ import {
 import { useTransactionInFlight } from '../lib/hooks'
 import { useLoopingMarkets } from './useLoopingMarkets'
 import { LoopingExecutionPanel } from './LoopingExecutionPanel'
-import { clampLabel, formatAmount, shortAddress } from './format'
+import { clampLabel, formatAmount, formatPercent, shortAddress } from './format'
 
 const LOOPING_POSITION_STALE_TIME_MS = 12_000
 const LOOPING_POSITION_SCAN_CONCURRENCY = 4
@@ -170,6 +171,28 @@ function formatLeverage(inventory: LoopingPositionInventorySnapshot): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}×`
+}
+
+function positionPtLoopApy(
+  inventory: LoopingPositionInventorySnapshot,
+  candidate: LoopingMarketCandidate | undefined,
+  market: Readonly<LoopingExecutionMarket>,
+): number | null {
+  const leverage = positionLeverage(inventory)
+  if (leverage === null || candidate === undefined || candidate.pendle.impliedApy === null) {
+    return null
+  }
+  try {
+    return calculateLoopingScenario({
+      leverage,
+      ptApy: candidate.pendle.impliedApy,
+      borrowApy: candidate.morpho.state.borrowApy,
+      lltv: market.morphoMarketParams.lltv,
+      holdingPeriodYears: 1,
+    }).headlineLoopApy
+  } catch {
+    return null
+  }
 }
 
 function findCandidate(
@@ -510,6 +533,9 @@ function LoopPositionCard({
   const matured = Number(market.pendleMarketExpiry) <= Math.floor(Date.now() / 1_000)
   const collateralSymbol = candidate.morpho.collateralAsset.symbol
   const debtSymbol = candidate.morpho.loanAsset.symbol
+  const estimatedPtLoopApy = matured
+    ? null
+    : positionPtLoopApy(inventory, directoryCandidate, market)
 
   return (
     <article className="rounded-[12px] border border-hairline bg-bg-2 p-4">
@@ -568,8 +594,19 @@ function LoopPositionCard({
         <span className="rounded-[8px] border border-hairline bg-surface px-2.5 py-1.5 text-xs tabular-nums text-fg">
           Leverage {formatLeverage(inventory)}
         </span>
-        <span className="rounded-[8px] border border-hairline bg-surface px-2.5 py-1.5 text-xs tabular-nums text-fg">
-          Liquidation buffer {formatBps(inventory.liquidationBufferBps)}
+        <span
+          title="Rate-only estimate from current PT implied APY, Morpho borrow APY, and live position leverage. Excludes separately held YT, rewards, fees, slippage, and gas."
+          className="rounded-[8px] border border-hairline bg-surface px-2.5 py-1.5 text-xs tabular-nums text-fg"
+        >
+          Estimated PT loop APY {estimatedPtLoopApy === null
+            ? 'Unavailable'
+            : formatPercent(estimatedPtLoopApy)}
+        </span>
+        <span
+          title="Oracle-based collateral-price drop to Morpho liquidation at constant debt; not a guarantee."
+          className="rounded-[8px] border border-hairline bg-surface px-2.5 py-1.5 text-xs tabular-nums text-fg"
+        >
+          Drop to liquidation {formatBps(inventory.liquidationBufferBps)}
         </span>
       </div>
 
@@ -716,16 +753,22 @@ export function LoopPositionsSection() {
           ))}
           <button
             type="button"
-            onClick={() => void query.refetch()}
+            onClick={() => {
+              void Promise.allSettled([
+                query.refetch(),
+                marketsQuery.refetch(),
+              ])
+            }}
             disabled={
               query.isFetching ||
+              marketsQuery.isFetching ||
               walletChainId !== selectedChainId ||
               client === undefined ||
               transactionInFlight
             }
             className="rounded-[9px] border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:border-hairline-strong hover:text-fg disabled:cursor-wait disabled:opacity-50"
           >
-            {query.isFetching ? 'Refreshing…' : 'Refresh'}
+            {query.isFetching || marketsQuery.isFetching ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       </div>
