@@ -365,11 +365,15 @@ export default function CreateSyPage() {
   const desiredParse = parsePercent(desiredInput)
   const desiredScaled = useMemo<bigint | undefined>(() => {
     if (desiredParse.scaled !== undefined) return desiredParse.scaled
+    // Only a BLANK field defaults to the midpoint. A rejected value must stay
+    // undefined — substituting the midpoint for it would write a launch anchor
+    // the user never typed into the market's immutable rate.
+    if (desiredParse.error !== undefined) return undefined
     if (bandValid && rateMin !== undefined && rateMax !== undefined) {
       return bandMidpoint(rateMin, rateMax)
     }
     return undefined
-  }, [desiredParse.scaled, bandValid, rateMin, rateMax])
+  }, [desiredParse.scaled, desiredParse.error, bandValid, rateMin, rateMax])
   const desiredInBand =
     desiredScaled !== undefined &&
     rateMin !== undefined &&
@@ -388,9 +392,11 @@ export default function CreateSyPage() {
   const feeParse = parsePercent(feeInput)
   const feeScaled = useMemo<bigint | undefined>(() => {
     if (feeParse.scaled !== undefined) return feeParse.scaled
+    // As above: blank defaults, rejected does not.
+    if (feeParse.error !== undefined) return undefined
     if (rateMax !== undefined) return defaultFee(rateMax)
     return undefined
-  }, [feeParse.scaled, rateMax])
+  }, [feeParse.scaled, feeParse.error, rateMax])
   const feeOverCap = feeScaled !== undefined && feeScaled > FEE_CAP_SCALED
   const feeError = feeParse.error ?? (feeOverCap ? 'Fee cannot exceed 5%.' : undefined)
 
@@ -509,7 +515,12 @@ export default function CreateSyPage() {
       seedAmount !== undefined &&
       seedAmount > 0n &&
       !seedOverBalance &&
-      seedError === undefined)
+      seedError === undefined &&
+      // A visible field error must block Deploy. desiredInBand/feeOverCap are
+      // derived from the SCALED values, so on their own they say nothing about
+      // whether the raw input parsed.
+      desiredError === undefined &&
+      feeError === undefined)
 
   const canBuildPlan = user !== undefined && syPartValid && combinedPartValid
 
