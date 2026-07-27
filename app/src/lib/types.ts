@@ -321,6 +321,12 @@ export type TxPhase =
   | 'signing'
   | 'pending'
   | 'confirmed'
+  /**
+   * Broadcast, but no receipt within viem's wait window. NOT a failure: the
+   * transaction may still mine. Offer "Check again", never a Retry — resending
+   * here produces a second identical transaction at a higher nonce.
+   */
+  | 'unconfirmed'
   | 'failed'
 
 // ---------------------------------------------------------------------------

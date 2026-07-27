@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi'
 import type { Address, PublicClient } from 'viem'
+import type { ReplacementReason } from 'viem'
+import { WaitForTransactionReceiptTimeoutError } from 'viem'
 import type {
   ActionPlan,
   AddressClassification,
@@ -875,6 +877,8 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   reverted: boolean
   approve: () => void
   execute: () => void
+  /** Re-await the receipt of an already-broadcast tx. Only valid in 'unconfirmed'. */
+  recheck: () => void
   reset: () => void
   /**
    * Ask the wallet to switch to the app's ACTIVE chain — for the wrong-network
@@ -1083,9 +1087,27 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         const hash = await writeContractAsync(
           toWriteRequest(buildApproveCall(need, infinite), preparedChainId),
         )
-        const receipt = await client.waitForTransactionReceipt({ hash })
+        const replaced: {
+          current?: { reason: ReplacementReason; hash: `0x${string}` }
+        } = {}
+        const receipt = await client.waitForTransactionReceipt({
+          hash,
+          onReplaced: (replacement) => {
+            replaced.current = {
+              reason: replacement.reason,
+              hash: replacement.transaction.hash,
+            }
+          },
+        })
         if (released()) return
         latchRef.current = null
+        if (replaced.current !== undefined && replaced.current.reason !== 'repriced') {
+          // Same reasoning as the send path: a cancel/replace mines a different
+          // transaction, so the allowance was never granted.
+          setError('Approval was cancelled or replaced from your wallet — the allowance was not granted.')
+          setPhase('failed')
+          return
+        }
         if (receipt.status !== 'success') {
           setError(
             'Approval transaction reverted on-chain — this token may require resetting the allowance to 0 first.',
@@ -1100,6 +1122,13 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       } catch (err) {
         if (released()) return
         latchRef.current = null
+        if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          setError(
+            'Approval is still pending — no receipt yet. Check the explorer before approving again.',
+          )
+          setPhase('unconfirmed')
+          return
+        }
         if (isUserRejection(err)) {
           setError('Approval rejected in the wallet — nothing was sent.')
           const currentPlan = planRef.current
@@ -1149,8 +1178,40 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         if (released()) return
         setTxHash(hash)
         setPhase('pending')
-        const receipt = await client.waitForTransactionReceipt({ hash })
+        // viem follows replacements by default and resolves with the
+        // REPLACEMENT's receipt. A wallet "Cancel" is a 0-value self-send that
+        // mines with status 'success', so without this the flow would report
+        // Confirmed against a transaction that never mined. Held on an object
+        // so TypeScript does not narrow the callback assignment away.
+        const replaced: {
+          current?: { reason: ReplacementReason; hash: `0x${string}` }
+        } = {}
+        const receipt = await client.waitForTransactionReceipt({
+          hash,
+          onReplaced: (replacement) => {
+            replaced.current = {
+              reason: replacement.reason,
+              hash: replacement.transaction.hash,
+            }
+            // Track the hash that actually mined so the explorer link is live.
+            if (latchRef.current?.id === latch.id) {
+              setTxHash(replacement.transaction.hash)
+            }
+          },
+        })
         if (released()) return
+        // 'repriced' is the same transaction resubmitted at a higher gas price
+        // — its receipt is genuinely ours. 'cancelled'/'replaced' are not.
+        if (replaced.current !== undefined && replaced.current.reason !== 'repriced') {
+          latchRef.current = null
+          setError(
+            replaced.current.reason === 'cancelled'
+              ? 'Cancelled from your wallet — the original transaction never mined and nothing moved.'
+              : 'Replaced from your wallet — the original transaction never mined and nothing moved.',
+          )
+          setPhase('failed')
+          return
+        }
         if (receipt.status === 'success') {
           // Stay latched through 'confirmed': the Done + tx-link state must
           // survive plan churn (e.g. the positions refetch below nulling a
@@ -1175,6 +1236,16 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       } catch (err) {
         if (released()) return
         latchRef.current = null
+        if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          // Broadcast and still pending past viem's wait window. This is NOT a
+          // revert: offering Retry here would have the user sign a second
+          // identical transaction at a higher nonce, and both would mine.
+          setError(
+            'Still pending — no receipt yet. It may still confirm; check the explorer and do not resend.',
+          )
+          setPhase('unconfirmed')
+          return
+        }
         if (isUserRejection(err)) {
           // Gentle note, not a failure: the user just declined the prompt.
           setError('Transaction rejected in the wallet — nothing was sent.')
@@ -1198,6 +1269,47 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, client, activeChainId, walletChainId, user, writeContractAsync, queryClient])
+
+  /**
+   * Re-await a receipt for an already-broadcast transaction. This is the ONLY
+   * action offered from 'unconfirmed': the transaction is out there, so the one
+   * safe move is to look again, never to build and sign a fresh one.
+   */
+  const recheck = useCallback(() => {
+    if (phase !== 'unconfirmed' || !client || txHash === undefined) return
+    const hash = txHash
+    setError(undefined)
+    setPhase('pending')
+    void (async () => {
+      try {
+        const receipt = await client.waitForTransactionReceipt({ hash })
+        if (receipt.status === 'success') {
+          setPhase('confirmed')
+          void queryClient.invalidateQueries({ queryKey: ['positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['all-positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['token-positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['merkl'] })
+          void queryClient.invalidateQueries({ queryKey: ['market'] })
+          void queryClient.invalidateQueries({ queryKey: ['registry-sweep'] })
+          void queryClient.invalidateQueries({ queryKey: ['swap-quote'] })
+          return
+        }
+        setReverted(true)
+        setError('Transaction reverted on-chain — no tokens moved (gas was spent).')
+        setPhase('failed')
+      } catch (err) {
+        if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          setError(
+            'Still pending — no receipt yet. It may still confirm; check the explorer and do not resend.',
+          )
+          setPhase('unconfirmed')
+          return
+        }
+        setError(decodePendleError(err))
+        setPhase('unconfirmed')
+      }
+    })()
+  }, [phase, client, txHash, queryClient])
 
   const reset = useCallback(() => {
     runRef.current++
@@ -1233,6 +1345,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     reverted,
     approve,
     execute,
+    recheck,
     reset,
     switchNetwork,
   }
