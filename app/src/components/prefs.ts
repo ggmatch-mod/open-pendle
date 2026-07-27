@@ -36,8 +36,11 @@ export function readSlippage(): number {
     const raw = window.localStorage.getItem(SLIPPAGE_STORAGE_KEY)
     if (raw !== null) {
       const v = Number(raw)
-      // Sane band: 0–50%. Anything else falls back to the default.
-      if (Number.isFinite(v) && v >= 0 && v <= 0.5) return v
+      // Sane band: above 0 and at most 50%. Anything else falls back to the
+      // default. Zero is rejected on read as well as on write, so a 0 already
+      // persisted by an earlier build self-heals instead of pinning min-out to
+      // the quote on every trade.
+      if (Number.isFinite(v) && v > 0 && v <= 0.5) return v
     }
   } catch {
     // localStorage unavailable — default.
@@ -46,7 +49,7 @@ export function readSlippage(): number {
 }
 
 export function writeSlippage(fraction: number): void {
-  if (!Number.isFinite(fraction) || fraction < 0 || fraction > 0.5) return
+  if (!Number.isFinite(fraction) || fraction <= 0 || fraction > 0.5) return
   try {
     window.localStorage.setItem(SLIPPAGE_STORAGE_KEY, String(fraction))
   } catch {
