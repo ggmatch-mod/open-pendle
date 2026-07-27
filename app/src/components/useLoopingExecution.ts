@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import {
   decodeEventLog,
@@ -95,6 +96,7 @@ import {
 } from '../lib/loopingPending'
 import {
   createLoopingWalletReadClient,
+  isLoopingWalletRpcChain,
 } from '../lib/loopingRpc'
 import {
   getLoopingExecutionCandidateMarket,
@@ -1152,12 +1154,31 @@ export function useLoopingExecution({
   acquisitionMode?: LoopingAcquisitionMode
 }): UseLoopingExecutionResult {
   const { address: owner, chainId: walletChainId, isConnected } = useAccount()
+  const queryClient = useQueryClient()
   const market = useMemo(() => resolveMarket(candidate), [candidate])
   const { data: walletClient } = useWalletClient({ chainId: market?.chainId })
   const walletReadClient = useMemo(() => {
-    if (walletClient === undefined) return undefined
-    return createLoopingWalletReadClient(walletClient) as PublicClient
-  }, [walletClient])
+    // createLoopingWalletReadClient throws for any chain outside the four
+    // execution chains. When the candidate is not in the execution registry
+    // `market` is undefined, so useWalletClient falls back to the connected
+    // chain — which the network switcher lets the user set to BNB or Plasma.
+    // Constructing unguarded here would throw during render and take the whole
+    // app down through StartupErrorBoundary.
+    if (walletClient === undefined || market === undefined) return undefined
+    if (!isLoopingWalletRpcChain(walletClient.chain?.id)) return undefined
+    try {
+      return createLoopingWalletReadClient(walletClient) as PublicClient
+    } catch {
+      return undefined
+    }
+  }, [market, walletClient])
+  // wagmi pins the walletClient query to a chainId and sets staleTime:Infinity,
+  // and only invalidates on ACCOUNT change. A slow wallet-side chain switch can
+  // therefore exhaust the query's retries with ConnectorChainMismatchError and
+  // never refetch, leaving the panel permanently inert on the right chain.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: ['walletClient'] })
+  }, [queryClient, walletChainId])
   const { openConnectModal } = useConnectModal()
   const { switchChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
@@ -2419,6 +2440,21 @@ export function useLoopingExecution({
       )).value
       lease.assertOwned()
       assertContext(operationContext)
+      // The pinned bounds exist to detect the position moving while an exposed
+      // authorization signature is outstanding. If nothing from this generation
+      // was ever signed or broadcast, they protect nothing — and because
+      // cleanup records are exempt from the 7-day TTL and excluded from
+      // canRecover, a stale pin (a partial liquidation, or a repay made from
+      // Morpho's own UI) would otherwise wedge the wallet out of every looping
+      // market on this chain with no in-app escape.
+      const cleanupSignatureLive =
+        cleanupPending !== undefined &&
+        (cleanupPending.txHash !== undefined ||
+          (cleanupPending.authorizationCleanupStage !== undefined &&
+            cleanupPending.authorizationCleanupStage !== 'signature-requested'))
+      if (expectedPosition !== undefined && !cleanupSignatureLive) {
+        expectedPosition = exactPositionBounds(live.position)
+      }
       expectedPosition ??= exactPositionBounds(live.position)
       if (!positionMatchesBounds(live.position, expectedPosition)) {
         throw new LoopingUiSafetyError(
@@ -3829,21 +3865,39 @@ export function useLoopingExecution({
       const expectedPosition = expectedRecoveryPosition ?? latestPending?.expectedPosition
       const expectedPositionMatches = expectedPosition !== undefined &&
         positionMatchesBounds(reconciledPosition, expectedPosition)
+      // YT delivery can only be re-verified from a transaction hash. When the
+      // send rejected after broadcast, or the tab was evicted between the
+      // pre-submission persist and the hash landing, no hash exists — and
+      // verifyPersistedMintDelivery throws unconditionally in that state. That
+      // throw used to happen BEFORE the pending record was cleared, so recover()
+      // re-entered 'ambiguous' on every attempt and the market stayed locked for
+      // the full 7-day TTL with a live position that could not be exited in-app.
+      // The on-chain position bounds have already been reconciled at this point,
+      // so the safe outcome is to finish the recovery and tell the user the YT
+      // leg specifically could not be re-checked.
+      let mintDeliveryUnverified = false
       if (
         expectedPositionMatches &&
         !cleanupOnly &&
         recoveryAcquisitionMetadata.acquisitionMode === 'mint' &&
         recoveryAcquisitionMetadata.mintDelivery !== undefined
       ) {
-        await withWalletRead((client) => verifyPersistedMintDelivery({
-          client,
-          delivery: recoveryAcquisitionMetadata.mintDelivery!,
-          transactionHash: boundState.txHash,
-          owner,
-          market,
-        }))
-        lease.assertOwned()
-        assertContext(operationContext)
+        const deliveryHash =
+          recoveryAcquisitionMetadata.mintDelivery.transactionHash ??
+          boundState.txHash
+        if (deliveryHash === undefined) {
+          mintDeliveryUnverified = true
+        } else {
+          await withWalletRead((client) => verifyPersistedMintDelivery({
+            client,
+            delivery: recoveryAcquisitionMetadata.mintDelivery!,
+            transactionHash: boundState.txHash,
+            owner,
+            market,
+          }))
+          lease.assertOwned()
+          assertContext(operationContext)
+        }
       }
 
       if (!expectedPositionMatches && reconciledPosition.classification === 'open-loop') {
@@ -3902,13 +3956,16 @@ export function useLoopingExecution({
         fingerprint,
         operation,
         txHash: latestHash,
-        notice: cleanupOnly
+        notice: (cleanupOnly
           ? 'The unused adapter allowance was cleared. No Morpho authorization signature was exposed.'
           : expectedPositionMatches && reconciledPosition.classification === 'open-loop'
             ? 'The loop is open and the temporary Morpho permissions were secured.'
             : operation === 'exit'
               ? 'The loop is closed and the temporary Morpho permissions were secured.'
-              : 'No loop remains open. Morpho permissions and adapter allowance were secured.',
+              : 'No loop remains open. Morpho permissions and adapter allowance were secured.') +
+          (mintDeliveryUnverified
+            ? ' The YT delivery could not be re-verified because no transaction hash was recorded — check your wallet\'s YT balance against the transaction on the explorer.'
+            : ''),
       })
     } catch (error) {
       setState({
