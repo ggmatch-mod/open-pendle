@@ -54,18 +54,21 @@ export function SlippageControl({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [open])
 
+  // A blank box is "not set yet", never 0%. Number('') is 0, which used to pass
+  // the range check and persist a 0% tolerance that pins min-out to the quote.
+  const parseCustom = (text: string): number | undefined => {
+    const trimmed = text.trim()
+    if (trimmed.length === 0) return undefined
+    const pct = Number(trimmed.replace(',', '.'))
+    return Number.isFinite(pct) && pct > 0 && pct <= 50 ? pct : undefined
+  }
   const applyCustom = (text: string) => {
     setCustomText(text)
-    const pct = Number(text.trim().replace(',', '.'))
-    if (Number.isFinite(pct) && pct >= 0 && pct <= 50) {
-      setSlippage(pct / 100)
-    }
+    const pct = parseCustom(text)
+    if (pct !== undefined) setSlippage(pct / 100)
   }
   const customInvalid =
-    customText.trim().length > 0 &&
-    !(Number.isFinite(Number(customText.trim().replace(',', '.'))) &&
-      Number(customText.trim().replace(',', '.')) >= 0 &&
-      Number(customText.trim().replace(',', '.')) <= 50)
+    customText.trim().length > 0 && parseCustom(customText) === undefined
 
   return (
     <div className="relative" ref={popoverRef}>

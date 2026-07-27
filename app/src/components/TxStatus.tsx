@@ -4,7 +4,11 @@
  *               min {minOut}" (minOut is already encoded in the plan)
  * - signing/pending: chain-captured explorer link as soon as the hash exists
  * - confirmed:  success note + explorer link (button shows "Done")
- * - failed:     decoded error from the flow (button shows "Retry")
+ * - unconfirmed: broadcast but no receipt yet — link, and explicitly NOT a
+ *               failure, so the user is never invited to resend
+ * - failed:     decoded error from the flow (button shows "Retry"); still links
+ *               the hash when one was broadcast, since a revert costs gas and
+ *               the user needs to see it
  *
  * Also exports IndicativeQuote — the pre-approval "estimated" quote row
  * (PLAN §3.2: quotes before approval are indicative, never binding).
@@ -69,11 +73,33 @@ export function TxStatus({
     )
   }
 
+  if (phase === 'unconfirmed') {
+    return (
+      <div className="rounded-lg border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] px-3 py-2 text-xs text-warn">
+        <span className="font-semibold">Still pending.</span>{' '}
+        {error || 'No receipt yet — it may still confirm. Do not resend.'}
+        {txHash && txChainId !== undefined && (
+          <>
+            {' '}
+            <TxLink hash={txHash} chainId={txChainId} />
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (phase === 'failed') {
     return (
       <div className="rounded-lg border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] px-3 py-2 text-xs text-red-200/90">
         <span className="font-semibold text-danger">Failed:</span>{' '}
         {error || 'the transaction reverted (no decoded reason).'}
+        {/* A reverted tx still mined and still cost gas — never hide its hash. */}
+        {txHash && txChainId !== undefined && (
+          <>
+            {' '}
+            <TxLink hash={txHash} chainId={txChainId} />
+          </>
+        )}
       </div>
     )
   }

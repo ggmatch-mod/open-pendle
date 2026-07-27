@@ -21,6 +21,19 @@ export const LOOPING_WALLET_RPC_CHAINS = Object.freeze({
   [arbitrum.id]: arbitrum,
 } as const satisfies Readonly<Record<number, Chain>>)
 
+/**
+ * Whether a chain id can back a looping wallet read client. The app's network
+ * switcher offers six chains but only these four carry looping execution, so
+ * callers must test before constructing — createLoopingWalletReadClient throws,
+ * and it is normally called from render.
+ */
+export function isLoopingWalletRpcChain(
+  chainId: number | undefined,
+): chainId is keyof typeof LOOPING_WALLET_RPC_CHAINS {
+  return chainId !== undefined &&
+    Object.hasOwn(LOOPING_WALLET_RPC_CHAINS, chainId)
+}
+
 export const LOOPING_WALLET_RPC_READ_METHODS = Object.freeze([
   'eth_blockNumber',
   'eth_call',

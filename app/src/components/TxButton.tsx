@@ -163,6 +163,19 @@ export function TxButton({
           Done
         </button>
       )
+    // Broadcast but no receipt yet. The only safe action is to look again — a
+    // Retry here would build and sign a SECOND identical transaction at a
+    // higher nonce, and both would eventually mine.
+    case 'unconfirmed':
+      return (
+        <button
+          type="button"
+          onClick={flow.recheck}
+          className={`${BASE} border border-[var(--op-warn-bd)] bg-[var(--op-warn-soft)] text-warn hover:bg-amber-900/50`}
+        >
+          Check again
+        </button>
+      )
     case 'failed':
       return (
         <button

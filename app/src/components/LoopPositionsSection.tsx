@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAccount, useSwitchChain, useWalletClient } from 'wagmi'
 import type { Address, PublicClient } from 'viem'
@@ -26,6 +26,7 @@ import {
 } from '../lib/loopingRpc'
 import { useTransactionInFlight } from '../lib/hooks'
 import { useLoopingMarkets } from './useLoopingMarkets'
+import { useLoopingMintCapability } from './useLoopingMintCapability'
 import { LoopingExecutionPanel } from './LoopingExecutionPanel'
 import { clampLabel, formatAmount, formatPercent, shortAddress } from './format'
 
@@ -270,6 +271,19 @@ function LoopPositionManager({
     matured ? 'full-exit' : 'adjust',
   )
   const [acquisitionMode, setAcquisitionMode] = useState<AcquisitionMode>('market')
+  // The served policy can pause Mint for leverage increases independently of
+  // entry. Probe it up front so the toggle reflects reality, instead of letting
+  // the user complete the whole preflight and be refused at the signature.
+  const mintIncreaseCapability = useLoopingMintCapability({
+    action: 'increase',
+    chainId: candidate.morpho.chainId,
+    marketId: candidate.morpho.marketId,
+  })
+  const mintIncreaseAvailable = mintIncreaseCapability.enabled
+  // Never leave 'mint' selected once we know it is unavailable.
+  useEffect(() => {
+    if (!mintIncreaseAvailable && !transactionInFlight) setAcquisitionMode('market')
+  }, [mintIncreaseAvailable, transactionInFlight])
   const [target, setTarget] = useState(() => initialTarget.toFixed(2))
   const targetLeverage = Number(target)
   const targetChanged = currentLeverage !== null &&
@@ -294,9 +308,15 @@ function LoopPositionManager({
           (sliderMaximum - POSITION_TARGET_MINIMUM) * 100,
       ))
 
+  // Never resync the slider while a transaction is in flight. initialTarget is
+  // derived from on-chain leverage quantized to 1e-4, so any positions refetch
+  // that nudges it would collapse targetChanged, unmount LoopingExecutionPanel,
+  // and take the in-memory authorization pair and the transaction guard with
+  // it — mid-signature. The equivalent effect in LoopingPage.tsx guards this.
   useEffect(() => {
+    if (transactionInFlight) return
     setTarget(initialTarget.toFixed(2))
-  }, [initialTarget])
+  }, [initialTarget, transactionInFlight])
 
   useEffect(() => {
     if (matured) setMode('full-exit')
@@ -427,10 +447,21 @@ function LoopPositionManager({
                   <button
                     key={option}
                     type="button"
-                    disabled={transactionInFlight}
+                    disabled={
+                      transactionInFlight ||
+                      (option === 'mint' && !mintIncreaseAvailable)
+                    }
+                    title={
+                      option === 'mint' && !mintIncreaseAvailable
+                        ? mintIncreaseCapability.reason ??
+                          'Mint Mode is unavailable for leverage increases right now.'
+                        : undefined
+                    }
                     aria-pressed={acquisitionMode === option}
                     onClick={() => {
-                      if (!transactionInFlight) setAcquisitionMode(option)
+                      if (transactionInFlight) return
+                      if (option === 'mint' && !mintIncreaseAvailable) return
+                      setAcquisitionMode(option)
                     }}
                     className={`rounded-[7px] px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${acquisitionMode === option
                       ? 'bg-[rgba(var(--op-accent-rgb),0.12)] text-accent-ink'
@@ -445,6 +476,12 @@ function LoopPositionManager({
                   ? 'Borrowed capital mints PT+YT. Added PT becomes Morpho collateral; YT goes to your wallet.'
                   : 'Borrowed capital buys added PT on the market for Morpho collateral.'}
               </p>
+              {!mintIncreaseAvailable && !mintIncreaseCapability.pending && (
+                <p className="px-2 pb-1 text-[10.5px] leading-4 text-warn">
+                  {mintIncreaseCapability.reason ??
+                    'Mint Mode is paused for leverage increases.'}
+                </p>
+              )}
             </div>
           )}
 
@@ -638,6 +675,7 @@ function LoopPositionCard({
 
 export function LoopPositionsSection() {
   const { address: owner, chainId: walletChainId } = useAccount()
+  const queryClient = useQueryClient()
   const [selectedChainId, setSelectedChainId] = useState<LoopingExecutionChainId>(
     () => EXECUTION_CHAIN_IDS.includes(walletChainId as LoopingExecutionChainId)
       ? walletChainId as LoopingExecutionChainId
@@ -652,6 +690,12 @@ export function LoopPositionsSection() {
       : createLoopingWalletReadClient(walletClient) as PublicClient,
     [selectedChainId, walletChainId, walletClient],
   )
+  // See useLoopingExecution: wagmi pins this query to a chainId with
+  // staleTime:Infinity and only invalidates on account change, so a slow
+  // wallet-side switch can strand it in ConnectorChainMismatchError forever.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: ['walletClient'] })
+  }, [queryClient, walletChainId])
   const { switchChain } = useSwitchChain()
   const marketsQuery = useLoopingMarkets()
   const transactionInFlight = useTransactionInFlight()

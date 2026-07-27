@@ -181,11 +181,15 @@ export default function CreatePoolPage() {
   // Default to the midpoint when left blank and the band is valid.
   const desiredScaled = useMemo<bigint | undefined>(() => {
     if (desiredParse.scaled !== undefined) return desiredParse.scaled
+    // Only a BLANK field defaults to the midpoint. A rejected value must stay
+    // undefined — substituting the midpoint for it would write a launch anchor
+    // the user never typed into the market's immutable rate.
+    if (desiredParse.error !== undefined) return undefined
     if (bandValid && rateMin !== undefined && rateMax !== undefined) {
       return bandMidpoint(rateMin, rateMax)
     }
     return undefined
-  }, [desiredParse.scaled, bandValid, rateMin, rateMax])
+  }, [desiredParse.scaled, desiredParse.error, bandValid, rateMin, rateMax])
   const desiredInBand =
     desiredScaled !== undefined &&
     rateMin !== undefined &&
@@ -205,9 +209,11 @@ export default function CreatePoolPage() {
   const feeParse = parsePercent(feeInput)
   const feeScaled = useMemo<bigint | undefined>(() => {
     if (feeParse.scaled !== undefined) return feeParse.scaled
+    // As above: blank defaults, rejected does not.
+    if (feeParse.error !== undefined) return undefined
     if (rateMax !== undefined) return defaultFee(rateMax)
     return undefined
-  }, [feeParse.scaled, rateMax])
+  }, [feeParse.scaled, feeParse.error, rateMax])
   const feeOverCap = feeScaled !== undefined && feeScaled > FEE_CAP_SCALED
   const feeError = feeParse.error ?? (feeOverCap ? 'Fee cannot exceed 5%.' : undefined)
 
@@ -232,8 +238,11 @@ export default function CreatePoolPage() {
   const seedBalance = useTokenBalance(activeSeedToken?.address, user, isNativeSeed)
 
   const [seedAmountInput, setSeedAmountInput] = useState('')
+  // Unreadable decimals means we cannot size an amount at all — leave it
+  // unparsed rather than assuming 18. AmountInput is already disabled in that
+  // state, and canBuildPlan below refuses to build a plan without it.
   const seedParsed =
-    activeSeedToken !== undefined
+    activeSeedToken !== undefined && activeSeedToken.decimals !== undefined
       ? parseAmount(seedAmountInput, activeSeedToken.decimals)
       : { amount: undefined, error: undefined }
   const seedAmount = seedParsed.amount
@@ -308,14 +317,24 @@ export default function CreatePoolPage() {
     !feeOverCap &&
     syMeta.status === 'success' &&
     !seedOverBalance &&
-    seedError === undefined
+    seedError === undefined &&
+    // A visible field error must block Deploy. desiredInBand/feeOverCap are
+    // derived from the SCALED values, so on their own they say nothing about
+    // whether the raw input parsed.
+    desiredError === undefined &&
+    feeError === undefined
+  const seedDecimals = activeSeedToken?.decimals
   const canBuildPlan =
     configComplete &&
     localConfigValid &&
     user !== undefined &&
-    activeSeedToken !== undefined
+    activeSeedToken !== undefined &&
+    seedDecimals !== undefined
   const plan: ActionPlan | null = useMemo(() => {
-    if (!canBuildPlan || !config || !sy || !activeSeedToken || !user || seedAmount === undefined) {
+    if (
+      !canBuildPlan || !config || !sy || !activeSeedToken || !user ||
+      seedAmount === undefined || activeSeedToken.decimals === undefined
+    ) {
       return null
     }
     try {

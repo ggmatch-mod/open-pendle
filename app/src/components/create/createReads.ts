@@ -41,7 +41,13 @@ export interface SyMeta {
 export interface SeedTokenMeta {
   address: Address
   symbol: string
-  decimals: number
+  /**
+   * Undefined when the token's decimals() could not be read. Never guess: a
+   * fabricated 18 silently mis-scales a 6-decimal token by 1e12 on an
+   * irreversible seeding path, and it defeats AmountInput's own
+   * `decimals === undefined` disable guard.
+   */
+  decimals: number | undefined
   isNative: boolean
   /** True for the SY share token itself (always a valid seed input). */
   isSy: boolean
@@ -91,23 +97,20 @@ async function loadSyMeta(
       seedTokens.push({ address: NATIVE_TOKEN, symbol: nativeSymbol, decimals: 18, isNative: true, isSy: false })
       continue
     }
-    try {
-      const [tSym, tDec] = await Promise.all([
-        client.readContract({ address: t, abi: erc20SymbolAbi, functionName: 'symbol' }),
-        client.readContract({ address: t, abi: erc20Abi, functionName: 'decimals' }),
-      ])
-      seedTokens.push({
-        address: t,
-        symbol: tSym as string,
-        decimals: Number(tDec),
-        isNative: false,
-        isSy: false,
-      })
-    } catch {
-      // Token metadata unreadable — still list it, sized only if the user
-      // knows the decimals. Skip rather than fail the whole SY probe.
-      seedTokens.push({ address: t, symbol: 'token', decimals: 18, isNative: false, isSy: false })
-    }
+    // Settle the two reads independently: a bytes32-symbol token (MKR/SAI
+    // class) fails symbol() while decimals() succeeds, and sharing one catch
+    // used to throw away a perfectly good decimals and substitute 18.
+    const [symResult, decResult] = await Promise.allSettled([
+      client.readContract({ address: t, abi: erc20SymbolAbi, functionName: 'symbol' }),
+      client.readContract({ address: t, abi: erc20Abi, functionName: 'decimals' }),
+    ])
+    seedTokens.push({
+      address: t,
+      symbol: symResult.status === 'fulfilled' ? symResult.value as string : 'token',
+      decimals: decResult.status === 'fulfilled' ? Number(decResult.value) : undefined,
+      isNative: false,
+      isSy: false,
+    })
   }
 
   return {
