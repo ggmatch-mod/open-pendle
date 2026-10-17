@@ -54,11 +54,29 @@ const RPC_RETRY_BASE_DELAY_MS = 250
 const RPC_LOG_CONCURRENCY = 8
 const RPC_LOG_RANGE_RETRY_ROUNDS = 2
 const INDEXED_PROXY_MIN_INTERVAL_MS = 350
-const LOG_CHUNK_SIZES = [10_000_000, 1_000_000, 100_000, 50_000, 10_000, 2_000]
+const PUBLIC_GATEWAY_MIN_INTERVAL_MS = 250
+const LOG_CHUNK_SIZES = [10_000_000, 1_000_000, 100_000, 50_000, 10_000, 2_000, 1_000]
 const HYDRATION_CONCURRENCY = 4
 const MAX_PUBLIC_ERRORS = 100
 const INDEXED_LOG_PAGE_SIZE = 1_000
 const MAX_INDEXED_LOG_PAGES = 100
+
+// Keyless gateways published in ethereum-lists/chains. Their public historical
+// log limit is 1,000 blocks; keep them scoped to catalog generation.
+const CATALOG_RPC_FALLBACKS = {
+  1: ['https://mainnet.gateway.tenderly.co'],
+  8453: ['https://base.gateway.tenderly.co'],
+}
+
+function isPublicCatalogGateway(url) {
+  return Object.values(CATALOG_RPC_FALLBACKS).some((urls) => urls.includes(url))
+}
+
+function publicGatewayRetryDelay(retryAfter, now = Date.now()) {
+  const seconds = typeof retryAfter === 'string' && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN
+  const parsed = Number.isFinite(seconds) ? seconds * 1_000 : Date.parse(retryAfter ?? '') - now
+  return Math.min(30_000, Math.max(1_000, Number.isFinite(parsed) ? parsed : 2_000))
+}
 
 const INDEXED_LOG_API = {
   1: 'https://eth.blockscout.com/api',
@@ -117,6 +135,7 @@ function parseArgs(argv) {
     check: false,
     requireComplete: false,
     reset: false,
+    maxAgeSeconds: null,
     output: DEFAULT_OUTPUT,
     chains: null,
   }
@@ -125,6 +144,12 @@ function parseArgs(argv) {
     if (arg === '--check') options.check = true
     else if (arg === '--require-complete') options.requireComplete = true
     else if (arg === '--reset') options.reset = true
+    else if (arg === '--max-age-seconds') {
+      const value = Number(argv[index + 1])
+      if (!Number.isSafeInteger(value) || value <= 0) throw new Error('--max-age-seconds requires a positive integer')
+      options.maxAgeSeconds = value
+      index += 1
+    }
     else if (arg === '--output') {
       const value = argv[index + 1]
       if (!value) throw new Error('--output requires a path')
@@ -146,6 +171,7 @@ function parseArgs(argv) {
   if (options.requireComplete && !options.check) {
     throw new Error('--require-complete can only be used with --check')
   }
+  if (options.maxAgeSeconds !== null && !options.check) throw new Error('--max-age-seconds can only be used with --check')
   if (options.chains !== null) options.chains = [...new Set(options.chains)]
   return options
 }
@@ -199,7 +225,7 @@ function rpcUrlsFor(chainId) {
     const urls = configured.split(',').map((url) => url.trim()).filter(Boolean)
     if (urls.length > 0) return urls
   }
-  return [...FALLBACK_RPCS[chainId]]
+  return [...(CATALOG_RPC_FALLBACKS[chainId] ?? []), ...FALLBACK_RPCS[chainId]]
 }
 
 function indexedLogApiFor(chainId) {
@@ -282,6 +308,73 @@ function parseIndexedProxyPayload(payload) {
   return payload.result
 }
 
+function blockscoutNativeOrigin(endpoint) {
+  if (typeof endpoint !== 'string') return null
+  let base
+  try { base = new URL(endpoint) } catch { return null }
+  // Use only the already-configured Ethereum Blockscout origin. Custom API
+  // endpoints keep their existing proxy/RPC behavior and credentials.
+  if (base.origin !== 'https://eth.blockscout.com' || !/^\/api\/?$/.test(base.pathname)) {
+    return null
+  }
+  return base.origin
+}
+
+function blockscoutHeaderUrl(endpoint, blockTag) {
+  const origin = blockscoutNativeOrigin(endpoint)
+  if (origin === null || typeof blockTag !== 'string' || !/^0x[0-9a-f]+$/i.test(blockTag)) return null
+  return new URL(`/api/v2/blocks/${quantity(blockTag, 'requested block number')}`, origin)
+}
+
+function parseBlockscoutHeader(payload, expectedNumber) {
+  if (
+    payload === null || typeof payload !== 'object' || Array.isArray(payload) ||
+    !Number.isSafeInteger(payload.height) || payload.height !== expectedNumber
+  ) {
+    throw new Error('Indexed block header does not match the requested height')
+  }
+  const blockHash = hash(payload.hash, 'indexed block hash')
+  const timestamp = typeof payload.timestamp === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(payload.timestamp)
+    ? Date.parse(payload.timestamp) / 1_000
+    : NaN
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
+    throw new Error('Invalid indexed block timestamp')
+  }
+  return {
+    number: numberToHex(payload.height),
+    hash: blockHash,
+    timestamp: numberToHex(timestamp),
+  }
+}
+
+async function fetchBlockscoutHeader(url, blockTag, fetchImpl = fetch) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS)
+  try {
+    let response
+    let payload
+    try {
+      response = await fetchImpl(url, {
+        headers: { accept: 'application/json' },
+        redirect: 'error',
+        signal: controller.signal,
+      })
+      if (!response?.ok) {
+        const status = Number(response?.status)
+        throw new Error(Number.isSafeInteger(status) ? `HTTP ${status}` : 'HTTP failure')
+      }
+      payload = await response.json()
+    } catch {
+      // Do not copy provider bodies, URLs, or JSON parse errors into output.
+      throw new Error('Indexed block header request failed')
+    }
+    return parseBlockscoutHeader(payload, quantity(blockTag, 'requested block number'))
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 class RpcClient {
   constructor(chainId, urls, indexedProxyEndpoint = null) {
     this.chainId = chainId
@@ -289,14 +382,30 @@ class RpcClient {
     this.indexedProxyEndpoint = indexedProxyEndpoint
     this.indexedProxyQueue = Promise.resolve()
     this.indexedProxyNextAt = 0
+    this.publicGatewayQueue = Promise.resolve()
+    this.publicGatewayNextAt = 0
     this.nextId = 1
   }
 
   async request(method, params) {
     let lastError
+    const proxyMethod = ['eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call'].includes(method)
+    const preferRpc = blockscoutNativeOrigin(this.indexedProxyEndpoint) !== null
+    // Blockscout's legacy proxy endpoint is not a reliable historical-header
+    // source. Its v2 block endpoint also supplies hashes omitted by log pages.
+    const headerUrl = method === 'eth_getBlockByNumber' && params[1] === false
+      ? blockscoutHeaderUrl(this.indexedProxyEndpoint, params[0])
+      : null
+    if (headerUrl !== null) {
+      try {
+        return await this.scheduleIndexedRequest(() => fetchBlockscoutHeader(headerUrl, params[0]))
+      } catch (error) {
+        lastError = error
+      }
+    }
     if (
       this.indexedProxyEndpoint !== null &&
-      ['eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode', 'eth_call'].includes(method)
+      proxyMethod && !preferRpc
     ) {
       for (let round = 0; round < RPC_RETRY_ROUNDS; round += 1) {
         try {
@@ -312,49 +421,63 @@ class RpcClient {
 
     for (let round = 0; round < RPC_RETRY_ROUNDS; round += 1) {
       for (const url of this.urls) {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS)
         try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: this.nextId++,
-              method,
-              params,
-            }),
-            signal: controller.signal,
-          })
-          if (!response.ok) throw new Error(`HTTP ${response.status}`)
-          const payload = await response.json()
-          if (payload === null || typeof payload !== 'object') {
-            throw new Error('Invalid JSON-RPC response')
-          }
-          if (payload.error) {
-            // RPC error messages are remote-controlled and have been observed
-            // to echo credential-bearing endpoint fragments. Persist only the
-            // public numeric code; never copy a provider's message into the
-            // generated artifact or workflow log.
-            const code = Number(payload.error.code)
-            throw new Error(
-              Number.isSafeInteger(code)
-                ? `JSON-RPC request failed with code ${code}`
-                : 'JSON-RPC request failed',
-            )
-          }
-          return payload.result
+          const execute = () => this.requestRpcEndpoint(url, method, params)
+          return isPublicCatalogGateway(url)
+            ? await this.schedulePublicGateway(execute) : await execute()
         } catch (error) {
           lastError = error
-        } finally {
-          clearTimeout(timeout)
         }
       }
       if (round < RPC_RETRY_ROUNDS - 1) {
         await delay(RPC_RETRY_BASE_DELAY_MS * (2 ** round))
       }
     }
+    if (preferRpc && proxyMethod) {
+      try { return await this.requestIndexedProxy(method, params) }
+      catch (error) { lastError = error }
+    }
     throw new Error(`${method} failed on chain ${this.chainId}: ${safeError(lastError)}`)
+  }
+
+  async requestRpcEndpoint(url, method, params, fetchImpl = fetch) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS)
+    try {
+      const response = await fetchImpl(url, {
+        method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: this.nextId++, method, params }),
+        signal: controller.signal,
+      })
+      if (response.status === 429 && isPublicCatalogGateway(url)) {
+        this.publicGatewayNextAt = Math.max(this.publicGatewayNextAt,
+          Date.now() + publicGatewayRetryDelay(response.headers?.get?.('retry-after')))
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      let payload
+      try { payload = await response.json() } catch { throw new Error('Invalid JSON-RPC response') }
+      if (payload === null || typeof payload !== 'object') throw new Error('Invalid JSON-RPC response')
+      if (payload.error) {
+        // Provider messages may contain credential-bearing URLs. Persist only
+        // the numeric error code, never the provider's message or data.
+        const code = Number(payload.error.code)
+        throw new Error(Number.isSafeInteger(code) ? `JSON-RPC request failed with code ${code}` : 'JSON-RPC request failed')
+      }
+      return payload.result
+    } finally { clearTimeout(timeout) }
+  }
+
+  async schedulePublicGateway(execute) {
+    const start = this.publicGatewayQueue.then(async () => {
+      // Recheck after waking: another in-flight response may have extended the
+      // shared deadline with Retry-After while this request was waiting.
+      while (this.publicGatewayNextAt > Date.now()) await delay(this.publicGatewayNextAt - Date.now())
+      this.publicGatewayNextAt = Date.now() + PUBLIC_GATEWAY_MIN_INTERVAL_MS
+    })
+    this.publicGatewayQueue = start.catch(() => undefined)
+    await start
+    // HTTP timeout starts inside execute(), after the rate-limit queue.
+    return execute()
   }
 
   async requestIndexedProxy(method, params) {
@@ -393,6 +516,7 @@ class RpcClient {
 async function blockAt(client, blockNumber) {
   const raw = await client.request('eth_getBlockByNumber', [numberToHex(blockNumber), false])
   if (raw === null || typeof raw !== 'object') throw new Error(`Block ${blockNumber} unavailable`)
+  if (quantity(raw.number, 'block number') !== blockNumber) throw new Error('RPC returned a header for the wrong block')
   return {
     number: quantity(raw.number, 'block number'),
     hash: hash(raw.hash, 'block hash'),
@@ -433,6 +557,15 @@ async function scanFactoryLogs(client, factory, topic, fromBlock, toBlock) {
   // endpoints are preferred where available; BSC/Monad use configured ones.
   const indexedApi = indexedLogApiFor(client.chainId)
   if (indexedApi) {
+    const nativeOrigin = blockscoutNativeOrigin(indexedApi)
+    if (nativeOrigin !== null) {
+      try {
+        return await scanBlockscoutLogs(client, nativeOrigin, factory, topic, fromBlock, toBlock)
+      } catch {
+        // Keep both the legacy indexed API and adaptive RPC as independent
+        // fallbacks. Native API availability must not weaken coverage checks.
+      }
+    }
     try {
       return await scanIndexedLogs(
         client,
@@ -453,7 +586,10 @@ async function scanFactoryLogs(client, factory, topic, fromBlock, toBlock) {
   // whose valid empty-log responses can still take seconds. Each window keeps
   // the same retries, envelope validation, and adaptive subdivision, and
   // mapLimit preserves deterministic range order.
-  let sizeIndex = 0
+  // The verified public gateway advertises a strict 1,000-block limit. Avoid
+  // repeatedly probing larger rejected windows on every scheduled refresh.
+  let sizeIndex = CATALOG_RPC_FALLBACKS[client.chainId]?.includes(client.urls?.[0])
+    ? LOG_CHUNK_SIZES.indexOf(1_000) : 0
   let firstEnd
   let firstLogs
   while (true) {
@@ -554,6 +690,100 @@ function assertLogEnvelope(log, factory, topic, fromBlock, toBlock) {
   ) {
     throw new Error('Log provider returned an entry with the wrong event topic')
   }
+}
+
+async function scanBlockscoutLogs(
+  client, origin, factory, topic, fromBlock, toBlock,
+  { fetchImpl = fetch, maxPages = MAX_INDEXED_LOG_PAGES } = {},
+) {
+  if (!Number.isSafeInteger(maxPages) || maxPages < 1 || maxPages > MAX_INDEXED_LOG_PAGES) {
+    throw new Error('Invalid native indexed log page limit')
+  }
+  const baseUrl = new URL(`/api/v2/addresses/${factory}/logs`, origin)
+  baseUrl.searchParams.set('topic', topic)
+  let url = baseUrl
+  let previousPosition = null
+  const seen = new Set()
+  const logs = []
+  for (let page = 0; page < maxPages; page += 1) {
+    const fetchPage = async () => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS)
+      try {
+        const response = await fetchImpl(url, {
+          headers: { accept: 'application/json' }, redirect: 'error', signal: controller.signal,
+        })
+        if (!response?.ok) throw new Error('Native indexed log request failed')
+        try { return await response.json() } catch { throw new Error('Invalid native indexed log response') }
+      } finally { clearTimeout(timeout) }
+    }
+    let payload
+    let fetched = false
+    for (let round = 0; round < RPC_RETRY_ROUNDS; round += 1) {
+      try {
+        payload = typeof client.scheduleIndexedRequest === 'function'
+          ? await client.scheduleIndexedRequest(fetchPage) : await fetchPage()
+        fetched = true
+        break
+      } catch {
+        if (round < RPC_RETRY_ROUNDS - 1) await delay(RPC_RETRY_BASE_DELAY_MS * (2 ** round))
+      }
+    }
+    if (!fetched) throw new Error('Native indexed log request failed')
+    if (!payload || !Array.isArray(payload.items) || payload.items.length > INDEXED_LOG_PAGE_SIZE) {
+      throw new Error('Invalid native indexed log page')
+    }
+    let crossedStart = false
+    let lastPosition = null
+    for (const entry of payload.items) {
+      if (!entry || !Number.isSafeInteger(entry.block_number) || entry.block_number < 0 ||
+          !Number.isSafeInteger(entry.index) || entry.index < 0 || !Array.isArray(entry.topics)) {
+        throw new Error('Invalid native indexed log entry')
+      }
+      const position = [entry.block_number, entry.index]
+      if (previousPosition !== null && (position[0] > previousPosition[0] ||
+          (position[0] === previousPosition[0] && position[1] >= previousPosition[1]))) {
+        throw new Error('Native indexed logs are duplicated or out of order')
+      }
+      previousPosition = position
+      lastPosition = position
+      const topics = [...entry.topics]
+      while (topics.at(-1) === null) topics.pop()
+      if (topics.some((value) => typeof value !== 'string' || !HASH_RE.test(value))) {
+        throw new Error('Invalid native indexed log topics')
+      }
+      const header = parseBlockscoutHeader({
+        height: entry.block_number, hash: entry.block_hash, timestamp: entry.block_timestamp,
+      }, entry.block_number)
+      const normalized = {
+        address: lowerAddress(entry.address?.hash, 'native indexed log address'),
+        topics, data: entry.data, blockNumber: header.number, blockHash: header.hash,
+        transactionHash: hash(entry.transaction_hash, 'native indexed transaction hash'),
+        logIndex: numberToHex(entry.index), timeStamp: header.timestamp, removed: false,
+      }
+      // Check emitter/topic even on records outside the requested block range.
+      assertLogEnvelope(normalized, factory, topic, entry.block_number, entry.block_number)
+      const identity = indexedLogIdentity(normalized)
+      if (seen.has(identity)) throw new Error('Native indexed log page repeated a log')
+      seen.add(identity)
+      if (entry.block_number < fromBlock) crossedStart = true
+      else if (entry.block_number <= toBlock) logs.push(normalized)
+    }
+    if (payload.next_page_params === null || crossedStart) return logs
+    const cursor = payload.next_page_params
+    if (!cursor || typeof cursor !== 'object' || Array.isArray(cursor) || lastPosition === null ||
+        cursor.block_number !== lastPosition[0] || cursor.index !== lastPosition[1] ||
+        Object.keys(cursor).some((key) => !['block_number', 'index', 'items_count', 'topic'].includes(key)) ||
+        (cursor.topic !== undefined && (typeof cursor.topic !== 'string' || cursor.topic.toLowerCase() !== topic.toLowerCase())) ||
+        (cursor.items_count !== undefined && (!Number.isSafeInteger(cursor.items_count) || cursor.items_count < 0))) {
+      throw new Error('Invalid native indexed log cursor')
+    }
+    url = new URL(baseUrl)
+    url.searchParams.set('block_number', String(cursor.block_number))
+    url.searchParams.set('index', String(cursor.index))
+    if (cursor.items_count !== undefined) url.searchParams.set('items_count', String(cursor.items_count))
+  }
+  throw new Error('Native indexed log API reached the maximum page limit')
 }
 
 async function scanIndexedLogs(
@@ -933,20 +1163,19 @@ function previousFactory(chain, address) {
 }
 
 function canResumeFactoryCheckpoint(chain, checkpoint, completeCheckpointMatches) {
+  const hasAnchor = chain.reorgAnchor !== null && chain.reorgAnchor !== undefined
   return checkpoint !== undefined &&
     checkpoint.indexedThrough !== null &&
     chain.quarantinedLogCount === 0 &&
-    (!chain.complete || completeCheckpointMatches)
+    ((!chain.complete && !hasAnchor) || completeCheckpointMatches)
 }
 
 async function anchorMatches(client, chain) {
   if (chain.reorgAnchor === null) return false
-  try {
-    const block = await blockAt(client, chain.reorgAnchor.blockNumber)
-    return block.hash === chain.reorgAnchor.blockHash
-  } catch {
-    return false
-  }
+  // An unreadable anchor is not evidence of a reorg. Preserve the checkpoint
+  // as partial and let the bounded refresh retry, instead of rescanning genesis.
+  const block = await blockAt(client, chain.reorgAnchor.blockNumber)
+  return block.hash === chain.reorgAnchor.blockHash
 }
 
 function addPublicError(errors, value) {
@@ -972,7 +1201,7 @@ async function indexChain(chainId, previous) {
   // head remain reusable when no log was quarantined; each is still rewound
   // below before scanning so one failed generation does not force every
   // successful generation back to genesis.
-  const completeCheckpointMatches = previous.complete && await anchorMatches(client, previous)
+  const completeCheckpointMatches = previous.reorgAnchor !== null && await anchorMatches(client, previous)
   const errors = []
   let quarantinedLogCount = 0
   const factories = []
@@ -1319,6 +1548,53 @@ function assertGeneratorConfiguration() {
 }
 
 async function assertIndexedLogPagination() {
+  const headerUrl = blockscoutHeaderUrl('https://eth.blockscout.com/api?apikey=fixture', '0x64')
+  if (
+    headerUrl?.href !== 'https://eth.blockscout.com/api/v2/blocks/100' ||
+    blockscoutHeaderUrl('https://api.example/api', '0x64') !== null ||
+    blockscoutHeaderUrl('https://eth.blockscout.com/api', 'latest') !== null
+  ) {
+    throw new Error('Indexed block header URL fixture failed')
+  }
+  const headerPayload = {
+    height: 100,
+    hash: `0x${'33'.repeat(32)}`,
+    timestamp: '2026-07-26T11:02:23.000000Z',
+  }
+  const header = await fetchBlockscoutHeader(headerUrl, '0x64', async () => ({
+    ok: true,
+    json: async () => headerPayload,
+  }))
+  if (
+    header.number !== '0x64' || header.hash !== headerPayload.hash ||
+    quantity(header.timestamp) !== Date.parse(headerPayload.timestamp) / 1_000
+  ) {
+    throw new Error('Indexed block header normalization fixture failed')
+  }
+  for (const invalid of [
+    { ...headerPayload, height: 101 },
+    { ...headerPayload, hash: 'credential-bearing remote error' },
+    { ...headerPayload, timestamp: 'credential-bearing remote error' },
+  ]) {
+    let rejected = false
+    try {
+      parseBlockscoutHeader(invalid, 100)
+    } catch (error) {
+      rejected = true
+      if (safeError(error).includes('credential-bearing')) throw error
+    }
+    if (!rejected) throw new Error('Invalid indexed block header fixture did not reject')
+  }
+  try {
+    await fetchBlockscoutHeader(headerUrl, '0x64', async () => ({
+      ok: true,
+      json: async () => { throw new Error('credential-bearing remote body') },
+    }))
+    throw new Error('Indexed block header transport fixture did not reject')
+  } catch (error) {
+    if (safeError(error) !== 'Indexed block header request failed') throw error
+  }
+
   const factory = ADDRESS_BOOKS[143].marketFactories[0].marketFactory.toLowerCase()
   const topic = FACTORY_MARKET_EVENT_TOPICS.v3Plus
   const entry = (index) => ({
@@ -1461,11 +1737,133 @@ async function assertIndexedLogPagination() {
   }
 }
 
-async function checkSnapshot(path, requireComplete = false) {
+async function assertNativeIndexedLogs() {
+  const factory = ADDRESS_BOOKS[1].marketFactories.at(-1).marketFactory.toLowerCase()
+  const topic = FACTORY_MARKET_EVENT_TOPICS.v3Plus
+  const entry = (block, index = 1) => ({
+    address: { hash: factory }, block_number: block, index,
+    block_hash: `0x${'33'.repeat(32)}`, block_timestamp: '2026-07-26T11:02:23.000000Z',
+    transaction_hash: `0x${(block * 10 + index).toString(16).padStart(64, '0')}`,
+    topics: [topic, `0x${'11'.repeat(32)}`, `0x${'22'.repeat(32)}`, null],
+    data: `0x${'00'.repeat(96)}`,
+  })
+  const requested = []
+  const logs = await scanBlockscoutLogs({}, 'https://eth.blockscout.com', factory, topic, 100, 102, {
+    fetchImpl: async (url) => {
+      requested.push(new URL(url))
+      return {
+        ok: true,
+        json: async () => requested.length === 1
+          ? { items: [entry(104), entry(102)], next_page_params: { block_number: 102, index: 1, items_count: 2, topic } }
+          : { items: [entry(101), entry(100), entry(99)], next_page_params: { block_number: 99, index: 1 } },
+      }
+    },
+  })
+  if (logs.length !== 3 || requested.length !== 2 || requested[1].searchParams.get('block_number') !== '102' ||
+      logs.some((log) => log.topics.length !== 3 || !HASH_RE.test(log.blockHash)) ||
+      quantity(logs[0].blockNumber) !== 102 || quantity(logs.at(-1).blockNumber) !== 100) {
+    throw new Error('Native indexed log pagination/range fixture failed')
+  }
+  const badPages = [
+    { items: [entry(101), entry(102)], next_page_params: null },
+    { items: [entry(101), entry(101)], next_page_params: null },
+    { items: [{ ...entry(101), address: { hash: `0x${'99'.repeat(20)}` } }], next_page_params: null },
+    { items: [{ ...entry(101), block_hash: 'bad' }], next_page_params: null },
+    { items: [entry(101)], next_page_params: { block_number: 100, index: 1 } },
+    { items: [], next_page_params: { block_number: 100, index: 1 } },
+  ]
+  for (const badPage of badPages) {
+    let rejected = false
+    try {
+      await scanBlockscoutLogs({}, 'https://eth.blockscout.com', factory, topic, 100, 102, {
+        fetchImpl: async () => ({ ok: true, json: async () => badPage }),
+      })
+    } catch { rejected = true }
+    if (!rejected) throw new Error('Invalid native indexed log fixture did not reject')
+  }
+  let capped = false
+  try {
+    await scanBlockscoutLogs({}, 'https://eth.blockscout.com', factory, topic, 100, 102, {
+      maxPages: 1,
+      fetchImpl: async () => ({
+        ok: true,
+        json: async () => ({ items: [entry(101)], next_page_params: { block_number: 101, index: 1 } }),
+      }),
+    })
+  } catch (error) { capped = safeError(error).includes('maximum page limit') }
+  if (!capped) throw new Error('Native indexed page-cap fixture did not reject')
+}
+
+async function assertCheckpointRetrySafety() {
+  const anchorHash = `0x${'33'.repeat(32)}`
+  const checkpoint = {
+    complete: true, quarantinedLogCount: 0,
+    reorgAnchor: { blockNumber: 100, blockHash: anchorHash },
+  }
+  const goodClient = { request: async () => ({ number: '0x64', hash: anchorHash, timestamp: '0x64' }) }
+  if (!await anchorMatches(goodClient, checkpoint)) throw new Error('Checkpoint anchor match fixture failed')
+  if (await anchorMatches({ request: async () => ({ number: '0x64', hash: `0x${'44'.repeat(32)}`, timestamp: '0x64' }) }, checkpoint)) {
+    throw new Error('Checkpoint anchor mismatch fixture failed')
+  }
+  let unreadable = false
+  try { await anchorMatches({ request: async () => { throw new Error('Fixture RPC failure') } }, checkpoint) }
+  catch { unreadable = true }
+  if (!unreadable) throw new Error('Unreadable anchor must retain a partial checkpoint')
+  let wrongHeight = false
+  try { await anchorMatches({ request: async () => ({ number: '0x65', hash: anchorHash, timestamp: '0x64' }) }, checkpoint) }
+  catch { wrongHeight = true }
+  if (!wrongHeight) throw new Error('Wrong-height checkpoint header must not establish anchor coverage')
+  if (canResumeFactoryCheckpoint({ ...checkpoint, complete: false }, { indexedThrough: 200 }, false)) {
+    throw new Error('Partial checkpoint must still reverify its retained anchor')
+  }
+
+  const client = new RpcClient(8453, [])
+  const starts = []
+  await Promise.all(Array.from({ length: 3 }, () => client.schedulePublicGateway(() => { starts.push(Date.now()) })))
+  if (starts.length !== 3 || starts.slice(1).some((value, i) => value - starts[i] < PUBLIC_GATEWAY_MIN_INTERVAL_MS)) {
+    throw new Error('Concurrent public gateway requests must preserve start spacing')
+  }
+  if (publicGatewayRetryDelay('2') !== 2_000 || publicGatewayRetryDelay('999999') !== 30_000 ||
+      publicGatewayRetryDelay('invalid provider text') !== 2_000) {
+    throw new Error('Public gateway Retry-After fixture failed')
+  }
+  const before = Date.now()
+  try {
+    await client.requestRpcEndpoint('https://base.gateway.tenderly.co', 'eth_blockNumber', [], async () => ({
+      ok: false, status: 429, headers: { get: () => '2' },
+    }))
+    throw new Error('Gateway HTTP 429 fixture did not reject')
+  } catch (error) {
+    if (safeError(error) !== 'HTTP 429') throw error
+  }
+  if (client.publicGatewayNextAt < before + 2_000) throw new Error('HTTP 429 must defer all queued gateway requests')
+}
+
+function assertSnapshotFreshness(snapshot, maxAgeSeconds, now = Math.floor(Date.now() / 1_000)) {
+  for (const chain of snapshot.chains) {
+    const timestamp = chain.indexedThroughTimestamp
+    if (!Number.isSafeInteger(timestamp) || timestamp > now + 300 || now - timestamp > maxAgeSeconds) {
+      throw new Error(`Chain ${chain.chainId} catalog checkpoint is missing, stale, or in the future`)
+    }
+  }
+}
+
+async function checkSnapshot(path, requireComplete = false, maxAgeSeconds = null) {
   assertGeneratorConfiguration()
   await assertIndexedLogPagination()
+  await assertNativeIndexedLogs()
+  await assertCheckpointRetrySafety()
+  const freshnessFixture = { chains: [{ chainId: 1, indexedThroughTimestamp: 900 }] }
+  assertSnapshotFreshness(freshnessFixture, 100, 1_000)
+  for (const timestamp of [899, null, 1_301]) {
+    let rejected = false
+    try { assertSnapshotFreshness({ chains: [{ chainId: 1, indexedThroughTimestamp: timestamp }] }, 100, 1_000) }
+    catch { rejected = true }
+    if (!rejected) throw new Error('Catalog freshness fixture did not reject')
+  }
   const source = await readFile(path, 'utf8')
   const parsed = parseFactoryMarketSnapshot(JSON.parse(source))
+  if (maxAgeSeconds !== null) assertSnapshotFreshness(parsed, maxAgeSeconds)
   const canonical = `${JSON.stringify(parsed, null, 2)}\n`
   if (source !== canonical) {
     throw new Error('Factory snapshot is not in canonical deterministic form')
@@ -1547,7 +1945,7 @@ async function writeSnapshot(path, snapshot) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (options.check) {
-    await checkSnapshot(options.output, options.requireComplete)
+    await checkSnapshot(options.output, options.requireComplete, options.maxAgeSeconds)
     return
   }
   assertGeneratorConfiguration()
@@ -1571,6 +1969,9 @@ async function main() {
         `  ${indexed.marketCount} markets; ${indexed.complete ? 'complete' : 'partial'}; ` +
           `${indexed.quarantinedLogCount} quarantined`,
       )
+      // These errors are already scrubbed by addPublicError. Surface the
+      // failed provider/range in CI before the incomplete artifact is rejected.
+      for (const error of indexed.errors) console.warn(`  ${error}`)
     } catch (error) {
       const message = safeError(error)
       nextChains.push({
