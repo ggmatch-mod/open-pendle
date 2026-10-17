@@ -2,7 +2,7 @@
 
 Checked 17 October 2026, Asia/Tokyo. Covers the local release candidate, the public deployment, current official Pendle manifests and APIs, dependencies, and local mainnet-fork behavior. Existing Portfolio OS, Action Center, and Boros work is included.
 
-This record supersedes the initial findings from earlier on the same date. It is an application and integration review, not a formal audit of every Pendle contract or underlying SY asset. All state-changing tests used disposable local forks. No real wallet signatures, funded actions, main-branch merge, or deployment were performed.
+This record supersedes the initial findings from earlier on the same date. It is an application and integration review, not a formal audit of every Pendle contract or underlying SY asset. All state-changing tests used disposable local forks. No real wallet signatures, funded actions, main-branch merge, or production deployment were performed.
 
 ## Release scope
 
@@ -23,6 +23,7 @@ This record supersedes the initial findings from earlier on the same date. It is
 | Policy expiry | Old runtime policies paused entry after a date. | Non-expiring v2 policies; strict schema migration; disabled v1 compatibility files; year-2100, disabled-policy, fetch/body timeout, and invalid-schema regressions. |
 | Missing SY rates | A fabricated fallback rate could distort displays and trade-size caps. | Explicit unavailable rate state; suppress derived TVL, PT-in-SY, approximate conversions and caps until valid data exists; preserve legitimate redemption access. |
 | Dependencies | App/docs had high-severity audit findings; old Actions used deprecated runtimes. | Compatible lockfile updates, targeted ws/uuid overrides, patched documentation Vite/KaTeX, current checkout/setup/github-script Actions, and audit gates in CI. |
+| Clean installs | npm 10 rejected a lockfile generated under npm 11 because an optional Coinbase/Solana TypeScript peer was absent. | Generate the missing nested TypeScript 5.9.3 peer with Node 22.23.3/npm 10.9.9; a fresh default `npm ci` passes without changing the root TypeScript 6 compiler or bypassing peers. |
 
 The upgraded PendleSwap implementation is `0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78`. The reviewed change adds a ZEROX route and removes ODOS scaling. OpenPendle continues accepting only its reviewed Kyber route; regressions reject ZEROX and retired ODOS calldata. Chain-specific immutable values explain the different runtime hashes. [Review, compiler settings, source digests, runtime hashes, and fork evidence](pendleswap-upgrade-2026-10-17/review.json). [Read-only reproduction script](../../app/scripts/reproduce-pendleswap-upgrade.mjs).
 
@@ -84,4 +85,4 @@ Configured core addresses and factory generations on all six chains matched the 
 | 3 | Account-aware Boros hedging | Model all committed capital, positions, orders, fees, margin and full executable depth before adding execution. |
 | 3 | Additional networks | Add factory indexing, RPC, quote, wallet and fork validation per chain before exposing trading. |
 
-The code is prepared for review and release through a pull request. Merging and deploying remain separate actions; no live funds were used for validation.
+The code is prepared for review and release through a pull request. Merging and deploying to production remain separate actions; no live funds were used for validation.
