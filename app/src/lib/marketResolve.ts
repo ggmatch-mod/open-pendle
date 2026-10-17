@@ -25,6 +25,8 @@ import { fetchFactoryMarketSnapshot } from './catalog.ts'
 
 const PENDLE_API = 'https://api-v2.pendle.finance/core'
 const PENDLE_PAGE_SIZE = 100
+const MAX_PENDLE_PAGES = 1_000
+const REQUEST_TIMEOUT_MS = 20_000
 const HEX40 = /^0x[0-9a-fA-F]{40}$/
 
 /** Per-instance Blockscout APIs are keyless. Other chains keep the RPC fallback. */
@@ -39,22 +41,53 @@ function lastSeg(v: unknown): string {
   return typeof v === 'string' ? (v.split('-').pop() ?? '').toLowerCase() : ''
 }
 
-async function viaPendleApi(chainId: number, pt: Address, yt: Address): Promise<Address[]> {
+async function fetchResolutionJson(url: URL, timeoutMs: number): Promise<unknown> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('Market resolution request timed out')
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(url, {
+          headers: { accept: 'application/json' },
+          credentials: 'omit',
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(`Market resolution request failed (${response.status})`)
+        return response.json()
+      })(),
+      deadline,
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+async function viaPendleApi(
+  chainId: number,
+  pt: Address,
+  yt: Address,
+  timeoutMs: number,
+): Promise<Address[]> {
   const found: Address[] = []
+  const seenPages = new Set<string>()
   let skip = 0
   try {
     const p = pt.toLowerCase()
     const y = yt.toLowerCase()
 
-    while (true) {
+    for (let page = 0; page < MAX_PENDLE_PAGES; page += 1) {
       const url = new URL(`${PENDLE_API}/v2/markets/all`)
       url.searchParams.set('chainId', String(chainId))
       url.searchParams.set('limit', String(PENDLE_PAGE_SIZE))
       url.searchParams.set('skip', String(skip))
-      const res = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!res.ok) break
-
-      const data: unknown = await res.json()
+      const data = await fetchResolutionJson(url, timeoutMs)
       const list: unknown[] = Array.isArray(data)
         ? data
         : Array.isArray((data as { results?: unknown }).results)
@@ -62,6 +95,10 @@ async function viaPendleApi(chainId: number, pt: Address, yt: Address): Promise<
           : Array.isArray((data as { markets?: unknown }).markets)
             ? (data as { markets: unknown[] }).markets
             : []
+      if (list.length > PENDLE_PAGE_SIZE) break
+      const pageIdentity = JSON.stringify(list)
+      if (seenPages.has(pageIdentity)) break
+      seenPages.add(pageIdentity)
 
       for (const entry of list) {
         const market = entry as { pt?: unknown; yt?: unknown; address?: unknown }
@@ -72,14 +109,15 @@ async function viaPendleApi(chainId: number, pt: Address, yt: Address): Promise<
       }
 
       const total =
-        typeof (data as { total?: unknown }).total === 'number'
+        typeof (data as { total?: unknown }).total === 'number' &&
+        Number.isSafeInteger((data as { total: number }).total) &&
+        (data as { total: number }).total >= 0
           ? (data as { total: number }).total
           : undefined
       skip += list.length
       if (
         list.length === 0 ||
-        list.length < PENDLE_PAGE_SIZE ||
-        (total !== undefined && skip >= total)
+        (total === undefined ? list.length < PENDLE_PAGE_SIZE : skip >= total)
       ) break
     }
   } catch {
@@ -129,6 +167,7 @@ async function viaIndexedLogs(
   client: PublicClient,
   pt: Address,
   fromBlock = 0,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<{ markets: Address[]; complete: boolean }> {
   const base = INDEXED_LOG_API[client.chain?.id ?? 0]
   if (!base) return { markets: [], complete: false }
@@ -150,12 +189,7 @@ async function viaIndexedLogs(
       url.searchParams.set('topic0', topic)
       url.searchParams.set('topic2', ptTopic)
       url.searchParams.set('topic0_2_opr', 'and')
-      const response = await fetch(url, { headers: { accept: 'application/json' } })
-      if (!response.ok) {
-        complete = false
-        continue
-      }
-      const body = (await response.json()) as { result?: unknown }
+      const body = (await fetchResolutionJson(url, timeoutMs)) as { result?: unknown }
       if (!Array.isArray(body.result)) {
         complete = false
         continue
@@ -240,16 +274,22 @@ export async function resolveMarketsForToken(
   chainId: number,
   pt: Address,
   yt: Address,
+  options: { requestTimeoutMs?: number } = {},
 ): Promise<Address[]> {
+  const requestedTimeout = options.requestTimeoutMs
+  const timeoutMs = requestedTimeout !== undefined &&
+    Number.isSafeInteger(requestedTimeout) && requestedTimeout > 0 && requestedTimeout <= 60_000
+    ? requestedTimeout
+    : REQUEST_TIMEOUT_MS
   const [api, snapshot] = await Promise.all([
-    viaPendleApi(chainId, pt, yt),
+    viaPendleApi(chainId, pt, yt, timeoutMs),
     viaFactorySnapshot(chainId, pt, yt),
   ])
   const canonical = uniqueAddresses(api, snapshot.markets)
   const deltaStart = snapshot.complete && snapshot.indexedThrough !== null
     ? snapshot.indexedThrough + 1
     : 0
-  const indexed = await viaIndexedLogs(client, pt, deltaStart)
+  const indexed = await viaIndexedLogs(client, pt, deltaStart, timeoutMs)
   if (indexed.complete) return uniqueAddresses(canonical, indexed.markets)
   return uniqueAddresses(
     canonical,

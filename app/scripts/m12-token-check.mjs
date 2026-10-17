@@ -13,6 +13,8 @@ import { readFile } from 'node:fs/promises'
 import { loadPositions } from '../src/lib/positions.ts'
 import { resolveMarketsForToken } from '../src/lib/marketResolve.ts'
 import { resolveTokenSet } from '../src/lib/tokenSnapshot.ts'
+import { computeCoreStats, loadMarketSnapshot } from '../src/lib/market.ts'
+import { estimatePostTradeProportion } from '../src/lib/swaps.ts'
 
 let failures = 0
 
@@ -44,7 +46,7 @@ const ADDR = {
   user: '0x6666666666666666666666666666666666666666',
 }
 
-function tokenClient({ failExpiry = false, failSyDecimals = false, failAssetInfo = false } = {}) {
+function tokenClient({ failExpiry = false, failSyDecimals = false, failAssetInfo = false, failRate = false, rate = 1_050_000n } = {}) {
   let round = 0
   return {
     chain: { id: 42161 },
@@ -69,7 +71,8 @@ function tokenClient({ failExpiry = false, failSyDecimals = false, failAssetInfo
         failAssetInfo
           ? { status: 'failure', error: new Error('assetInfo unavailable') }
           : { status: 'success', result: [0, ADDR.asset, 6] },
-        { status: 'success', result: 10n ** 18n },
+        failRate ? { status: 'failure', error: new Error('rate unavailable') }
+          : { status: 'success', result: rate },
         { status: 'success', result: [ADDR.asset] },
         { status: 'success', result: [ADDR.asset] },
         { status: 'success', result: ADDR.asset },
@@ -88,6 +91,74 @@ const tokenSnapshot = await resolveTokenSet(tokenClient(), ADDR.pt)
 assert(tokenSnapshot !== null, 'valid PT resolves to a token snapshot')
 assert(tokenSnapshot?.sy.decimals === 18, 'known SY decimals are preserved')
 assert(tokenSnapshot?.sy.assetDecimals === 6, 'known PT/YT decimals come from assetInfo()')
+assert(tokenSnapshot?.sy.exchangeRate === 1_050_000n, 'mixed-decimal raw exchange rates are preserved')
+for (const options of [{ failRate: true }, { rate: 0n }, { rate: -1n }]) {
+  const unavailable = await resolveTokenSet(tokenClient(options), ADDR.pt)
+  assert(unavailable?.sy.exchangeRate === 0n, 'missing or nonpositive token rates are unavailable, never fabricated')
+  assert(unavailable?.degraded.some((note) => note.includes('exchangeRate() unavailable')),
+    'marketless legacy positions retain explicit missing-rate evidence')
+}
+
+console.log('Market metrics never fabricate a missing SY accounting conversion:')
+const metricState = {
+  totalPt: 100n * 10n ** 6n, totalSy: 100n * 10n ** 18n,
+  totalLp: 100n * 10n ** 18n, treasury: ADDR.user,
+  scalarRoot: 10n ** 18n, lnFeeRateRoot: 0n, reserveFeePercent: 0n,
+  lastLnImpliedRate: 95_310_179_804_324_860n,
+}
+function marketClient({ rate = 1_050_000n, failRate = false, expired = false } = {}) {
+  const expiry = BigInt(Math.floor(Date.now() / 1_000) + (expired ? -1 : 31_536_000))
+  return {
+    chain: { id: 42161 },
+    async multicall({ contracts }) {
+      return contracts.map(({ functionName, address }) => {
+        if (functionName === 'exchangeRate' && failRate) {
+          return { status: 'failure', error: new Error('rate unavailable') }
+        }
+        const results = {
+          readTokens: [ADDR.sy, ADDR.pt, ADDR.yt], expiry,
+          isExpired: expired, name: 'Mixed decimal market',
+          readState: { ...metricState, expiry }, isValidMarket: true,
+          decimals: 18, assetInfo: [0, ADDR.asset, 6], exchangeRate: rate,
+          getTokensIn: [ADDR.asset], getTokensOut: [ADDR.asset], yieldToken: ADDR.asset,
+          owner: '0x0000000000000000000000000000000000000000', paused: false,
+          symbol: address === ADDR.sy ? 'SY-SIX' : 'SIX',
+        }
+        if (!(functionName in results)) throw new Error(`Unexpected read ${functionName}`)
+        return { status: 'success', result: results[functionName] }
+      })
+    },
+    async readContract() { return 'SIX' },
+    async getStorageAt() { return `0x${'0'.repeat(64)}` },
+  }
+}
+const cleanMarket = await loadMarketSnapshot(marketClient(), ADDR.market)
+assert(Math.abs(cleanMarket.metrics.tvlAsset - (105 + 100 * cleanMarket.metrics.ptPriceAsset)) < 1e-8,
+  'clean mixed-decimal TVL converts raw SY to raw accounting units')
+assert(Math.abs(cleanMarket.metrics.ptPriceSy - cleanMarket.metrics.ptPriceAsset / 1.05) < 1e-8,
+  'clean PT-in-SY pricing retains the decimal adjustment')
+assert(Math.abs(cleanMarket.metrics.ptProportion - 100 / 205) < 1e-8,
+  'clean pool proportions remain unchanged')
+assert(Number.isFinite(estimatePostTradeProportion(cleanMarket, 'pt', 'sell', 10n ** 6n)),
+  'clean trade-cap estimates remain available')
+for (const options of [{ failRate: true }, { rate: 0n }, { rate: -1n }]) {
+  const unavailable = await loadMarketSnapshot(marketClient(options), ADDR.market)
+  assert(unavailable.validated && unavailable.sy.exchangeRate === 0n,
+    'missing rates preserve readable validated market balances')
+  assert(Number.isNaN(unavailable.metrics.tvlAsset) &&
+    Number.isNaN(unavailable.metrics.ptPriceSy) && Number.isNaN(unavailable.metrics.ptProportion),
+    'missing-rate TVL, SY pricing, and pool proportion are unavailable')
+  assert(Number.isFinite(unavailable.metrics.ptPriceAsset) && Number.isFinite(unavailable.metrics.impliedApy),
+    'rate-independent PT asset price and APY stay available')
+  assert(Number.isNaN(estimatePostTradeProportion(unavailable, 'yt', 'buy', 10n ** 6n)),
+    'missing rates cannot create a fabricated trade-cap estimate')
+}
+const legacyMatured = await loadMarketSnapshot(marketClient({ failRate: true, expired: true }), ADDR.market)
+assert(legacyMatured.isExpired && legacyMatured.validated && legacyMatured.pt === ADDR.pt,
+  'matured legacy snapshots remain readable for redemption')
+assert(computeCoreStats({ ...metricState, expiry: cleanMarket.expiry, isExpired: false,
+  exchangeRate: 0n, assetDecimals: 6 }).syAssetRaw === null,
+  'raw accounting conversion explicitly identifies unavailable rates')
 
 await assertRejects(
   () => resolveTokenSet(tokenClient({ failExpiry: true }), ADDR.pt),
@@ -480,6 +551,57 @@ try {
     legacyCommunityResolved[0] === ADDR.market,
     'legacy V1 pools resolve through their distinct four-argument factory event',
   )
+
+  let repeatedPages = 0
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+      return { ok: true, status: 200, json: async () => bundledSnapshot }
+    }
+    repeatedPages += 1
+    if (repeatedPages > 2) throw new Error('Unbounded pagination')
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        total: 100_000,
+        results: Array.from({ length: 100 }, () => ({
+          address: '0x7777777777777777777777777777777777777777',
+          pt: '56-0x8888888888888888888888888888888888888888',
+        })),
+      }),
+    }
+  }
+  const repeatedPageResolved = await resolveMarketsForToken(
+    { chain: { id: 56 }, getLogs: async () => [] },
+    56,
+    ADDR.pt,
+    ADDR.yt,
+  )
+  assert(repeatedPages === 2, 'repeated API pages stop without an unbounded request loop')
+  assert(repeatedPageResolved.includes(ADDR.market2), 'repeated API pages preserve factory fallback markets')
+
+  for (const hangBody of [false, true]) {
+    let requestSignal
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/catalog/factory-markets.v1.json')) {
+        return { ok: true, status: 200, json: async () => bundledSnapshot }
+      }
+      requestSignal = init.signal
+      const never = new Promise(() => {})
+      return hangBody ? { ok: true, status: 200, json: () => never } : never
+    }
+    const timeoutResolved = await resolveMarketsForToken(
+      { chain: { id: 56 }, getLogs: async () => [] },
+      56,
+      ADDR.pt,
+      ADDR.yt,
+      { requestTimeoutMs: 5 },
+    )
+    assert(requestSignal.aborted, `${hangBody ? 'body' : 'request'} timeout aborts the unavailable API`)
+    assert(timeoutResolved.includes(ADDR.market2), 'an unavailable API cannot block factory fallback markets')
+  }
 } finally {
   globalThis.fetch = originalFetch
 }

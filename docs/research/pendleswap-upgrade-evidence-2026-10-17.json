@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-17T13:23:28.527Z",
+  "results": [
+    {
+      "chain": "ethereum",
+      "rpc": "https://ethereum-rpc.publicnode.com",
+      "chainId": 1,
+      "blockNumber": 26212548,
+      "blockTimestamp": "2026-10-17T13:23:23.000Z",
+      "proxy": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "pinnedImplementation": "0xBC17404b7bb500051c75C83E4aA5aE447D967811",
+      "pinnedImplementationHash": "0x7ef546e29d845476c1c0a0a0c1637a4192bb90dc4b687c9e36687f63337d7111",
+      "pinnedImplementationLiveHash": "0x7ef546e29d845476c1c0a0a0c1637a4192bb90dc4b687c9e36687f63337d7111",
+      "currentImplementation": "0xd14feb6aaf8650bbfcc8abec299b249a80fe7c78",
+      "currentImplementationHash": "0x521b6565b709376035cc10f036169a75e4e69a7cd837b8827d66dc170b800821",
+      "currentImplementationBytes": 17437,
+      "pinnedProxyHash": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+      "currentProxyHash": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266"
+    },
+    {
+      "chain": "arbitrum",
+      "rpc": "https://arb1.arbitrum.io/rpc",
+      "chainId": 42161,
+      "blockNumber": 515683268,
+      "blockTimestamp": "2026-10-17T13:23:26.000Z",
+      "proxy": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "pinnedImplementation": "0x4BaC1d43b7a3a31d84E193B5D4b651F4f3B46AF6",
+      "pinnedImplementationHash": "0x5d9d2986245b2745643f17ad845576f72ba13ad28ad45a362e75470340e36894",
+      "pinnedImplementationLiveHash": "0x5d9d2986245b2745643f17ad845576f72ba13ad28ad45a362e75470340e36894",
+      "currentImplementation": "0xd14feb6aaf8650bbfcc8abec299b249a80fe7c78",
+      "currentImplementationHash": "0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df",
+      "currentImplementationBytes": 17437,
+      "pinnedProxyHash": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+      "currentProxyHash": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266"
+    },
+    {
+      "chain": "monad",
+      "rpc": "https://rpc.monad.xyz",
+      "chainId": 143,
+      "blockNumber": 114194706,
+      "blockTimestamp": "2026-10-17T13:23:27.000Z",
+      "proxy": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "pinnedImplementation": "0x7fbA4Da81B80a6BfFc337eF9D593047d6f84fe8C",
+      "pinnedImplementationHash": "0xfb6d176d787231bdf5ee4c4a25e802dc1919f61988cbffb386f14a5400f726fa",
+      "pinnedImplementationLiveHash": "0xfb6d176d787231bdf5ee4c4a25e802dc1919f61988cbffb386f14a5400f726fa",
+      "currentImplementation": "0xd14feb6aaf8650bbfcc8abec299b249a80fe7c78",
+      "currentImplementationHash": "0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c",
+      "currentImplementationBytes": 17437,
+      "pinnedProxyHash": "0x692d6f336da9d107e0eeb1d7844190b769d97c75ca4fe0d8f3ba655bb8eea8fa",
+      "currentProxyHash": "0x692d6f336da9d107e0eeb1d7844190b769d97c75ca4fe0d8f3ba655bb8eea8fa"
+    }
+  ]
+}

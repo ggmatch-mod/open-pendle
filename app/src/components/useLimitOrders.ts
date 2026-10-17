@@ -44,10 +44,25 @@ import { erc20Abi, limitRouterAbi } from '../lib/pendleAbi'
 import { buildApproveCall, checkApprovals, decodePendleError, isUserRejection } from '../lib/txflow'
 import type { ApprovalNeed, MarketSnapshot, PlannedCall } from '../lib/types'
 import { readApprovalMode } from './prefs'
+import {
+  recordActionActivity,
+  trackActionMarket,
+  type ActionActivityStatus,
+} from '../lib/actionCenterStorage'
 
 const BOOK_REFRESH_MS = 15_000
 const ORDERS_REFRESH_MS = 20_000
 const SUPPORT_REFRESH_MS = 30_000
+
+function orderActivityStatus(order: LimitOrderRecord): ActionActivityStatus {
+  if (order.status === 'FULLY_FILLED') return 'filled'
+  if (order.status === 'CANCELLED') return 'cancelled'
+  if (order.status === 'EXPIRED') return 'expired'
+  if (order.status === 'FAILED_TRANSFER_TOKEN' || order.status === 'EMPTY_MAKER_BALANCE') {
+    return 'failed'
+  }
+  return order.isActive ? 'active' : 'unknown'
+}
 
 export interface LimitOrderDraft {
   orderType: PtSyLimitOrderType
@@ -680,6 +695,27 @@ export function useLimitOrders(
 
   const acceptSubmitted = useCallback(
     (order: LimitOrderRecord) => {
+      if (user !== undefined) {
+        trackActionMarket(user, {
+          chainId: activeChainId,
+          market: snapshot.address,
+          label: snapshot.displayName,
+        })
+        const createdAt = Date.parse(order.createdAt)
+        recordActionActivity({
+          id: `limit-order:${activeChainId}:${order.id.toLowerCase()}`,
+          owner: user,
+          chainId: activeChainId,
+          kind: 'limit-order',
+          label: `${order.type === TOKEN_FOR_PT ? 'Buy PT' : 'Sell PT'} · ${snapshot.displayName}`,
+          status: orderActivityStatus(order),
+          createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+          updatedAt: Date.now(),
+          orderId: order.id,
+          market: snapshot.address,
+          expiry: Number(order.expiry),
+        })
+      }
       setSubmittedOrder(order)
       setAmbiguousPayload(undefined)
       setError(undefined)
@@ -687,7 +723,7 @@ export function useLimitOrders(
       setPhase('confirmed')
       void queryClient.invalidateQueries({ queryKey: ['maker-limit-orders', activeChainId] })
     },
-    [activeChainId, queryClient, setAmbiguousPayload],
+    [activeChainId, queryClient, setAmbiguousPayload, snapshot.address, snapshot.displayName, user],
   )
 
   const reconcileOrKeepAmbiguous = useCallback(
@@ -943,6 +979,59 @@ export function useLimitOrders(
     setNotice(undefined)
     setPhase('idle')
   }, [setAmbiguousPayload, setPrepared])
+
+  // The maker endpoint is market/YT scoped. Persist only the identity and
+  // non-sensitive status of rows that this device has actually observed; the
+  // Action Center labels the resulting view as tracked, not exhaustive.
+  const syncedOrderFingerprint = useRef('')
+  useEffect(() => {
+    if (user === undefined) return
+    const orders = [
+      ...(activeOrdersQuery.data?.results ?? []),
+      ...(historyOrdersQuery.data?.results ?? []),
+    ]
+    if (orders.length === 0) return
+    const fingerprint = orders
+      .map((order) => `${order.id}:${order.status}:${order.currentMakingAmount}:${order.latestEventTimestamp ?? ''}`)
+      .sort()
+      .join(',')
+    if (syncedOrderFingerprint.current === fingerprint) return
+    syncedOrderFingerprint.current = fingerprint
+    trackActionMarket(user, {
+      chainId: activeChainId,
+      market: snapshot.address,
+      label: snapshot.displayName,
+    })
+    for (const order of orders) {
+      const createdAt = Date.parse(order.createdAt)
+      const updatedAt = Date.parse(
+        order.latestEventTimestamp ??
+          order.fullyExecutedTimestamp ??
+          order.canceledTimestamp ??
+          order.createdAt,
+      )
+      recordActionActivity({
+        id: `limit-order:${activeChainId}:${order.id.toLowerCase()}`,
+        owner: user,
+        chainId: activeChainId,
+        kind: 'limit-order',
+        label: `${order.type === TOKEN_FOR_PT ? 'Buy PT' : 'Sell PT'} · ${snapshot.displayName}`,
+        status: orderActivityStatus(order),
+        createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+        updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
+        orderId: order.id,
+        market: snapshot.address,
+        expiry: Number(order.expiry),
+      })
+    }
+  }, [
+    activeChainId,
+    activeOrdersQuery.data?.results,
+    historyOrdersQuery.data?.results,
+    snapshot.address,
+    snapshot.displayName,
+    user,
+  ])
 
   // If the page/account/direction moves outside a latched wallet/API action,
   // an old review must not remain confirmable.

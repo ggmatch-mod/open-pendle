@@ -1,0 +1,53 @@
+OpenPendle looping fork fixture
+  Chain: Monad (143)
+  Aggregator: kyberswap
+  RPC host: rpc.monad.xyz
+  Monad block: 114198603
+  Initial 1 USDC via 0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef: expected 1.020726 PT, minimum 1.010518 PT
+  Callback 0.5 USDC via 0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef: expected 0.510361 PT, minimum 0.505257 PT
+  Morpho collateral promise: 1.515775 PT
+  Full exit via 0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef: expected 1.483637 USDC, minimum 1.4688 USDC
+  Finite Morpho debt: at most 495872645536 shares; repayment cap 0.505002 USDC
+No files changed, compilation skipped
+2026-10-17T13:43:04.651856Z  WARN evm::traces::external: etherscan config not found
+2026-10-17T13:43:04.687722Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/alvisetaranto/.foundry/cache/rpc/monad/114198603"
+
+Ran 7 tests for test/LoopingFork.t.sol:LoopingForkTest
+[PASS] test_atomicEntryAndFullUnwind() (gas: 1667693)
+[PASS] test_atomicEntryOnly() (gas: 1210401)
+[PASS] test_callbackFailureRollsBackEverything() (gas: 978531)
+[PASS] test_fullUnwindAfterInterestAccrues() (gas: 1653894)
+[PASS] test_signedMorphoAuthorizationAndRevocation() (gas: 1692751)
+[PASS] test_singleMulticallBadExitRollsBackEntry() (gas: 1392997)
+[PASS] test_singleMulticallSignedRoundTrip() (gas: 1715337)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 5.47s (33.69s CPU time)
+
+Ran 1 test suite in 5.52s (5.47s CPU time): 7 tests passed, 0 failed, 0 skipped (7 total tests)
+TypeScript compiler fork proof
+  Local Anvil: http://127.0.0.1:18546
+  Fresh Monad block: 114198624
+  Acquisition mode: market
+  Collateral decimals: 6
+  Yield-token decimals: 6
+  Loan-token balance slot: 9
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1318606, padded 1814187
+  compiled signed leverage increase gas: estimate 896646, padded 1265639
+  compiled signed partial leverage decrease gas: estimate 931697, padded 1311206
+  compiled signed exit gas: estimate 814580, padded 1158954
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1318202, padded 1813662
+  compiled rescue approve-exact-repayment gas: estimate 55819, padded 172564
+  compiled rescue repay-exact-shares gas: estimate 75695, padded 198403
+  compiled rescue clear-morpho-allowance-after gas: estimate 38411, padded 149934
+  compiled rescue withdraw-exact-collateral gas: estimate 77525, padded 200782
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1318606, padded 1814187
+  compiled signed exit gas: estimate 840537, padded 1192698
+  Signed entry calls: 10
+  Increase leverage: 1500360258665721988 -> 1697305422781607538 WAD (6 calls)
+  Partial decrease: 1697305422781607538 -> 1458148424887592807 WAD (5 calls)
+  Signed exit calls: 5
+  Re-prepared rescue: approve-exact-repayment -> repay-exact-shares -> clear-morpho-allowance-after -> withdraw-exact-collateral
+  Post-expiry signed exit: redeem-matured-pt at 1799884801 with 500000 loan-token base units borrowed (5 calls)
+TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Monad fork

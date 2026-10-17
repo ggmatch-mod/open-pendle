@@ -1,0 +1,28 @@
+TypeScript compiler fork proof
+  Local Anvil: http://127.0.0.1:18546
+  Fresh Monad block: 114198062
+  Acquisition mode: mint
+  Collateral decimals: 6
+  Yield-token decimals: 6
+  Loan-token balance slot: 9
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1278008, padded 1761410
+  compiled signed leverage increase gas: estimate 866581, padded 1226555
+  compiled signed partial leverage decrease gas: estimate 935055, padded 1315571
+  compiled signed exit gas: estimate 852907, padded 1208779
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1278008, padded 1761410
+  compiled rescue approve-exact-repayment gas: estimate 55819, padded 172564
+  compiled rescue repay-exact-shares gas: estimate 75695, padded 198403
+  compiled rescue clear-morpho-allowance-after gas: estimate 38411, padded 149934
+  compiled rescue withdraw-exact-collateral gas: estimate 77525, padded 200782
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1278008, padded 1761410
+  compiled signed exit gas: estimate 840561, padded 1192729
+  Signed entry calls: 11
+  Increase leverage: 1516083184185591399 -> 1713043730587990229 WAD (7 calls)
+  Partial decrease: 1713043730587990229 -> 1468440318108476452 WAD (5 calls)
+  Signed exit calls: 5
+  Re-prepared rescue: approve-exact-repayment -> repay-exact-shares -> clear-morpho-allowance-after -> withdraw-exact-collateral
+  Post-expiry signed exit: redeem-matured-pt at 1799884801 with 500000 loan-token base units borrowed (5 calls)
+TypeScript-compiled mint entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Monad fork

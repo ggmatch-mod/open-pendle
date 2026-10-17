@@ -2197,6 +2197,8 @@ async function assertPinnedRuntimeCodeHashes(args: {
       'pendleSwapImplementation',
       args.market.routeUpgradePolicy.pendleSwap.implementation,
     ],
+    ['kyberScalingHelper', args.market.routeUpgradePolicy.kyberScalingHelper.address],
+    ['kyberScalingHelperImplementation', args.market.routeUpgradePolicy.kyberScalingHelper.implementation],
     ['kyberRouter', args.market.routeUpgradePolicy.kyberRouter.address],
     ['multicall3', args.market.contracts.multicall3],
   ]
@@ -2231,22 +2233,29 @@ async function assertPinnedRuntimeCodeHashes(args: {
   )
   let routerImplementationWords: readonly (Hex | undefined)[]
   let pendleSwapImplementationWord: Hex | undefined
+  let scalingHelperImplementationWord: Hex | undefined
   try {
-    ;[routerImplementationWords, pendleSwapImplementationWord] = await Promise.all([
-      Promise.all(
-        args.market.routeUpgradePolicy.pendleRouter.selectorImplementationSlots
-          .map(({ storageSlot }) => args.client.getStorageAt({
-            address: args.market.contracts.pendleRouter,
-            slot: storageSlot,
-            blockNumber,
-          })),
-      ),
-      args.client.getStorageAt({
+    const storageReads = [
+      ...args.market.routeUpgradePolicy.pendleRouter.selectorImplementationSlots.map(({ storageSlot }) => ({
+        address: args.market.contracts.pendleRouter,
+        slot: storageSlot,
+        blockNumber,
+      })),
+      {
         address: args.market.contracts.pendleSwap,
         slot: args.market.routeUpgradePolicy.pendleSwap.implementationStorageSlot,
         blockNumber,
-      }),
-    ])
+      },
+      {
+        address: args.market.routeUpgradePolicy.kyberScalingHelper.address,
+        slot: args.market.routeUpgradePolicy.kyberScalingHelper.implementationStorageSlot,
+        blockNumber,
+      },
+    ]
+    const words = await mapLoopingReadsInBatches(storageReads, (read) => args.client.getStorageAt(read))
+    routerImplementationWords = words.slice(0, 3)
+    pendleSwapImplementationWord = words[3]
+    scalingHelperImplementationWord = words[4]
   } catch (error) {
     fail('UNSAFE_WIRING', 'Looping route implementation storage could not be read.', error)
   }
@@ -2271,6 +2280,15 @@ async function assertPinnedRuntimeCodeHashes(args: {
     !sameHex(pendleSwapImplementationWord, expectedPendleSwapImplementation)
   ) {
     fail('UNSAFE_WIRING', 'PendleSwap proxy implementation changed.')
+  }
+  if (
+    scalingHelperImplementationWord === undefined ||
+    !sameHex(scalingHelperImplementationWord, encodeAbiParameters(
+      implementationStorageParameters,
+      [args.market.routeUpgradePolicy.kyberScalingHelper.implementation],
+    ))
+  ) {
+    fail('UNSAFE_WIRING', 'Kyber scaling helper proxy implementation changed.')
   }
   if (args.includeMint) {
     const mintPolicy = args.market.mintRouteUpgradePolicy.pendleRouter
@@ -2490,6 +2508,8 @@ async function readStaticLoopingWiring(args: {
     market.routeUpgradePolicy.pendleRouter.implementation,
     market.routeUpgradePolicy.pendleRouter.redeemImplementation,
     market.routeUpgradePolicy.pendleSwap.implementation,
+    market.routeUpgradePolicy.kyberScalingHelper.address,
+    market.routeUpgradePolicy.kyberScalingHelper.implementation,
     ...market.routePolicy.externalRouterAllowlist,
     ...market.routePolicy.kyber.executorAllowlist.map((item) => item.address),
     ...market.routePolicy.mintSyTokenAllowlist,

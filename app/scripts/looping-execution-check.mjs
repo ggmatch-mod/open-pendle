@@ -225,6 +225,7 @@ function buyRoute(amountIn, overrides = {}) {
       extRouter: KYBER_ROUTER,
       extCalldata: nestedKyberCalldata({ amountIn, ...overrides.kyber }),
       needScale: policy.entryNeedScale,
+      ...overrides.swapData,
     },
     ...overrides.input,
   }
@@ -353,6 +354,7 @@ function exitRoute(collateral, overrides = {}) {
         ...overrides.kyber,
       }),
       needScale: policy.exitNeedScale,
+      ...overrides.swapData,
     },
     ...overrides.output,
   }
@@ -600,7 +602,7 @@ assert.equal(
 )
 assert.equal(
   MONAD_LOOPING_AUSD.routeUpgradePolicy.pendleSwap.implementation,
-  getAddress('0x7fbA4Da81B80a6BfFc337eF9D593047d6f84fe8C'),
+  getAddress('0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78'),
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.morpho,
@@ -624,7 +626,7 @@ assert.equal(
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleSwapImplementation,
-  '0xfb6d176d787231bdf5ee4c4a25e802dc1919f61988cbffb386f14a5400f726fa',
+  '0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c',
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.kyberRouter,
@@ -824,7 +826,7 @@ assert.equal(
 )
 assert.equal(
   market.runtimeCodePolicy.pendleSwapImplementation,
-  '0x5d9d2986245b2745643f17ad845576f72ba13ad28ad45a362e75470340e36894',
+  '0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df',
 )
 assert.equal(
   market.runtimeCodePolicy.kyberRouter,
@@ -1095,6 +1097,25 @@ const validatedExit = validateLoopingExitRoute({
   repaymentCapAssets: 1_400_000n,
   minimumReturnedAssets: 50_000n,
 })
+
+// The reviewed PendleSwap upgrade added ZEROX=7 and retired ODOS=2. Neither
+// change grants those aggregator branches access to this Kyber-only compiler.
+for (const swapType of [2, 7]) {
+  expectExecutionError(() => validateLoopingBuyRoute({
+    route: buyRoute(1_000_000n, { swapData: { swapType } }),
+    market,
+    wiring: routeWiring,
+    amountIn: 1_000_000n,
+  }), 'ROUTE_NOT_ALLOWED')
+  expectExecutionError(() => validateLoopingExitRoute({
+    route: exitRoute(COLLATERAL, { swapData: { swapType } }),
+    market,
+    wiring: routeWiring,
+    collateral: COLLATERAL,
+    repaymentCapAssets: 1_400_000n,
+    minimumReturnedAssets: 50_000n,
+  }), 'ROUTE_NOT_ALLOWED')
+}
 assert.equal(validatedExit.kind, 'sell-pt')
 assert.equal(validatedExit.exactPtIn, COLLATERAL)
 assert.equal(validatedExit.minLoanTokenOut, 1_450_000n)
@@ -1900,6 +1921,9 @@ function createPreflightClient({
   pendleSwapImplementationRuntimeHash =
     market.runtimeCodePolicy.pendleSwapImplementation,
   pendleSwapImplementation = PENDLE_SWAP_IMPLEMENTATION,
+  scalingHelperRuntimeHash = market.runtimeCodePolicy.kyberScalingHelper,
+  scalingHelperImplementationRuntimeHash = market.runtimeCodePolicy.kyberScalingHelperImplementation,
+  scalingHelperImplementation = upgradePolicy.kyberScalingHelper.implementation,
   kyberRouterRuntimeHash = market.runtimeCodePolicy.kyberRouter,
   multicall3RuntimeHash = market.runtimeCodePolicy.multicall3,
   rejectSharedResidueReads = true,
@@ -1985,6 +2009,10 @@ function createPreflightClient({
                   ? pendleSwapRuntimeHash
                   : normalized === PENDLE_SWAP_IMPLEMENTATION.toLowerCase()
                     ? pendleSwapImplementationRuntimeHash
+                    : normalized === upgradePolicy.kyberScalingHelper.address.toLowerCase()
+                      ? scalingHelperRuntimeHash
+                      : normalized === upgradePolicy.kyberScalingHelper.implementation.toLowerCase()
+                        ? scalingHelperImplementationRuntimeHash
                     : normalized === KYBER_ROUTER.toLowerCase()
                       ? kyberRouterRuntimeHash
                       : normalized === contracts.multicall3.toLowerCase()
@@ -2036,6 +2064,12 @@ function createPreflightClient({
           parseAbiParameters('address'),
           [pendleSwapImplementation],
         )
+      }
+      if (
+        normalizedAddress === upgradePolicy.kyberScalingHelper.address.toLowerCase() &&
+        normalizedSlot === upgradePolicy.kyberScalingHelper.implementationStorageSlot.toLowerCase()
+      ) {
+        return encodeAbiParameters(parseAbiParameters('address'), [scalingHelperImplementation])
       }
       throw new Error(`Unexpected storage read: ${address} ${slot}`)
     },
@@ -2677,6 +2711,9 @@ for (const unsafeRouteWiring of [
   { pendleSwapRuntimeHash: `0x${'33'.repeat(32)}` },
   { pendleSwapImplementationRuntimeHash: `0x${'34'.repeat(32)}` },
   { pendleSwapImplementation: OTHER_ACCOUNT.address },
+  { scalingHelperRuntimeHash: `0x${'37'.repeat(32)}` },
+  { scalingHelperImplementationRuntimeHash: `0x${'38'.repeat(32)}` },
+  { scalingHelperImplementation: OTHER_ACCOUNT.address },
   { kyberRouterRuntimeHash: `0x${'35'.repeat(32)}` },
 ]) {
   await expectExecutionRejection(

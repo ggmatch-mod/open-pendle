@@ -1,0 +1,28 @@
+TypeScript compiler fork proof
+  Local Anvil: http://127.0.0.1:18545
+  Fresh Ethereum block: 26212617
+  Acquisition mode: market
+  Collateral decimals: 6
+  Yield-token decimals: 6
+  Loan-token balance slot: 9
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1276218, padded 1759083
+  compiled signed leverage increase gas: estimate 923568, padded 1300638
+  compiled signed partial leverage decrease gas: estimate 948806, padded 1333447
+  compiled signed exit gas: estimate 846362, padded 1200270
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1276230, padded 1759099
+  compiled rescue approve-exact-repayment gas: estimate 55937, padded 172718
+  compiled rescue repay-exact-shares gas: estimate 75815, padded 198559
+  compiled rescue clear-morpho-allowance-after gas: estimate 38529, padded 150087
+  compiled rescue withdraw-exact-collateral gas: estimate 77556, padded 200822
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1276230, padded 1759099
+  compiled signed exit gas: estimate 844292, padded 1197579
+  Signed entry calls: 10
+  Increase leverage: 1500420853095747332 -> 1697361098321208505 WAD (6 calls)
+  Partial decrease: 1697361098321208505 -> 1458184920593301358 WAD (5 calls)
+  Signed exit calls: 5
+  Re-prepared rescue: approve-exact-repayment -> repay-exact-shares -> clear-morpho-allowance-after -> withdraw-exact-collateral
+  Post-expiry signed exit: redeem-matured-pt at 1796860801 with 500000 loan-token base units borrowed (5 calls)
+TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Ethereum fork

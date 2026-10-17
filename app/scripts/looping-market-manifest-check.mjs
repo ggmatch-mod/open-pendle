@@ -15,7 +15,7 @@ import {
 
 const EXPECTED_COUNTS = new Map([
   [1, 20],
-  [143, 1],
+  [143, 2],
   [42_161, 1],
 ])
 const EXCLUDED_ARBITRUM_DUST_MARKET =
@@ -157,8 +157,8 @@ for (const market of LOOPING_MARKET_CANDIDATE_MANIFEST) {
 }
 
 assert(
-  LOOPING_MARKET_CANDIDATE_MANIFEST.length === 22,
-  `Expected 22 reviewed candidates, got ${LOOPING_MARKET_CANDIDATE_MANIFEST.length}`,
+  LOOPING_MARKET_CANDIDATE_MANIFEST.length === 23,
+  `Expected 23 reviewed candidates, got ${LOOPING_MARKET_CANDIDATE_MANIFEST.length}`,
 )
 for (const [chainId, expected] of EXPECTED_COUNTS) {
   assert(
@@ -173,12 +173,12 @@ assert(
   'Arbitrum dust USDT0 market must remain excluded',
 )
 assert(
-  LOOPING_ENTRY_EXECUTION_REGISTRY.length === 22,
-  `Expected 22 entry identities, got ${LOOPING_ENTRY_EXECUTION_REGISTRY.length}`,
+  LOOPING_ENTRY_EXECUTION_REGISTRY.length === 23,
+  `Expected 23 entry identities, got ${LOOPING_ENTRY_EXECUTION_REGISTRY.length}`,
 )
 assert(
-  LOOPING_EXECUTION_REGISTRY.length === 23,
-  `Expected 23 managed identities, got ${LOOPING_EXECUTION_REGISTRY.length}`,
+  LOOPING_EXECUTION_REGISTRY.length === 24,
+  `Expected 24 managed identities, got ${LOOPING_EXECUTION_REGISTRY.length}`,
 )
 assert(
   LOOPING_EXECUTION_REGISTRY.includes(ARBITRUM_LOOPING_USDT0_USDAI) &&
@@ -187,5 +187,5 @@ assert(
 )
 
 console.log(
-  'looping market manifest: 22 entry identities plus 1 legacy management-only identity verified',
+  'looping market manifest: 23 entry identities plus 1 legacy management-only identity verified',
 )

@@ -50,6 +50,7 @@ export interface ReviewedLoopingMarketCandidate {
 }
 
 interface CandidateSeed {
+  capturedAt?: string
   chainId: ReviewedLoopingChainId
   marketId: Hex
   loanTokenSymbol: string
@@ -101,7 +102,7 @@ function reviewedMarket(
     syTokensIn: Object.freeze([...seed.syTokensIn]),
     syTokensOut: Object.freeze([...seed.syTokensOut]),
     audit: Object.freeze({
-      capturedAt: AUDIT_CAPTURED_AT,
+      capturedAt: seed.capturedAt ?? AUDIT_CAPTURED_AT,
       minimumBorrowLiquidityUsd: 100 as const,
       observedBorrowLiquidityUsd: seed.observedBorrowLiquidityUsd,
       morphoListed: true,
@@ -453,6 +454,24 @@ export const LOOPING_MARKET_CANDIDATE_MANIFEST = Object.freeze([
   }),
 
   // Monad
+  reviewedMarket({
+    capturedAt: '2026-10-17T13:33:23Z',
+    chainId: 143,
+    marketId: '0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439',
+    loanTokenSymbol: 'USDC', collateralTokenSymbol: 'PT-USDat-14JAN2027',
+    loanToken: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
+    collateralToken: '0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147',
+    oracle: '0x597921a5b5aD74A0Bf573fD7B58F80c383DCdAB2',
+    irm: '0x09475a3D6eA8c314c592b1a3799bDE044E2F400F', lltv: 915_000_000_000_000_000n,
+    loanTokenDecimals: 6, collateralTokenDecimals: 6,
+    yieldTokenDecimals: 6,
+    pendleMarket: '0x88C5D8A908834E44B421CB67aEc9A931782f9538', pendleMarketExpiry: 1_799_884_800n,
+    standardizedYield: '0x0898C3346275e79dB4892feB1C18875eC154F274',
+    yieldToken: '0x5aff25c86C7Cb739e554BE8904B32047738B7440',
+    syTokensIn: ['0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF'],
+    syTokensOut: ['0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF'],
+    observedBorrowLiquidityUsd: 2_478_773.158048615,
+  }),
   reviewedMarket({
     chainId: 143,
     marketId: '0x93a7a013b5501cee5d9bee0d29bb3fca790196134c4c7058365e5bc6d2ad80a2',

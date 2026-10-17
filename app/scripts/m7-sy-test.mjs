@@ -663,11 +663,11 @@ await step("4c. unknown-screen gate: index-scaled token → FOT 'unknown', SY-on
 
   // Pure-function coverage of the gate's verdict matrix (no chain needed):
   //  - 'unknown' FOT never passes; 'suspected' FOT never passes;
-  //  - 'suspected' rebasing never passes; a clean ok/ok passes.
+  //  - unknown/suspected rebasing never passes; a clean ok/ok passes.
   assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'unknown', rebasing: 'ok' }) === false, 'gate: unknown FOT should fail')
   assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'suspected', rebasing: 'ok' }) === false, 'gate: suspected FOT should fail')
   assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'ok', rebasing: 'suspected' }) === false, 'gate: suspected rebasing should fail')
-  assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'ok', rebasing: 'unknown' }) === true, 'gate: ok FOT + unknown rebasing should pass')
+  assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'ok', rebasing: 'unknown' }) === false, 'gate: unknown rebasing should require an override')
   assert(screenPassedForUnseededSyOnly({ feeOnTransfer: 'ok', rebasing: 'ok' }) === true, 'gate: ok/ok should pass')
   // Upgradeable/adapter templates are never in the unseeded-basic set → no override.
   assert(

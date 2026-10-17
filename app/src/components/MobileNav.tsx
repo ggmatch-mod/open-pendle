@@ -14,8 +14,9 @@ import { NetworkPicker } from './NetworkPicker'
 
 const NAV: { to: string; label: string; glyph: string; external?: boolean }[] = [
   { to: '/explore', label: 'Explore', glyph: '◇' },
+  { to: '/portfolio', label: 'Portfolio OS', glyph: '▦' },
   { to: '/looping', label: 'Looping', glyph: '↻' },
-  { to: '/alerts', label: 'Alerts', glyph: '↕' },
+  { to: '/alerts', label: 'Action Center', glyph: '↕' },
   { to: '/positions', label: 'Positions', glyph: '◈' },
   { to: '/pools', label: 'Saved pools', glyph: '★' },
   { to: '/create', label: 'Create pool', glyph: '＋' },

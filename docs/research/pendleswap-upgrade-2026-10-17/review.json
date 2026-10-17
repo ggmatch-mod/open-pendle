@@ -1,0 +1,540 @@
+{
+  "reviewedAt": "2026-10-17T13:42:38.502266+00:00",
+  "implementation": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+  "sourceUrls": [
+    "https://etherscan.io/address/0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78#code",
+    "https://monadscan.com/address/0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78#code"
+  ],
+  "compiler": {
+    "version": "0.8.30+commit.73712a01",
+    "npmIntegrity": "sha512-9Srk/gndtBmoUbg4CE6ypAzPQlElv8ntbnl6SigUBAzgXKn35v87sj04uZeoZWjtDkdzT0qKFcIo/wl63UMxdw==",
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "optimizerRuns": 1000000,
+    "inputSha256": "204a12fdeb851a9041844e8492acc327d7a9a9c369b1002959c74d131c9c6f18",
+    "settings": {
+      "remappings": [
+        "@pendle/core-v2/=lib/pendle-core-v2/",
+        "@pendle/sy/=lib/pendle-sy/",
+        "forge-std/=lib/forge-std/",
+        "vendor/=vendor/",
+        "vendor-locked/=vendor-locked/",
+        "@chainlink/=node_modules/@chainlink/",
+        "@eth-optimism/=node_modules/@eth-optimism/",
+        "@layerzerolabs/=node_modules/@layerzerolabs/",
+        "@openzeppelin/=node_modules/@openzeppelin/",
+        "hardhat/=node_modules/hardhat/",
+        "solidity-bytes-utils/=node_modules/solidity-bytes-utils/"
+      ],
+      "optimizer": {
+        "enabled": true,
+        "runs": 1000000
+      },
+      "metadata": {
+        "useLiteralContent": false,
+        "bytecodeHash": "ipfs",
+        "appendCBOR": true
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "evm.deployedBytecode",
+            "evm.bytecode",
+            "metadata",
+            "storageLayout",
+            "abi"
+          ]
+        }
+      },
+      "evmVersion": "cancun",
+      "viaIR": true
+    },
+    "soljsonSha256": "3bb491a777f76dff9b2fe73ce29ca20e21a971b59a2f2cf8f73415424f00be06",
+    "officialPackageUrl": "https://registry.npmjs.org/solc/-/solc-0.8.30.tgz",
+    "reproduceCommand": "node app/scripts/reproduce-pendleswap-upgrade.mjs --soljson /absolute/path/to/official-solc-0.8.30/soljson.js"
+  },
+  "sourceFiles": [
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/PendleSwap.sol",
+      "sha256": "bf80f30e8ec03ff392c7a9ffe61dc6f3732ba7213f8692a030c05121f7f131be",
+      "changedFromPinnedEthereumSource": true
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/core/libraries/TokenHelper.sol",
+      "sha256": "90fa51092a49787497070ab489e52794910316cdfa25086859958a0e823cd885",
+      "changedFromPinnedEthereumSource": true
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+      "sha256": "d27fabd2ffb710166c654109837ffa5c82dbeb4e20205af1066e64bb50ca201f",
+      "changedFromPinnedEthereumSource": true
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/OKXScaleHelper.sol",
+      "sha256": "31ab9b46e3ecb949dcf4430ca76e3b5de59bbe719b3a20be9ff46ba13c6fe12b",
+      "changedFromPinnedEthereumSource": true
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/ParaswapScaleHelper.sol",
+      "sha256": "b492baea2e73bc714e530408bdfe3c91fd3cac52758747267cdb90f1003e14d4",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+      "sha256": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/core/libraries/BoringOwnableUpgradeableV2.sol",
+      "sha256": "cdd28bb688649f1d4ca5f727de335fc4020bb0d4679129ff4b41d9385a8c07a5",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol",
+      "sha256": "81fd7eff33a96b439a265d21a3244b4cfc2b674493420ae02e1f44088a8c84fc",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/interfaces/IWETH.sol",
+      "sha256": "afe441cc377f202df374f744b94d0dfcd91b72f5ae60f56a86e4b51eaaf361fc",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+      "sha256": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
+      "sha256": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
+      "sha256": "b7383c48331f3cc9901fc05e5d5830fcd533699a77f3ee1e756a98681bfbb2ee",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/utils/Address.sol",
+      "sha256": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+      "sha256": "a2c4e5c274a586f145d278293ae33198cd8f412ab7e6d26f2394c8949b32b24b",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol",
+      "sha256": "38728bce05e2b518d0ef66d514dbfcdee5555aeac2d57729480bf1409ee63630",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol",
+      "sha256": "05f8710ad6a17e156b51e2c5baa87fd6281c4be50a891ad717d6cfa628301da8",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol",
+      "sha256": "db92fc1b515decad3a783b1422190877d2d70b907c6e36fb0998d9465aee42db",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol",
+      "sha256": "6afea1d83856ed8e0495fe78109f674f925cfdc79fe2e24e854b1237e742f011",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol",
+      "sha256": "dddc79fd955a7dbf954b63358f67be734da61a406bc610a90c91821a2ff84bc6",
+      "changedFromPinnedEthereumSource": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol",
+      "sha256": "51c993d87ee6096af06f8701d8497272751c8cc9c9c2b31e67a3087d5f2302df",
+      "changedFromPinnedEthereumSource": false
+    }
+  ],
+  "sourceChanges": {
+    "PendleSwap.sol": "Adds ZEROX=7 branch with output balance delta and scaled minimum check; removes ODOS scaling; Kyber branch and infinite approvals to extRouter unchanged.",
+    "IPSwapAggregator.sol": "KYBERSWAP stays enum1; retired ODOS enum2 becomes RESERVED1; ZEROX added at7.",
+    "TokenHelper.sol": "Transfer-out skips self-transfers; balance lookup moved to shared _balanceOf. No state added.",
+    "OKXScaleHelper.sol": "Adds chain approval targets; only immutable state. Kyber never takes this branch.",
+    "OpenZeppelin": "All verified imported OpenZeppelin source files unchanged from pinned implementation."
+  },
+  "storage": {
+    "old": [
+      {
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_address"
+      },
+      {
+        "label": "pendingOwner",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_address"
+      },
+      {
+        "label": "_initialized",
+        "offset": 20,
+        "slot": "1",
+        "type": "t_uint8"
+      },
+      {
+        "label": "_initializing",
+        "offset": 21,
+        "slot": "1",
+        "type": "t_bool"
+      },
+      {
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)48_storage"
+      }
+    ],
+    "new": [
+      {
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_address"
+      },
+      {
+        "label": "pendingOwner",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_address"
+      },
+      {
+        "label": "_initialized",
+        "offset": 20,
+        "slot": "1",
+        "type": "t_uint8"
+      },
+      {
+        "label": "_initializing",
+        "offset": 21,
+        "slot": "1",
+        "type": "t_bool"
+      },
+      {
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)48_storage"
+      }
+    ],
+    "exactLayoutMatch": true
+  },
+  "bytecodeReproduction": {
+    "compiler": "0.8.30+commit.73712a01",
+    "results": [
+      {
+        "chain": "ethereum",
+        "exactMatch": true,
+        "hash": "0x521b6565b709376035cc10f036169a75e4e69a7cd837b8827d66dc170b800821",
+        "immutableValues": [
+          {
+            "start": 1518,
+            "length": 32,
+            "value": "00000000000000000000000040aa958dd87fc8305b97f2ba922cddca374bcd7f"
+          },
+          {
+            "start": 4342,
+            "length": 32,
+            "value": "00000000000000000000000040aa958dd87fc8305b97f2ba922cddca374bcd7f"
+          },
+          {
+            "start": 1274,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2286,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2809,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          }
+        ]
+      },
+      {
+        "chain": "arbitrum",
+        "exactMatch": true,
+        "hash": "0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df",
+        "immutableValues": [
+          {
+            "start": 1518,
+            "length": 32,
+            "value": "00000000000000000000000070cbb871e8f30fc8ce23609e9e0ea87b6b222f58"
+          },
+          {
+            "start": 4342,
+            "length": 32,
+            "value": "00000000000000000000000070cbb871e8f30fc8ce23609e9e0ea87b6b222f58"
+          },
+          {
+            "start": 1274,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2286,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2809,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          }
+        ]
+      },
+      {
+        "chain": "monad",
+        "exactMatch": true,
+        "hash": "0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c",
+        "immutableValues": [
+          {
+            "start": 1518,
+            "length": 32,
+            "value": "000000000000000000000000f534a8a1cad0543cd6438f7534ca3486c01998d4"
+          },
+          {
+            "start": 4342,
+            "length": 32,
+            "value": "000000000000000000000000f534a8a1cad0543cd6438f7534ca3486c01998d4"
+          },
+          {
+            "start": 1274,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2286,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          },
+          {
+            "start": 2809,
+            "length": 32,
+            "value": "000000000000000000000000d14feb6aaf8650bbfcc8abec299b249a80fe7c78"
+          }
+        ]
+      }
+    ]
+  },
+  "kyberScalingHelper": {
+    "sourceVerified": false,
+    "limitation": "Current helper implementations were unverified on Ethereum and Monad explorers. IPFS metadata gateways returned HTTP403. Observed code hashes and implementation slots are pinned; concrete routes passed local fork tests. This is not a complete source review of this pre-existing external dependency.",
+    "evidence": [
+      {
+        "chain": "ethereum",
+        "proxy": "0x2f577a41bec1be1152aeea12e73b7391d15f655d",
+        "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        "block": 26212597,
+        "implementation": "0x9b1f55b1f9a073e7285bd530473ec3c780e371d6",
+        "proxyCodeHash": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+        "implementationCodeHash": "0x2459f04017f1c08f8a5c39b6055e1c6aee37810f712d82c1a90bf520e2a75d70",
+        "implementationBytes": 10103
+      },
+      {
+        "chain": "arbitrum",
+        "proxy": "0x2f577a41bec1be1152aeea12e73b7391d15f655d",
+        "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        "block": 515685495,
+        "implementation": "0x4d1723e3141ba1973b50f85724c459ae1ff02ea3",
+        "proxyCodeHash": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+        "implementationCodeHash": "0xd2987684fa5b47381bc16a0683189a7d8fb09db75bbe5879de0392b530409fb0",
+        "implementationBytes": 10103
+      },
+      {
+        "chain": "monad",
+        "proxy": "0x2f577a41bec1be1152aeea12e73b7391d15f655d",
+        "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+        "block": 114196667,
+        "implementation": "0xdaa210258d04a841b3d54eb29f31bac83e0d4458",
+        "proxyCodeHash": "0xf85045d69d752902ce737bdff5a43b7d6db74ca39adf10a3df44464069236bb5",
+        "implementationCodeHash": "0x98ca3d842914566cfea5d3fa72df98a466ae944703c26200cc2766e71969e3e3",
+        "implementationBytes": 10103
+      }
+    ]
+  },
+  "routeReview": {
+    "allowedAggregator": "kyberswap",
+    "allowedSwapType": 1,
+    "retiredOdosAndNewZeroExRejected": true,
+    "nestedChecks": [
+      "canonical ABI round-trip",
+      "exact source and destination tokens",
+      "destination PendleRouter",
+      "exact entry amount",
+      "positive scaling amount",
+      "allowlisted executor and runtime hash",
+      "zero approveTarget",
+      "no fee receivers or amounts",
+      "empty permit",
+      "flags512",
+      "bounded receiver and calldata sizes",
+      "nonzero output floor",
+      "empty Pendle limit-order payload",
+      "pinned Router selectors and implementations",
+      "pinned Swap proxy and implementation",
+      "pinned scaling-helper proxy and implementation"
+    ]
+  },
+  "forkProofs": [
+    {
+      "chain": "Ethereum",
+      "blockNumber": 26212617,
+      "mode": "market",
+      "localOnly": true,
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "passed": true,
+      "operations": [
+        "entry",
+        "increase",
+        "partial-decrease",
+        "full-exit",
+        "direct-rescue",
+        "post-expiry-exit"
+      ],
+      "result": "TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Ethereum fork"
+    },
+    {
+      "chain": "Ethereum",
+      "blockNumber": 26212623,
+      "mode": "mint",
+      "localOnly": true,
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "passed": true,
+      "operations": [
+        "entry",
+        "increase",
+        "partial-decrease",
+        "full-exit",
+        "direct-rescue",
+        "post-expiry-exit"
+      ],
+      "result": "TypeScript-compiled mint entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Ethereum fork"
+    },
+    {
+      "chain": "Monad",
+      "blockNumber": 114197932,
+      "mode": "market",
+      "localOnly": true,
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "passed": true,
+      "operations": [
+        "entry",
+        "increase",
+        "partial-decrease",
+        "full-exit",
+        "direct-rescue",
+        "post-expiry-exit"
+      ],
+      "result": "TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Monad fork"
+    },
+    {
+      "chain": "Monad",
+      "blockNumber": 114198062,
+      "mode": "mint",
+      "localOnly": true,
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "passed": true,
+      "operations": [
+        "entry",
+        "increase",
+        "partial-decrease",
+        "full-exit",
+        "direct-rescue",
+        "post-expiry-exit"
+      ],
+      "result": "TypeScript-compiled mint entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Monad fork"
+    }
+  ],
+  "monadReplacementIdentity": {
+    "chainId": 143,
+    "blockNumber": "114197570",
+    "marketId": "0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439",
+    "derivedId": "0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439",
+    "morpho": "0xd5d960e8c380b724a48ac59e2dff1b2cb4a1eaee",
+    "tuple": [
+      "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147",
+      "0x597921a5b5aD74A0Bf573fD7B58F80c383DCdAB2",
+      "0x09475a3D6eA8c314c592b1a3799bDE044E2F400F",
+      "915000000000000000"
+    ],
+    "market": "0x88C5D8A908834E44B421CB67aEc9A931782f9538",
+    "sy": "0x0898C3346275e79dB4892feB1C18875eC154F274",
+    "pt": "0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147",
+    "yt": "0x5aff25c86C7Cb739e554BE8904B32047738B7440",
+    "expiry": "1799884800",
+    "decimals": 6,
+    "oraclePrice": "979227035022877500000000000000000000",
+    "validFactories": [
+      true
+    ],
+    "marketState": [
+      "25307311693876",
+      "25006869170064978892",
+      "22827472123952",
+      "22526638499477759527",
+      "1792240069",
+      "0"
+    ],
+    "tokensIn": [
+      "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF"
+    ],
+    "tokensOut": [
+      "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF"
+    ],
+    "syRuntimeHash": "0x52b8a06762db54a4a3f0068e6eb1a4497ea0cd4d6c2d07374943126bba6d4e9b",
+    "oracleRuntimeHash": "0xd4c22d8ecc7e4a3f53233357eaef78d96ff0d997d6bf34d8667dd08bb09b3f1e"
+  },
+  "arbitrumEntry": "No unexpired Pendle PT with Morpho market found in current official discovery; retain management only.",
+  "releaseBoundary": "Exact ETH reUSD and Monad USDat scopes only; no policy expiration or time-based renewal; live chain, identity, maturity, liquidity, quote and code drift checks remain mandatory.",
+  "independentSolidityForkSuites": [
+    {
+      "chain": "Ethereum",
+      "forkBlock": 26212641,
+      "compilerForkBlock": 26212641,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "productionCompilerLifecyclePassed": true
+    },
+    {
+      "chain": "Monad",
+      "forkBlock": 114198603,
+      "compilerForkBlock": 114198624,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "productionCompilerLifecyclePassed": true
+    }
+  ],
+  "distribution": "Raw upstream GPL/MIT contract sources are retrieved from verified explorers during reproduction and are not vendored in this repository.",
+  "harnessSafety": {
+    "disposableRandomEoa": true,
+    "occupiedPortRejectedBeforeSpawn": true,
+    "sourceBlockNumberAndHashCheckedBeforeFixtureMutations": true,
+    "localRegression": "node --experimental-strip-types app/scripts/looping-fork-harness-check.mjs",
+    "activeRerun": {
+      "chain": "Ethereum",
+      "block": 26212661,
+      "fullCompilerLifecyclePassed": true
+    }
+  }
+}

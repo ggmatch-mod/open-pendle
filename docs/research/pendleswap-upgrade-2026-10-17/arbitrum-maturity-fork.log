@@ -1,0 +1,34 @@
+Current-state Arbitrum matured management, source block 515689396
+  Real public owner 0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8; only native gas funding is synthetic
+  compiled existing-authorization recovery: block 515689397, gas 25338
+  local owner authorization for compiler action calls: block 515689398, gas 47250
+  production compiler matured exit action calls: block 515689399, gas 692500
+  compiled post-exit authorization cleanup: block 515689400, gas 25338
+  compiled direct rescue approve-exact-repayment: block 515689398, gas 55425
+  compiled direct rescue repay-exact-shares: block 515689399, gas 101424
+  compiled direct rescue clear-morpho-allowance-after: block 515689400, gas 33501
+  compiled direct rescue withdraw-exact-collateral: block 515689401, gas 67975
+{
+  "observedAt": "2026-10-17T13:51:19.403Z",
+  "sourceBlock": "515689396",
+  "sourceBlockHash": "0xedcfabef794409ec32e39ef9c2a38c8f159546c064bcd0a3bafefe093e2fdce6",
+  "sourceTimestamp": "1792245044",
+  "owner": "0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8",
+  "marketId": "0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985",
+  "borrowedShares": "5004316419",
+  "collateral": "879774324111372325",
+  "exitKind": "redeem-matured-pt",
+  "returnedLoanAssets": "874425",
+  "minimumReturnedLoanAssets": "865577",
+  "rescueSteps": [
+    "approve-exact-repayment",
+    "repay-exact-shares",
+    "clear-morpho-allowance-after",
+    "withdraw-exact-collateral"
+  ],
+  "fixture": "actual public position; local impersonation and native gas only",
+  "signedAuthorizationWrapperExercised": false,
+  "debtAndCollateralZero": true,
+  "tokenAndDebtShareConservation": true,
+  "authorizationsAndAllowancesCleared": true
+}

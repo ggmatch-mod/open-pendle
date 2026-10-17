@@ -1,0 +1,17 @@
+{
+  "schema": "openpendle.looping-execution-policy.v2",
+  "revision": 2,
+  "entry": {
+    "enabled": true,
+    "markets": [
+      {
+        "chainId": 1,
+        "morphoMarketId": "0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64"
+      },
+      {
+        "chainId": 143,
+        "morphoMarketId": "0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439"
+      }
+    ]
+  }
+}

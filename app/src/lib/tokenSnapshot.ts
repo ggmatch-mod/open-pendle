@@ -138,7 +138,9 @@ export async function resolveTokenSet(
     throw new Error('SY assetInfo() unavailable — refusing to guess PT/YT transaction units.')
   }
 
-  const exchangeRate = rateR.status === 'success' ? (rateR.result as bigint) : 10n ** 18n
+  const exchangeRate = rateR.status === 'success' && (rateR.result as bigint) > 0n
+    ? (rateR.result as bigint)
+    : 0n
   const tokensIn = tInR.status === 'success' ? [...(tInR.result as readonly Address[])] : []
   const tokensOut = tOutR.status === 'success' ? [...(tOutR.result as readonly Address[])] : []
   const yieldToken = yTokR.status === 'success' ? (yTokR.result as Address) : ZERO_ADDRESS
@@ -192,6 +194,8 @@ export async function resolveTokenSet(
     state: EMPTY_STATE,
     metrics: EMPTY_METRICS,
     trust: EMPTY_TRUST,
-    degraded: [],
+    degraded: exchangeRate > 0n ? [] : [
+      'SY exchangeRate() unavailable or non-positive — asset conversions are unavailable.',
+    ],
   }
 }

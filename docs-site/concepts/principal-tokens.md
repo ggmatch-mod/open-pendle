@@ -28,13 +28,9 @@ For example, if an SY wraps an interest-bearing share whose value rises against 
 
 Let `P` be the price of one PT in accounting-asset units and `T` the remaining fraction of a year. Ignoring gas and conversion costs:
 
-$$
-\text{period return} = \frac{1}{P} - 1
-$$
+`period return = 1 / P - 1`
 
-$$
-\text{implied APY} = \left(\frac{1}{P}\right)^{1/T} - 1
-$$
+`implied APY = (1 / P)^(1 / T) - 1`
 
 If a PT with 180 days remaining costs `0.96` accounting-asset units:
 

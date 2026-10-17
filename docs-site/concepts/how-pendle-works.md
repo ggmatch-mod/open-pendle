@@ -94,9 +94,7 @@ Only the PT execution-time implied APY describes a fixed maturity return, and on
 
 PT and YT are complementary economic claims on the same accounting-asset principal. In a frictionless abstraction:
 
-$$
-\text{PT value} + \text{YT value} \approx \text{accounting-asset value}
-$$
+`PT value + YT value ≈ accounting-asset value`
 
 The approximation is affected by swap fees, YT protocol fees, rewards and points, liquidity, routing, and the exact time at which values are measured. It should not be confused with raw token quantities: the SY exchange-rate index determines how much matching PT and YT an SY amount mints.
 

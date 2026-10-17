@@ -24,7 +24,7 @@
  * SY-only screening gate (FIX 1 / PLAN §5 M7 line 230): an UNSEEDED SY-only
  * deploy of a BASIC template (deploySY, no on-chain seeding backstop) is allowed
  * only when the token screen genuinely PASSED (feeOnTransfer === 'ok' AND
- * rebasing !== 'suspected'). When the FOT screen is merely 'unknown' (the common
+ * rebasing === 'ok'). When either screen is merely 'unknown' (the common
  * arb1 case — state overrides degrade), the deploy is BLOCKED by default behind
  * an explicit "I understand… deploy anyway" override checkbox. The combined
  * (deploy+seed) flow keeps its on-chain seeding-revert backstop and only surfaces
@@ -471,8 +471,8 @@ export default function CreateSyPage() {
 
   // --- SY-only unseeded screening gate (FIX 1 / PLAN §5 M7 line 230) ---
   // Only an UNSEEDED SY-only deploy of a BASIC template lacks the seeding-revert
-  // backstop. When the token screen didn't genuinely pass (FOT not 'ok', or
-  // rebasing 'suspected') this deploy is gated behind the explicit override.
+  // backstop. When either screen is not 'ok', this deploy is gated behind the
+  // explicit override.
   const screenPassed = probe !== undefined && screenPassedForUnseededSyOnly(probe)
   const syOnlyUnbackstopped =
     mode === 'sy-only' && probe !== undefined && isBasicTemplate(template)

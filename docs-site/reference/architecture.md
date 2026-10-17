@@ -193,8 +193,8 @@ This is the canonical request disclosure for the stock build:
 | **Configured blockchain RPCs** | Browsing, ordinary quoting, provenance, simulation, receipt polling | Addresses, calldata, and chain reads required by the action |
 | **Wallet-configured provider/RPC** | Looping safety reads and unsigned simulation; signing and sending on-chain transactions | Looping read/simulation calldata, the signed transaction, and normal wallet-provider metadata |
 | **Same-origin catalog** | Explore, PT/YT resolution, Looping inventory | Static factory-market snapshot and coverage metadata |
-| **Same-origin looping entry policy** | Before any new loop or leverage increase reaches sensitive wallet steps | Short-lived base allowlist for exact reviewed entry markets; fetched without cache |
-| **Same-origin looping Mint policy** | Before a Mint entry or Mint leverage increase reaches sensitive wallet steps | Independent short-lived Mint entry/increase capabilities and exact market allowlists; fetched without cache |
+| **Same-origin looping entry policy** | Before any new loop or leverage increase reaches sensitive wallet steps | Explicitly enabled, non-expiring base allowlist for exact reviewed entry markets; fetched without cache |
+| **Same-origin looping Mint policy** | Before a Mint entry or Mint leverage increase reaches sensitive wallet steps | Independent, non-expiring Mint entry/increase capabilities and exact market allowlists; fetched without cache |
 | **Pendle market APIs** | Explore enrichment, bounded PT/YT lookup, and fresh Looping entry/exit routes | Market/token identifiers, amounts, reviewed adapter receiver, slippage, and optional metadata; no wallet signature |
 | **Pendle position API** | A connected user opens Positions | Wallet address used to discover relevant Official-pool market IDs; balances are then read by RPC |
 | **Pendle yield-data APIs** | Yield alerts | Active catalog and hourly APY/liquidity histories; no wallet required |

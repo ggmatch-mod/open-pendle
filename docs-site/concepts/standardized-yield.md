@@ -55,13 +55,11 @@ OpenPendle's higher-level actions use these routes internally. For example, mint
 
 ## Exchange-rate accounting
 
-The SY exchange rate converts SY raw units into accounting-asset units:
+The SY exchange rate converts raw SY units into raw accounting-asset units:
 
-$$
-\text{asset value} = \text{SY amount} \times \text{exchange rate}
-$$
+`assetRaw = syRaw × exchangeRate / 10^18`
 
-Decimals and scaling vary by token. OpenPendle reads the SY's metadata and exchange rate rather than assuming a 1:1 wrapper.
+Format the result using the accounting asset's decimals. SY and accounting-asset decimals can differ. OpenPendle reads both from the SY's metadata and leaves rate-dependent conversions unavailable if the rate cannot be read.
 
 Pendle's preview functions are intended for off-chain estimation and can be best-effort for unusual integrations. The final bounded transaction and wallet prompt remain the authoritative action.
 

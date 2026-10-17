@@ -1,13 +1,10 @@
 import type { Hex } from 'viem'
 
 export const LOOPING_RUNTIME_ENTRY_POLICY_PATH =
-  '/looping-execution-policy.v1.json' as const
+  '/looping-execution-policy.v2.json' as const
 export const LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA =
-  'openpendle.looping-execution-policy.v1' as const
+  'openpendle.looping-execution-policy.v2' as const
 export const LOOPING_RUNTIME_ENTRY_POLICY_TIMEOUT_MS = 4_000
-export const LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS =
-  7 * 24 * 60 * 60 * 1_000
-export const LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS = 30_000
 export const LOOPING_RUNTIME_ENTRY_POLICY_MAX_MARKETS = 32
 
 interface LoopingRuntimeEntryMarket {
@@ -20,7 +17,6 @@ interface LoopingRuntimeEntryPolicy {
   revision: number
   entry: {
     enabled: boolean
-    validUntil: string | null
     markets: readonly LoopingRuntimeEntryMarket[]
   }
 }
@@ -69,6 +65,7 @@ function parseRuntimeEntryMarket(value: unknown): LoopingRuntimeEntryMarket {
   }
   if (
     !Number.isSafeInteger(value.chainId) ||
+    Number(value.chainId) <= 0 ||
     typeof value.morphoMarketId !== 'string' ||
     !/^0x[0-9a-fA-F]{64}$/.test(value.morphoMarketId)
   ) {
@@ -82,7 +79,6 @@ function parseRuntimeEntryMarket(value: unknown): LoopingRuntimeEntryMarket {
 
 function parseRuntimeEntryPolicy(
   value: unknown,
-  now: number,
 ): LoopingRuntimeEntryPolicy {
   if (!isRecord(value) || !hasExactKeys(value, ['schema', 'revision', 'entry'])) {
     fail('The live looping entry policy is invalid, so new-loop entry is paused.')
@@ -92,7 +88,7 @@ function parseRuntimeEntryPolicy(
     !Number.isSafeInteger(value.revision) ||
     (value.revision as number) < 1 ||
     !isRecord(value.entry) ||
-    !hasExactKeys(value.entry, ['enabled', 'validUntil', 'markets']) ||
+    !hasExactKeys(value.entry, ['enabled', 'markets']) ||
     typeof value.entry.enabled !== 'boolean' ||
     !Array.isArray(value.entry.markets) ||
     value.entry.markets.length > LOOPING_RUNTIME_ENTRY_POLICY_MAX_MARKETS
@@ -108,28 +104,8 @@ function parseRuntimeEntryPolicy(
     fail('The live looping entry policy is invalid, so new-loop entry is paused.')
   }
 
-  if (!value.entry.enabled) {
-    if (value.entry.validUntil !== null || markets.length !== 0) {
-      fail('The live looping entry policy is invalid, so new-loop entry is paused.')
-    }
-  } else {
-    if (
-      typeof value.entry.validUntil !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(
-        value.entry.validUntil,
-      ) ||
-      markets.length === 0
-    ) {
-      fail('The live looping entry policy is invalid, so new-loop entry is paused.')
-    }
-    const validUntilMs = Date.parse(value.entry.validUntil)
-    if (
-      !Number.isFinite(validUntilMs) ||
-      validUntilMs - now < LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS ||
-      validUntilMs - now > LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS
-    ) {
-      fail('The live looping entry policy is expired or too long-lived, so entry is paused.')
-    }
+  if (value.entry.enabled ? markets.length === 0 : markets.length !== 0) {
+    fail('The live looping entry policy is invalid, so new-loop entry is paused.')
   }
 
   return Object.freeze({
@@ -137,7 +113,6 @@ function parseRuntimeEntryPolicy(
     revision: value.revision as number,
     entry: Object.freeze({
       enabled: value.entry.enabled,
-      validUntil: value.entry.validUntil as string | null,
       markets: Object.freeze(markets),
     }),
   })
@@ -155,7 +130,7 @@ function browserOrigin(): string {
  *
  * This is an extra launch-control layer, not a replacement for the compiler,
  * simulation, market allowlist, build flag, or wallet prompt. Any network,
- * HTTP, redirect, content-type, schema, expiry, or scope failure pauses new
+ * HTTP, redirect, content-type, schema, or scope failure pauses new
  * entry. Full exit and recovery do not call this function.
  */
 export async function assertLoopingRuntimeEntryEnabled({
@@ -203,13 +178,17 @@ export async function assertLoopingRuntimeEntryEnabled({
     `${requestStartedAt.toString(36)}-${policyRequestSequence.toString(36)}`,
   )
   const controller = new AbortController()
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    timeoutMs,
-  )
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error('The live looping policy request timed out.')
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
 
   try {
-    const response = await fetchPolicy(policyUrl, {
+    const response = await Promise.race([fetchPolicy(policyUrl, {
       method: 'GET',
       headers: { accept: 'application/json' },
       cache: 'no-store',
@@ -217,7 +196,7 @@ export async function assertLoopingRuntimeEntryEnabled({
       redirect: 'error',
       referrerPolicy: 'no-referrer',
       signal: controller.signal,
-    })
+    }), deadline])
     if (response.status !== 200) {
       fail('The live looping entry policy is unavailable, so new-loop entry is paused.')
     }
@@ -235,7 +214,7 @@ export async function assertLoopingRuntimeEntryEnabled({
     if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) {
       fail('The live looping entry policy is invalid, so new-loop entry is paused.')
     }
-    const body = await response.text()
+    const body = await Promise.race([response.text(), deadline])
     if (body.length === 0 || body.length > 4_096) {
       fail('The live looping entry policy is invalid, so new-loop entry is paused.')
     }
@@ -254,7 +233,7 @@ export async function assertLoopingRuntimeEntryEnabled({
     if (!Number.isSafeInteger(checkedAt) || checkedAt < requestStartedAt) {
       fail('The live looping entry policy is unavailable, so new-loop entry is paused.')
     }
-    const policy = parseRuntimeEntryPolicy(decoded, checkedAt)
+    const policy = parseRuntimeEntryPolicy(decoded)
     if (!policy.entry.enabled) {
       fail('New-loop entry is currently paused by OpenPendle.')
     }
@@ -267,8 +246,8 @@ export async function assertLoopingRuntimeEntryEnabled({
     return policy
   } catch (error) {
     if (error instanceof LoopingRuntimePolicyError) throw error
-    fail('The live looping entry policy could not be verified, so new-loop entry is paused.', error)
+    return fail('The live looping entry policy could not be verified, so new-loop entry is paused.', error)
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 }

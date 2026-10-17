@@ -284,7 +284,7 @@ export async function classifyAddress(
  *
  * Degradation contract: any individual probe failure (legacy vintages, exotic
  * SYs) appends a human-readable string to `degraded` and the load continues
- * with a sensible fallback. Only a failure of the core reads
+ * with unavailable derived metrics where required. Only a failure of the core reads
  * (readTokens + readState + expiry) rejects the whole load.
  */
 export async function loadMarketSnapshot(
@@ -424,11 +424,11 @@ export async function loadMarketSnapshot(
     throw new Error('SY assetInfo() unavailable — refusing to guess PT/YT transaction units.')
   }
 
-  let exchangeRate = 10n ** 18n
-  if (exchangeRateR.status === 'success') {
+  let exchangeRate = 0n
+  if (exchangeRateR.status === 'success' && exchangeRateR.result > 0n) {
     exchangeRate = exchangeRateR.result
   } else {
-    degraded.push('SY exchangeRate() unavailable (legacy SCY?) — assuming 1.0; asset-terms metrics are approximate.')
+    degraded.push('SY exchangeRate() unavailable or non-positive — SY asset conversions, TVL, and pool proportions are unavailable.')
   }
 
   const tokensIn = tokensInR.status === 'success' ? [...tokensInR.result] : []
@@ -594,7 +594,7 @@ export function computeCoreStats(params: {
   /** EIP-5115 raw-unit rate: assetRaw = syRaw · rate / 1e18. */
   exchangeRate: bigint
   assetDecimals: number
-}): { impliedApy: number; ptPriceAsset: number; syAssetRaw: bigint; tvlAsset: number } {
+}): { impliedApy: number; ptPriceAsset: number; syAssetRaw: bigint | null; tvlAsset: number } {
   const lnRate = Number(params.lastLnImpliedRate) / 1e18
   const impliedApy = Math.expm1(lnRate)
   const nowSeconds = Math.floor(Date.now() / 1000)
@@ -606,10 +606,13 @@ export function computeCoreStats(params: {
 
   // Asset value of the SY side in raw units (EIP-5115: sy · exchangeRate / 1e18).
   // PT decimals == asset decimals by factory construction.
-  const syAssetRaw = (params.totalSy * params.exchangeRate) / 10n ** 18n
+  const syAssetRaw = params.exchangeRate > 0n
+    ? (params.totalSy * params.exchangeRate) / 10n ** 18n
+    : null
   const scale = 10 ** params.assetDecimals
-  const tvlAsset =
-    Number(syAssetRaw) / scale + (Number(params.totalPt) / scale) * ptPriceAsset
+  const tvlAsset = syAssetRaw === null
+    ? NaN
+    : Number(syAssetRaw) / scale + (Number(params.totalPt) / scale) * ptPriceAsset
 
   return { impliedApy, ptPriceAsset, syAssetRaw, tvlAsset }
 }
@@ -643,11 +646,13 @@ export function computeMetrics(
   const ptPriceSy =
     exchangeRateFloat > 0
       ? (ptPriceAsset * 10 ** (assetDecimals - syDecimals)) / exchangeRateFloat
-      : ptPriceAsset
+      : NaN
   const ytPriceAsset = 1 - ptPriceAsset
 
-  const denominator = state.totalPt + syAssetRaw
-  const ptProportion = denominator > 0n ? Number(state.totalPt) / Number(denominator) : 0
+  const denominator = syAssetRaw === null ? null : state.totalPt + syAssetRaw
+  const ptProportion = denominator === null
+    ? NaN
+    : denominator > 0n ? Number(state.totalPt) / Number(denominator) : 0
 
   const feeTier = Math.expm1(Number(state.lnFeeRateRoot) / 1e18)
 
@@ -767,14 +772,14 @@ export async function sweepRegistryPools(
     const exchangeRate =
       exchangeRateR.status === 'success' ? (exchangeRateR.result as bigint) : undefined
 
-    const hasTvlInputs = pool.assetDecimals !== undefined && exchangeRate !== undefined
+    const hasTvlInputs = pool.assetDecimals !== undefined && exchangeRate !== undefined && exchangeRate > 0n
     const core = computeCoreStats({
       lastLnImpliedRate: raw.lastLnImpliedRate,
       expiry,
       isExpired,
       totalPt: raw.totalPt,
       totalSy: raw.totalSy,
-      exchangeRate: exchangeRate ?? 10n ** 18n,
+      exchangeRate: exchangeRate ?? 0n,
       assetDecimals: pool.assetDecimals ?? 18,
     })
 

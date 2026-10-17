@@ -450,6 +450,9 @@ function decodeOneMarketDeployment(log: {
   data?: string
   address?: string
 }): DeployResult | undefined {
+  // An event signature identifies its shape, not its emitter. A seed token or
+  // SY can emit the same topic during deployment; only the helper is trusted.
+  if (log.address?.toLowerCase() !== COMMON_DEPLOY.toLowerCase()) return undefined
   const topics = log.topics
   if (!topics || topics.length === 0) return undefined
   if (topics[0]?.toLowerCase() !== MARKET_DEPLOYMENT_TOPIC0) return undefined

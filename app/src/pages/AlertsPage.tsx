@@ -7,7 +7,8 @@ import { marketPath } from '../lib/routes'
 import { clampLabel, formatCompact, formatPercent } from '../components/format'
 import { PageHeader } from '../components/PageHeader'
 import { useDocumentTitle } from '../components/useDocumentTitle'
-import { useYieldAlerts } from '../components/useYieldAlerts'
+import { useActionCenter } from '../components/useActionCenter'
+import { ActionCenterForYou } from '../components/ActionCenterForYou'
 
 type ChainFilter = SupportedChainId | 'all'
 type DirectionFilter = 'all' | 'up' | 'down'
@@ -96,9 +97,11 @@ function AlertsSkeleton() {
 }
 
 export default function AlertsPage() {
-  useDocumentTitle('Yield alerts')
-  const query = useYieldAlerts()
+  useDocumentTitle('Action Center')
+  const actionCenter = useActionCenter()
+  const query = actionCenter.yieldQuery
   const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('view') === 'market' ? 'market' : 'for-you'
   const chain = chainFromParam(searchParams.get('chain'))
   const direction = directionFromParam(searchParams.get('direction'))
   const scope = scopeFromParam(searchParams.get('scope'))
@@ -138,31 +141,51 @@ export default function AlertsPage() {
   return (
     <div className="space-y-6 pb-16">
       <PageHeader
-        title="Yield alerts"
+        title="Action Center"
         lede={
           <>
-            24-hour implied-APY moves across liquid Pendle-listed pools — no wallet needed.{' '}
-            <span
-              className="cursor-help underline decoration-dotted underline-offset-2"
-              title="Significant = at least 50 bps and 10% relative over an exact 24-hour window; pools need $1m liquidity throughout and more than 72 hours to maturity."
-            >
-              What counts as significant?
-            </span>
+            Your positions, maturities, tracked yield moves and OpenPendle activity in one review queue.
           </>
         }
         actions={
           <button
             type="button"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
+            onClick={() => {
+              void query.refetch()
+              actionCenter.portfolio.refetch()
+            }}
+            disabled={query.isFetching || actionCenter.portfolio.status === 'loading'}
             className="rounded-[10px] border border-hairline bg-surface px-3.5 py-2 text-sm font-medium text-fg hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
           >
-            {query.isFetching ? 'Refreshing…' : 'Refresh'}
+            {query.isFetching || actionCenter.portfolio.status === 'loading' ? 'Refreshing…' : 'Refresh'}
           </button>
         }
       />
 
-      {query.isPending ? (
+      <div className="flex gap-1 rounded-[11px] border border-hairline bg-bg-2 p-1" role="tablist" aria-label="Action Center views">
+        {[
+          { id: 'for-you', label: 'For you' },
+          { id: 'market', label: 'Market movers' },
+        ].map((tab) => {
+          const active = view === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => updateParam('view', tab.id, 'for-you')}
+              className={`flex-1 rounded-[8px] px-4 py-2 text-sm font-semibold transition sm:flex-none ${active ? 'bg-surface text-fg shadow-sm' : 'text-muted hover:text-fg'}`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {view === 'for-you' ? (
+        <ActionCenterForYou state={actionCenter} />
+      ) : query.isPending ? (
         <AlertsSkeleton />
       ) : query.data === undefined ? (
         <section role="alert" className="rounded-xl border border-[var(--op-danger-bd)] bg-[var(--op-danger-soft)] p-5">
@@ -281,7 +304,7 @@ export default function AlertsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] border-collapse text-left">
+                <table className="w-full min-w-[820px] border-collapse text-left">
                   <thead className="bg-bg-2 text-[10.5px] uppercase tracking-[.05em] text-faint">
                     <tr>
                       <th className="px-4 py-2.5 font-medium">Market</th>
@@ -290,6 +313,9 @@ export default function AlertsPage() {
                       <th className="px-4 py-2.5 text-right font-medium">Change</th>
                       <th className="px-4 py-2.5 text-right font-medium">Liquidity</th>
                       <th className="px-4 py-2.5 text-right font-medium">Maturity</th>
+                      {actionCenter.owner !== undefined && (
+                        <th className="px-4 py-2.5 text-right font-medium">Follow</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -319,6 +345,18 @@ export default function AlertsPage() {
                               </span>
                             )}
                           </td>
+                          {actionCenter.owner !== undefined && (
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                aria-pressed={actionCenter.profileState.isTracked(alert.chainId, alert.address)}
+                                onClick={() => actionCenter.profileState.toggleTracked(alert)}
+                                className={`rounded-[8px] border px-2.5 py-1.5 text-[11px] font-semibold ${actionCenter.profileState.isTracked(alert.chainId, alert.address) ? 'border-[rgba(var(--op-accent-rgb),0.45)] bg-[rgba(var(--op-accent-rgb),0.1)] text-accent-ink' : 'border-hairline text-muted hover:border-hairline-strong hover:text-fg'}`}
+                              >
+                                {actionCenter.profileState.isTracked(alert.chainId, alert.address) ? 'Tracked' : 'Track'}
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       )
                     })}

@@ -44,7 +44,7 @@ export interface LoopingExecutionContracts {
 }
 
 export interface LoopingRuntimeCodePolicy {
-  /** Runtime bytecode hashes pin the exact contracts whose storage/callback behavior was reviewed. */
+  /** Exact binaries exercised by the reviewed routes. A hash pin is not source verification. */
   morpho: Hex
   bundler3: Hex
   generalAdapter1: Hex
@@ -53,6 +53,8 @@ export interface LoopingRuntimeCodePolicy {
   pendleRouterRedeemImplementation: Hex
   pendleSwap: Hex
   pendleSwapImplementation: Hex
+  kyberScalingHelper: Hex
+  kyberScalingHelperImplementation: Hex
   kyberRouter: Hex
   multicall3: Hex
 }
@@ -68,6 +70,11 @@ export interface LoopingRouteUpgradePolicy {
     ]
   }>
   pendleSwap: Readonly<{
+    implementation: Address
+    implementationStorageSlot: Hex
+  }>
+  kyberScalingHelper: Readonly<{
+    address: Address
     implementation: Address
     implementationStorageSlot: Hex
   }>
@@ -215,7 +222,13 @@ const ARBITRUM_LOOPING_RUNTIME_CODE_POLICY: Readonly<LoopingRuntimeCodePolicy> =
     pendleSwap:
       '0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266',
     pendleSwapImplementation:
-      '0x5d9d2986245b2745643f17ad845576f72ba13ad28ad45a362e75470340e36894',
+      // Verified-source reproduction and dependency limitations are recorded
+      // in docs/research/pendleswap-upgrade-2026-10-17/review.json.
+      '0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df',
+    kyberScalingHelper:
+      '0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649',
+    kyberScalingHelperImplementation:
+      '0xd2987684fa5b47381bc16a0683189a7d8fb09db75bbe5879de0392b530409fb0',
     kyberRouter:
       '0x7c53f923286b51431195fc137a16cb9461662b5ae2476353979a52daa527aeaa',
     multicall3:
@@ -246,7 +259,13 @@ const ARBITRUM_LOOPING_ROUTE_UPGRADE_POLICY: Readonly<LoopingRouteUpgradePolicy>
       ] as const),
     }),
     pendleSwap: Object.freeze({
-      implementation: '0x4BaC1d43b7a3a31d84E193B5D4b651F4f3B46AF6',
+      implementation: '0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78',
+      implementationStorageSlot:
+        '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
+    }),
+    kyberScalingHelper: Object.freeze({
+      address: '0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D',
+      implementation: getAddress('0x4d1723e3141ba1973b50f85724c459ae1ff02ea3'),
       implementationStorageSlot:
         '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
     }),
@@ -357,7 +376,11 @@ const ETHEREUM_LOOPING_RUNTIME_CODE_POLICY: Readonly<LoopingRuntimeCodePolicy> =
     pendleSwap:
       '0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266',
     pendleSwapImplementation:
-      '0x7ef546e29d845476c1c0a0a0c1637a4192bb90dc4b687c9e36687f63337d7111',
+      '0x521b6565b709376035cc10f036169a75e4e69a7cd837b8827d66dc170b800821',
+    kyberScalingHelper:
+      '0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649',
+    kyberScalingHelperImplementation:
+      '0x2459f04017f1c08f8a5c39b6055e1c6aee37810f712d82c1a90bf520e2a75d70',
     kyberRouter:
       '0x06468e29bde518202bb725caad5eaaf8184c1b5338d8228e7c779248dbc9e2a3',
     multicall3:
@@ -388,7 +411,13 @@ const ETHEREUM_LOOPING_ROUTE_UPGRADE_POLICY: Readonly<LoopingRouteUpgradePolicy>
       ] as const),
     }),
     pendleSwap: Object.freeze({
-      implementation: '0xBC17404b7bb500051c75C83E4aA5aE447D967811',
+      implementation: '0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78',
+      implementationStorageSlot:
+        '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
+    }),
+    kyberScalingHelper: Object.freeze({
+      address: '0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D',
+      implementation: getAddress('0x9b1f55b1f9a073e7285bd530473ec3c780e371d6'),
       implementationStorageSlot:
         '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
     }),
@@ -466,7 +495,11 @@ const MONAD_LOOPING_RUNTIME_CODE_POLICY: Readonly<LoopingRuntimeCodePolicy> =
     pendleSwap:
       '0x692d6f336da9d107e0eeb1d7844190b769d97c75ca4fe0d8f3ba655bb8eea8fa',
     pendleSwapImplementation:
-      '0xfb6d176d787231bdf5ee4c4a25e802dc1919f61988cbffb386f14a5400f726fa',
+      '0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c',
+    kyberScalingHelper:
+      '0xf85045d69d752902ce737bdff5a43b7d6db74ca39adf10a3df44464069236bb5',
+    kyberScalingHelperImplementation:
+      '0x98ca3d842914566cfea5d3fa72df98a466ae944703c26200cc2766e71969e3e3',
     kyberRouter:
       '0x73055c10f463ef7d44c444ccae0b71ab4cacaf67aedbad2cd8af639d53cc6316',
     multicall3:
@@ -497,7 +530,13 @@ const MONAD_LOOPING_ROUTE_UPGRADE_POLICY: Readonly<LoopingRouteUpgradePolicy> =
       ] as const),
     }),
     pendleSwap: Object.freeze({
-      implementation: '0x7fbA4Da81B80a6BfFc337eF9D593047d6f84fe8C',
+      implementation: '0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78',
+      implementationStorageSlot:
+        '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
+    }),
+    kyberScalingHelper: Object.freeze({
+      address: '0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D',
+      implementation: getAddress('0xdaa210258d04a841b3d54eb29f31bac83e0d4458'),
       implementationStorageSlot:
         '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
     }),
@@ -649,6 +688,27 @@ export const ARBITRUM_LOOPING_CANARY: Readonly<LoopingExecutionMarket> =
     yieldTokenDecimals: 18,
   })
 
+/** Current Monad lifecycle fixture; the matured AUSD identity remains managed. */
+export const MONAD_LOOPING_USDAT: Readonly<LoopingExecutionMarket> = Object.freeze({
+  ...MONAD_LOOPING_AUSD,
+  marketId: '0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439',
+  display: Object.freeze({ name: 'PT-USDat / USDC', loanTokenSymbol: 'USDC', collateralTokenSymbol: 'PT-USDat' }),
+  pendleMarket: '0x88C5D8A908834E44B421CB67aEc9A931782f9538',
+  pendleMarketExpiry: 1_799_884_800n,
+  standardizedYield: '0x0898C3346275e79dB4892feB1C18875eC154F274',
+  yieldToken: '0x5aff25c86C7Cb739e554BE8904B32047738B7440',
+  morphoMarketParams: Object.freeze({
+    ...MONAD_LOOPING_AUSD.morphoMarketParams,
+    collateralToken: '0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147',
+    oracle: '0x597921a5b5aD74A0Bf573fD7B58F80c383DCdAB2',
+  }),
+  routePolicy: Object.freeze({
+    ...MONAD_AUSD_ROUTE_POLICY,
+    mintSyTokenAllowlist: Object.freeze(['0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF'] as const),
+    redeemSyTokenAllowlist: Object.freeze(['0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF'] as const),
+  }),
+})
+
 /** Reviewed USDT0 debt tuple for the same USDai Pendle PT. */
 export const ARBITRUM_LOOPING_USDT0_USDAI: Readonly<LoopingExecutionMarket> =
   Object.freeze({
@@ -762,6 +822,7 @@ function reviewedCandidateToExecutionMarket(
 const MANUALLY_EXPORTED_ENTRY_MARKET_KEYS = new Set([
   `${ETHEREUM_LOOPING_REUSD.chainId}:${ETHEREUM_LOOPING_REUSD.marketId.toLowerCase()}`,
   `${MONAD_LOOPING_AUSD.chainId}:${MONAD_LOOPING_AUSD.marketId.toLowerCase()}`,
+  `${MONAD_LOOPING_USDAT.chainId}:${MONAD_LOOPING_USDAT.marketId.toLowerCase()}`,
   `${ARBITRUM_LOOPING_CANARY.chainId}:${ARBITRUM_LOOPING_CANARY.marketId.toLowerCase()}`,
 ])
 
@@ -781,6 +842,7 @@ export const LOOPING_ENTRY_EXECUTION_REGISTRY:
 readonly Readonly<LoopingExecutionMarket>[] = Object.freeze([
   ETHEREUM_LOOPING_REUSD,
   MONAD_LOOPING_AUSD,
+  MONAD_LOOPING_USDAT,
   ARBITRUM_LOOPING_CANARY,
   ...ADDITIONAL_REVIEWED_LOOPING_MARKETS,
 ])
@@ -1023,6 +1085,8 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
       'routeUpgradePolicy.kyberRouter.address',
       market.routeUpgradePolicy.kyberRouter.address,
     ],
+    ['routeUpgradePolicy.kyberScalingHelper.address', market.routeUpgradePolicy.kyberScalingHelper.address],
+    ['routeUpgradePolicy.kyberScalingHelper.implementation', market.routeUpgradePolicy.kyberScalingHelper.implementation],
     [
       'mintRouteUpgradePolicy.pendleRouter.facet',
       market.mintRouteUpgradePolicy.pendleRouter.facet,
@@ -1069,6 +1133,8 @@ function assertRegistryIntegrity(market: Readonly<LoopingExecutionMarket>): void
     redeemSlot.storageSlot !==
       '0x6734da2a1f646755e54dcb758d0c7e0fe931aba0c85863dd8c0a6bdec717cb9c' ||
     market.routeUpgradePolicy.pendleSwap.implementationStorageSlot !==
+      '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' ||
+    market.routeUpgradePolicy.kyberScalingHelper.implementationStorageSlot !==
       '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
   ) {
     throw new Error('Looping route implementation slots changed without review.')
