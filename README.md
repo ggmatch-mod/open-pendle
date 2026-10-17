@@ -78,6 +78,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). In short: it's a static Vite app in `app
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). OpenPendle is a copyleft public good — forks and hosted derivatives must stay open under the same license (the license Uniswap's own interface uses). The app only calls Pendle's deployed contracts with hand-written ABIs; it vendors no Pendle contract source, so Pendle's licensing doesn't extend here. All runtime dependencies are permissive (MIT).
+[GPL-3.0-or-later](LICENSE). OpenPendle is a copyleft public good. The app calls Pendle's deployed contracts with hand-written ABIs and vendors no Pendle contract source. Dependencies retain their respective licenses.
 
 Built by [ggmxbt](https://x.com/ggmxbt).

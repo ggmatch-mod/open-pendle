@@ -48,7 +48,7 @@ The accounting defect was verified on live Ethereum at block **26212515**: reUSD
 | --- | --- |
 | Frontend TypeScript, production build, lint and whitespace | Pass. Production release flags are tested for the canonical main deployment; preview builds retain disabled entry flags. |
 | Documentation build and browser rendering | Pass, including Mermaid diagrams and plain rendered accounting formulas. |
-| Existing 23 application `check:*` commands | All pass, including the previously failing runtime policies. Fresh catalog and fork-harness safety checks are additional release gates. |
+| All 25 application `check:*` commands | All pass, including both runtime policies, strict catalog freshness and fork-harness safety. |
 | Core Foundry fork suite | **21/21 pass**, no failures or skips. |
 | Independent looping Foundry suites | **7/7 Ethereum and 7/7 Monad pass**. |
 | Production compiler: Market and Mint | **All four Ethereum/Monad lifecycles pass**: signed entry, increase, partial decrease, full exit, direct rescue, post-expiry redemption, and Mint PT/YT delivery. |
@@ -56,12 +56,31 @@ The accounting defect was verified on live Ethereum at block **26212515**: reUSD
 | PendleSwap reproduction | Exact runtime reproduction on all three chains using solc `0.8.30+commit.73712a01`, viaIR, Cancun, 1,000,000 optimizer runs and declared immutable substitutions. |
 | Dependency audits | App: **0 high/critical**, 16 moderate propagated nodes from one remaining advisory family. Docs: **0 findings**. |
 | Browser smoke | Home, disconnected portfolio, allocation preview, Action Center, wallet-free movers, Boros disconnected preview, Explore diagnostics and mobile navigation inspected. |
+| Hosted release preview | Explore shows **1,008 markets** without a stale-catalog warning or browser errors. Application and documentation Cloudflare previews build successfully; reviewed looping entry/exit stays gated on previews. |
+| GitHub CI on Node 22 | Frontend, docs, core/management/Market fork job, and both Ethereum/Monad Mint jobs pass. [Release checks](https://github.com/ggmatch-mod/open-pendle/pull/19/checks). |
 
 The Arbitrum proof impersonates a real position owner only inside Anvil and preauthorizes the production core action bundle because the owner's real signature is unavailable. It is an actual balance/debt/collateral proof, not a signed-authorization-wrapper proof. Ethereum and Monad lifecycle tests cover that signed wrapper independently. The source block hash is checked before fixture mutations and adapter/bundler balances start at zero. [Arbitrum proof summary](pendleswap-upgrade-2026-10-17/arbitrum-maturity-fork.json). Raw logs contain public addresses and local test state only.
 
 ## Catalog recovery evidence
 
-Recovery and incremental workflow validation are in progress on the release branch. A branch run cannot publish to main; the release must include the validated complete fresh artifact before it is ready to merge.
+The [recovery run](https://github.com/ggmatch-mod/open-pendle/actions/runs/39037880052) passed in **18m52s** and produced **1,008 markets**, **6/6 complete fresh chains**, **zero errors**, and **zero quarantined logs**. All 966 previous market identities and original event facts were retained; 42 markets were added. The validated artifact was committed and pushed as `8aad549`.
+
+The [incremental run](https://github.com/ggmatch-mod/open-pendle/actions/runs/39039377300) passed in **2m54s**, retaining all 1,008 markets with complete fresh coverage and zero errors/quarantine. Its first validation attempt exposed a one-millisecond request-start scheduling race; the bounded retry recovered. The scheduler now starts requests inside its queue gate before setting the next deadline. **30/30 strict spacing and fresh-snapshot repetitions pass**, without relaxing the spacing assertion. [Latest catalog workflow runs](https://github.com/ggmatch-mod/open-pendle/actions/workflows/factory-catalog.yml).
+
+| Chain | Markets | Committed incremental checkpoint |
+| --- | ---: | ---: |
+| Ethereum | 659 | 26212751 |
+| BNB Chain | 57 | 128183719 |
+| Monad | 22 | 114203702 |
+| Base | 80 | 52728282 |
+| Plasma | 38 | 35299657 |
+| Arbitrum | 152 | 515693407 |
+
+Plasma's indexed-source checkpoint is **12:43:57 UTC**, about 87 minutes behind the official RPC when checked. It remains inside the explicit 48-hour discovery freshness limit; the checkpoint was not advanced beyond proven log-source coverage. Opening a market still reads live state separately.
+
+These runs use the actual GitHub workflow and existing scheduler secrets. Branch publication is deliberately skipped; merging makes the repaired publisher available to main's existing schedule.
+
+Cloudflare application and documentation preview builds pass after the clean-install repair. Hosted v2 policies return JSON with `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`; legacy v1 entry is disabled and empty. The production domains remain on the previous main deployment until merge.
 
 ## Remaining limits
 

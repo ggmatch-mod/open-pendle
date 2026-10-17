@@ -472,12 +472,22 @@ class RpcClient {
       // Recheck after waking: another in-flight response may have extended the
       // shared deadline with Retry-After while this request was waiting.
       while (this.publicGatewayNextAt > Date.now()) await delay(this.publicGatewayNextAt - Date.now())
-      this.publicGatewayNextAt = Date.now() + PUBLIC_GATEWAY_MIN_INTERVAL_MS
+      // Start the request before releasing the queue. Reserving a deadline and
+      // invoking execute() in a later microtask can shorten the actual spacing
+      // when the event loop pauses between those two operations.
+      let request
+      try { request = execute() }
+      finally {
+        this.publicGatewayNextAt = Math.max(this.publicGatewayNextAt,
+          Date.now() + PUBLIC_GATEWAY_MIN_INTERVAL_MS)
+      }
+      // Wrap the promise so the queue waits only for request start, while HTTP
+      // responses can remain in flight concurrently.
+      return { request }
     })
     this.publicGatewayQueue = start.catch(() => undefined)
-    await start
     // HTTP timeout starts inside execute(), after the rate-limit queue.
-    return execute()
+    return (await start).request
   }
 
   async requestIndexedProxy(method, params) {
