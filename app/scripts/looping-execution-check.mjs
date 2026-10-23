@@ -598,11 +598,11 @@ assert.equal(
 )
 assert.equal(
   MONAD_LOOPING_AUSD.routeUpgradePolicy.pendleRouter.implementation,
-  getAddress('0xbb0Dd79794e58795b08b599297ec55a6Afb6AB58'),
+  getAddress('0x9D215290f43366BBcEFF40A79FBAC9Dd23325379'),
 )
 assert.equal(
   MONAD_LOOPING_AUSD.routeUpgradePolicy.pendleSwap.implementation,
-  getAddress('0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78'),
+  getAddress('0x22988295f144ceC67b39Cc437Fac36a62792B7ea'),
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.morpho,
@@ -618,7 +618,7 @@ assert.equal(
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleRouterImplementation,
-  '0x1f4fbfa10c4493836243d3325e486dd3e241cee5e715d00b68540ab8eed76181',
+  '0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333',
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleSwap,
@@ -626,7 +626,7 @@ assert.equal(
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleSwapImplementation,
-  '0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c',
+  '0xb0e1c1e9d33e0a3537dfc864d42fb51348d414a92b0845fbada2faddcdd6248a',
 )
 assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.kyberRouter,
@@ -644,7 +644,8 @@ assert.notEqual(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleRouter,
   market.runtimeCodePolicy.pendleRouter,
 )
-assert.notEqual(
+// The reviewed October23 action facet has identical bytecode on all chains.
+assert.equal(
   MONAD_LOOPING_AUSD.runtimeCodePolicy.pendleRouterImplementation,
   market.runtimeCodePolicy.pendleRouterImplementation,
 )
@@ -810,11 +811,11 @@ assert.deepEqual(
 )
 assert.equal(
   market.runtimeCodePolicy.pendleRouterImplementation,
-  '0x5e98f3973c2fdabae1168b4afe928c16d4ca9d71803efeacd978fc3bb3898063',
+  '0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333',
 )
 assert.equal(
   market.runtimeCodePolicy.pendleRouterRedeemImplementation,
-  '0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9',
+  '0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d',
 )
 assert.equal(
   market.runtimeCodePolicy.pendleSwap,
@@ -826,7 +827,7 @@ assert.equal(
 )
 assert.equal(
   market.runtimeCodePolicy.pendleSwapImplementation,
-  '0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df',
+  '0x16bec77a008c20d998d828aa1908221da056d9be0e0be74fe798cedaccc848ee',
 )
 assert.equal(
   market.runtimeCodePolicy.kyberRouter,
@@ -1064,6 +1065,19 @@ for (const eps of [0n, 1_000_000_000_000_001n]) {
     'ROUTE_NOT_ALLOWED',
   )
 }
+
+// Both zero bounds form canonical calldata accepted by the upstream Router,
+// but its zero offchain guess delegates to an independently upgradable facet.
+expectExecutionError(
+  () => validateLoopingBuyRoute({
+    route: buyRoute(1_000_000n, { guess: { guessMin: 0n, guessOffchain: 0n } }),
+    market,
+    wiring: routeWiring,
+    amountIn: 1_000_000n,
+  }),
+  'ROUTE_NOT_ALLOWED',
+  /approximation/,
+)
 
 const dynamicReceiverBuy = validateLoopingBuyRoute({
   route: buyRoute(1_000_000n, {

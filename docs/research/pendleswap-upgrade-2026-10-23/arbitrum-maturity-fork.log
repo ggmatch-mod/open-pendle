@@ -1,0 +1,48 @@
+
+> openpendle@0.0.0 test:looping-fork:arbitrum-maturity
+> node --experimental-strip-types scripts/looping-maturity-fork.mjs
+
+Current-state Arbitrum matured management, source block 517509161
+  Real public owner 0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8; only native gas funding is synthetic
+  compiled existing-authorization recovery: block 517509162, gas 25338
+  local owner authorization for compiler action calls: block 517509163, gas 47250
+  production compiler matured exit action calls: block 517509164, gas 685134
+  Matured exit exact-input sweep proof: [{"token":"0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef","amountIn":"879774324111372325","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/42161-matured-exit-0x5dab0877857da2326e0e7146011e4cba5856117da4c1a6ff88e9703950c4eff0.json
+  compiled post-exit authorization cleanup: block 517509165, gas 25338
+  compiled direct rescue approve-exact-repayment: block 517509163, gas 55425
+  compiled direct rescue repay-exact-shares: block 517509164, gas 101442
+  compiled direct rescue clear-morpho-allowance-after: block 517509165, gas 33501
+  compiled direct rescue withdraw-exact-collateral: block 517509166, gas 67975
+{
+  "observedAt": "2026-10-23T10:36:50.938Z",
+  "sourceBlock": "517509161",
+  "sourceBlockHash": "0x8af86c8e7b914b535919f79b0ee2d0e5256c7169bdc3e9dde2056966f8e091a1",
+  "sourceTimestamp": "1792751788",
+  "owner": "0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8",
+  "marketId": "0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985",
+  "borrowedShares": "5004316419",
+  "collateral": "879774324111372325",
+  "exitKind": "redeem-matured-pt",
+  "returnedLoanAssets": "874372",
+  "minimumReturnedLoanAssets": "865523",
+  "rescueSteps": [
+    "approve-exact-repayment",
+    "repay-exact-shares",
+    "clear-morpho-allowance-after",
+    "withdraw-exact-collateral"
+  ],
+  "fixture": "actual public position; local impersonation and native gas only",
+  "signedAuthorizationWrapperExercised": false,
+  "debtAndCollateralZero": true,
+  "tokenAndDebtShareConservation": true,
+  "authorizationsAndAllowancesCleared": true,
+  "swapInputConservation": [
+    {
+      "token": "0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef",
+      "amountIn": "879774324111372325",
+      "preexistingDustSwept": "0",
+      "transactionInputSwept": "0"
+    }
+  ]
+}

@@ -661,6 +661,8 @@ export function validateLoopingBuyRoute(
     !sameAddress(input.tokenIn, args.market.morphoMarketParams.loanToken) ||
     input.netTokenIn !== args.amountIn ||
     minPtOut <= 0n ||
+    // Zero delegates to the Router's separate Simple facet, outside these pins.
+    guess.guessOffchain <= 0n ||
     guess.guessMin > guess.guessOffchain ||
     guess.guessOffchain > guess.guessMax ||
     guess.maxIteration <= 0n ||

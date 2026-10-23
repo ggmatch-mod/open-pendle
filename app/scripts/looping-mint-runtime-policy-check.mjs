@@ -89,19 +89,11 @@ for (const market of LOOPING_ENTRY_EXECUTION_REGISTRY) {
     PENDLE_MINT_PY_FROM_TOKEN_SELECTOR_STORAGE_SLOT,
   )
   assert.match(mintRouter.facetRuntimeCodeHash, /^0x[0-9a-f]{64}$/)
-  if (market.chainId === 143) {
-    assert.equal(mintRouter.facet, '0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97')
-    assert.equal(
-      mintRouter.facetRuntimeCodeHash,
-      '0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8',
-    )
-  } else {
-    assert.equal(mintRouter.facet, '0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44')
-    assert.equal(
-      mintRouter.facetRuntimeCodeHash,
-      '0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9',
-    )
-  }
+  assert.equal(mintRouter.facet, '0x1266261289d815650A6bcdb308766BE36efA8149')
+  assert.equal(
+    mintRouter.facetRuntimeCodeHash,
+    '0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d',
+  )
 }
 
 const policyNow = Date.parse('2026-07-23T08:00:00.000Z')

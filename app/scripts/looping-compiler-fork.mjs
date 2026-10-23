@@ -22,6 +22,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, mainnet, monad } from 'viem/chains'
 import { loopingErc20Abi } from '../src/lib/loopingAbi.ts'
+import { assertPendleSwapFlow, capturePendleSwapFlow, recordRedactedForkTrace } from './looping-swap-flow-proof.mjs'
 import {
   buildSignedLoopingDecreaseBundle,
   buildSignedLoopingEntryBundle,
@@ -450,6 +451,17 @@ async function assertSignedBundleCallsLocally({ publicClient, account, bundle, l
   }
 }
 
+async function sendAuditedSwapTransaction({ market, ...args }) {
+  const before = await capturePendleSwapFlow(args.publicClient, market)
+  const hash = await sendLocalTransaction(args)
+  const receipt = await args.publicClient.getTransactionReceipt({ hash })
+  const after = await capturePendleSwapFlow(args.publicClient, market)
+  const evidence = assertPendleSwapFlow({ market, before, after, receipt })
+  console.log(`  ${args.label} exact-input sweep proof: ${JSON.stringify(evidence)}`)
+  await recordRedactedForkTrace(args.publicClient, { hash, market, label: args.label })
+  return hash
+}
+
 async function approveExact({
   walletClient,
   publicClient,
@@ -634,7 +646,8 @@ async function executeCompiledEntry({
     bundle,
     label: 'compiled signed entry',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -741,7 +754,8 @@ async function executeCompiledIncrease({
     bundle,
     label: 'compiled signed leverage increase',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -841,7 +855,8 @@ async function executeCompiledDecrease({
     bundle,
     label: 'compiled signed partial leverage decrease',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -908,7 +923,8 @@ async function executeCompiledExit({
     bundle,
     label: 'compiled signed exit',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,

@@ -4,11 +4,14 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import { keccak256 } from 'viem'
 
-const review = JSON.parse(readFileSync(new URL('../../docs/research/pendleswap-upgrade-2026-10-17/review.json', import.meta.url), 'utf8'))
 const option = (name) => process.argv[process.argv.indexOf(name) + 1]
+const reviewPath = process.argv.includes('--review')
+  ? resolve(option('--review'))
+  : new URL('../../docs/research/pendleswap-upgrade-2026-10-17/review.json', import.meta.url)
+const review = JSON.parse(readFileSync(reviewPath, 'utf8'))
 const soljsonPath = process.argv.includes('--soljson') ? option('--soljson') : null
 if (!soljsonPath || !isAbsolute(soljsonPath)) throw new Error('Pass --soljson /absolute/path/to/official-solc-0.8.30/soljson.js; compiler SHA-256 is verified before loading')
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
@@ -56,6 +59,10 @@ async function rpc(url, method, params) {
 for (const expected of review.bytecodeReproduction.results) {
   const url = endpoints[expected.chain]
   const block = await rpc(url, 'eth_blockNumber', [])
+  if (review.proxy) {
+    const implementationWord = await rpc(url, 'eth_getStorageAt', [review.proxy.address, review.proxy.implementationStorageSlot, block])
+    if (`0x${implementationWord.slice(-40)}`.toLowerCase() !== review.implementation.toLowerCase()) throw new Error(`${expected.chain} active PendleSwap implementation differs from the selected review`)
+  }
   const live = await rpc(url, 'eth_getCode', [review.implementation, block])
   let reproduced = contract.evm.deployedBytecode.object
   for (const { start, length } of references) {

@@ -24,6 +24,7 @@ import {
 } from '../src/lib/loopingExecution.ts'
 import { ARBITRUM_LOOPING_CANARY as market } from '../src/lib/loopingRegistry.ts'
 import { prepareWithPendleQuoteRetry } from './looping-compiler-fork.mjs'
+import { assertPendleSwapFlow, capturePendleSwapFlow, recordRedactedForkTrace } from './looping-swap-flow-proof.mjs'
 
 const PUBLIC_OWNERS = Object.freeze([
   '0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8',
@@ -259,7 +260,12 @@ export async function runMaturityFork({
       functionName: 'setAuthorization', args: [market.contracts.generalAdapter1, true] }) },
     'local owner authorization for compiler action calls')
     assert(Date.now() < intent.validUntilMs, 'The real quote must remain fresh at submission')
+    const swapFlowBefore = await capturePendleSwapFlow(client, market)
     const exitReceipt = await send(intent, 'production compiler matured exit action calls')
+    const swapFlowAfter = await capturePendleSwapFlow(client, market)
+    const swapFlowEvidence = assertPendleSwapFlow({ market, before: swapFlowBefore, after: swapFlowAfter, receipt: exitReceipt })
+    console.log(`  Matured exit exact-input sweep proof: ${JSON.stringify(swapFlowEvidence)}`)
+    await recordRedactedForkTrace(client, { hash: exitReceipt.transactionHash, market, label: 'matured-exit' })
     const cleanup = await prepareDirectLoopingRescue({ client, owner, market })
     assert.equal(cleanup.phase, 'revoke-adapter')
     await send(cleanup.intents[0], 'compiled post-exit authorization cleanup')
@@ -295,7 +301,8 @@ export async function runMaturityFork({
       minimumReturnedLoanAssets: String(preview.minimumReturnedAssets), rescueSteps,
       fixture: 'actual public position; local impersonation and native gas only',
       signedAuthorizationWrapperExercised: false, debtAndCollateralZero: true,
-      tokenAndDebtShareConservation: true, authorizationsAndAllowancesCleared: true }
+      tokenAndDebtShareConservation: true, authorizationsAndAllowancesCleared: true,
+      swapInputConservation: swapFlowEvidence }
     console.log(JSON.stringify(summary, null, 2))
     return summary
   } finally {
