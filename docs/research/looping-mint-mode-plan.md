@@ -417,29 +417,33 @@ available.
 ## Runtime policy and recovery
 
 Every Mint entry or increase first passes the existing build flag and
-same-origin `looping-execution-policy.v1.json`, then independently requires:
+same-origin `looping-execution-policy.v2.json`, then independently requires:
 
 - `VITE_LOOPING_MINT_BETA_ENABLED=true`; and
 - the matching `mint.entry` or `mint.increase` capability in
-  `app/public/looping-mint-execution-policy.v1.json`.
+  `app/public/looping-mint-execution-policy.v2.json`.
 
-The implemented `openpendle.looping-mint-execution-policy.v1` schema contains
+The implemented `openpendle.looping-mint-execution-policy.v2` schema contains
 only `schema`, `revision`, and `mint.entry` / `mint.increase`. Each capability
-has the exact keys `enabled`, `validUntil`, and `markets`. The policy is fetched
-same-origin with `cache: no-store`, has at most seven days of validity, and
-fails closed when missing, stale, malformed, redirected, cross-origin, or
-mismatched. The canonical Cloudflare main build enables the Mint flag; the
-committed policy enables entry for 19 live markets and keeps increase disabled.
+has the exact keys `enabled` and `markets`. Capabilities do not expire. The
+policy is fetched same-origin with `cache: no-store` before sensitive wallet
+steps and fails closed when missing, disabled, malformed, redirected,
+cross-origin, or mismatched. The canonical Cloudflare main build enables the
+Mint flag; the committed policy scopes entry to validated live markets and
+keeps increase disabled. To pause a capability, set `enabled: false`, clear
+its market list, and increment the revision. The original v1 URLs serve disabled,
+empty compatibility policies so cached old clients cannot keep entering.
 
 Maximum input/debt, borrow-liquidity share, configured maturity runway, and
 route/pin rollout metadata are future rollout controls, not fields in the
-implemented v1 Mint policy. Current health, liquidity, quote, maturity, route,
+implemented v2 Mint policy. Current health, liquidity, quote, maturity, route,
 and code-pin safety remains in the compiler, eligibility checks, and registry;
 there is no fixed browser beta amount cap.
 
 This separation can pause Mint risk increases without disabling Market Mode,
 reduction, exit, repayment, or pending recovery. It also preserves the strict
-shape of the existing Market Mode v1 policy.
+independent Market Mode policy. Market maturities, quote freshness, signature
+deadlines, and code-pin checks are unchanged by the durable authorization.
 
 Pending state now uses a closed, versioned schema containing the operation,
 acquisition mode, exact market and YT identity, minimum YT delivery, bounded
@@ -511,7 +515,7 @@ Implemented touchpoints:
 - `app/src/lib/loopingBeta.ts`
 - `app/src/lib/loopingRuntimePolicy.ts`
 - `app/src/lib/loopingMintRuntimePolicy.ts`
-- `app/public/looping-mint-execution-policy.v1.json`
+- `app/public/looping-mint-execution-policy.v2.json`
 - `app/vite.config.ts`
 
 Implemented work:

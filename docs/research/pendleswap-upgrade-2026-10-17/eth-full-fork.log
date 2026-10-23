@@ -1,0 +1,53 @@
+OpenPendle looping fork fixture
+  Chain: Ethereum (1)
+  Aggregator: kyberswap
+  RPC host: ethereum-rpc.publicnode.com
+  Ethereum block: 26212641
+  Initial 1 USDC via 0x5086bf358635b81d8c47c66d1c8b9e567db70c72: expected 1.01627 PT, minimum 1.006107 PT
+  Callback 0.5 USDC via 0x5086bf358635b81d8c47c66d1c8b9e567db70c72: expected 0.508134 PT, minimum 0.503052 PT
+  Morpho collateral promise: 1.509159 PT
+  Full exit via 0x5086bf358635b81d8c47c66d1c8b9e567db70c72: expected 1.483678 USDC, minimum 1.468841 USDC
+  Finite Morpho debt: at most 488332528896 shares; repayment cap 0.505002 USDC
+No files changed, compilation skipped
+2026-10-17T13:42:07.270210Z  WARN evm::traces::external: etherscan config not found
+2026-10-17T13:42:07.320702Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/alvisetaranto/.foundry/cache/rpc/mainnet/26212641"
+
+Ran 7 tests for test/LoopingFork.t.sol:LoopingForkTest
+[PASS] test_atomicEntryAndFullUnwind() (gas: 1597255)
+[PASS] test_atomicEntryOnly() (gas: 1230507)
+[PASS] test_callbackFailureRollsBackEverything() (gas: 1000951)
+[PASS] test_fullUnwindAfterInterestAccrues() (gas: 1590526)
+[PASS] test_signedMorphoAuthorizationAndRevocation() (gas: 1621766)
+[PASS] test_singleMulticallBadExitRollsBackEntry() (gas: 1442321)
+[PASS] test_singleMulticallSignedRoundTrip() (gas: 1643010)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 3.80s (24.79s CPU time)
+
+Ran 1 test suite in 3.86s (3.80s CPU time): 7 tests passed, 0 failed, 0 skipped (7 total tests)
+TypeScript compiler fork proof
+  Local Anvil: http://127.0.0.1:18545
+  Fresh Ethereum block: 26212641
+  Acquisition mode: market
+  Collateral decimals: 6
+  Yield-token decimals: 6
+  Loan-token balance slot: 9
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1290874, padded 1778136
+  compiled signed leverage increase gas: estimate 923508, padded 1300560
+  compiled signed partial leverage decrease gas: estimate 948758, padded 1333385
+  compiled signed exit gas: estimate 846326, padded 1200223
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1290874, padded 1778136
+  compiled rescue approve-exact-repayment gas: estimate 55937, padded 172718
+  compiled rescue repay-exact-shares gas: estimate 75803, padded 198543
+  compiled rescue clear-morpho-allowance-after gas: estimate 38529, padded 150087
+  compiled rescue withdraw-exact-collateral gas: estimate 77532, padded 200791
+  exact adapter approval gas: estimate 55937, padded 172718
+  compiled signed entry gas: estimate 1290886, padded 1778151
+  compiled signed exit gas: estimate 844232, padded 1197501
+  Signed entry calls: 10
+  Increase leverage: 1500422856468002526 -> 1697362889470776178 WAD (6 calls)
+  Partial decrease: 1697362889470776178 -> 1458186306790735386 WAD (5 calls)
+  Signed exit calls: 5
+  Re-prepared rescue: approve-exact-repayment -> repay-exact-shares -> clear-morpho-allowance-after -> withdraw-exact-collateral
+  Post-expiry signed exit: redeem-matured-pt at 1796860801 with 500000 loan-token base units borrowed (5 calls)
+TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Ethereum fork

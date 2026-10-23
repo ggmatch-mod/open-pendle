@@ -7,6 +7,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import {
   createPublicClient,
   createWalletClient,
@@ -18,9 +19,10 @@ import {
   toHex,
   zeroHash,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, mainnet, monad } from 'viem/chains'
 import { loopingErc20Abi } from '../src/lib/loopingAbi.ts'
+import { assertPendleSwapFlow, capturePendleSwapFlow, recordRedactedForkTrace } from './looping-swap-flow-proof.mjs'
 import {
   buildSignedLoopingDecreaseBundle,
   buildSignedLoopingEntryBundle,
@@ -51,12 +53,10 @@ import {
   ARBITRUM_LOOPING_CHAIN_ID,
   ETHEREUM_LOOPING_CHAIN_ID,
   ETHEREUM_LOOPING_REUSD,
-  MONAD_LOOPING_AUSD,
+  MONAD_LOOPING_USDAT,
   MONAD_LOOPING_CHAIN_ID,
 } from '../src/lib/loopingRegistry.ts'
 
-const TEST_PRIVATE_KEY =
-  '0x00000000000000000000000000000000000000000000000000000000000a11ce'
 const DEFAULT_ANVIL_PORT = 18_545
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
 const mappingSlotParameters = parseAbiParameters('address owner, uint256 slot')
@@ -84,7 +84,7 @@ const COMPILER_FORK_TARGETS = Object.freeze({
   [MONAD_LOOPING_CHAIN_ID]: Object.freeze({
     name: 'Monad',
     chain: monad,
-    market: MONAD_LOOPING_AUSD,
+    market: MONAD_LOOPING_USDAT,
     hardfork: 'osaka',
   }),
   [ARBITRUM_LOOPING_CHAIN_ID]: Object.freeze({
@@ -184,6 +184,27 @@ function assertLoopback(url) {
   const parsed = new URL(url)
   if (!LOOPBACK_HOSTS.has(parsed.hostname)) {
     fail(`Refusing a state-changing fork request to non-loopback host ${parsed.hostname}`)
+  }
+}
+
+export async function assertCompilerForkPortAvailable(port) {
+  await new Promise((resolve, reject) => {
+    const probe = createServer()
+    probe.once('error', (error) => reject(new Error(
+      `Refusing to reuse occupied or unavailable local Anvil port ${port}: ${error.code}`,
+    )))
+    probe.listen({ host: '127.0.0.1', port }, () => probe.close((error) => error ? reject(error) : resolve()))
+  })
+}
+
+export async function assertCompilerForkHead(client, sourceBlock) {
+  const localBlock = await client.getBlock({ blockTag: 'latest' })
+  if (
+    localBlock.number !== BigInt(sourceBlock.number) ||
+    typeof sourceBlock.hash !== 'string' ||
+    localBlock.hash?.toLowerCase() !== sourceBlock.hash.toLowerCase()
+  ) {
+    fail('Local Anvil head does not match the captured source fork block; refusing fixture mutations')
   }
 }
 
@@ -430,6 +451,17 @@ async function assertSignedBundleCallsLocally({ publicClient, account, bundle, l
   }
 }
 
+async function sendAuditedSwapTransaction({ market, ...args }) {
+  const before = await capturePendleSwapFlow(args.publicClient, market)
+  const hash = await sendLocalTransaction(args)
+  const receipt = await args.publicClient.getTransactionReceipt({ hash })
+  const after = await capturePendleSwapFlow(args.publicClient, market)
+  const evidence = assertPendleSwapFlow({ market, before, after, receipt })
+  console.log(`  ${args.label} exact-input sweep proof: ${JSON.stringify(evidence)}`)
+  await recordRedactedForkTrace(args.publicClient, { hash, market, label: args.label })
+  return hash
+}
+
 async function approveExact({
   walletClient,
   publicClient,
@@ -614,7 +646,8 @@ async function executeCompiledEntry({
     bundle,
     label: 'compiled signed entry',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -721,7 +754,8 @@ async function executeCompiledIncrease({
     bundle,
     label: 'compiled signed leverage increase',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -821,7 +855,8 @@ async function executeCompiledDecrease({
     bundle,
     label: 'compiled signed partial leverage decrease',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -888,7 +923,8 @@ async function executeCompiledExit({
     bundle,
     label: 'compiled signed exit',
   })
-  const transactionHash = await sendLocalTransaction({
+  const transactionHash = await sendAuditedSwapTransaction({
+    market,
     walletClient,
     publicClient,
     account,
@@ -994,8 +1030,13 @@ export async function runLoopingCompilerForkProof({
     fail(`Compiler fork source is chain ${sourceChainId}, expected ${chainName}`)
   }
   const blockNumber = BigInt(freshBlockHex)
+  const sourceBlock = await jsonRpc(sourceRpcUrl, 'eth_getBlockByNumber', [freshBlockHex, false])
+  if (sourceBlock === null || sourceBlock.number !== freshBlockHex || typeof sourceBlock.hash !== 'string') {
+    fail('Compiler fork source block identity is unavailable')
+  }
   const localRpcUrl = `http://127.0.0.1:${anvilPort}`
   assertLoopback(localRpcUrl)
+  await assertCompilerForkPortAvailable(anvilPort)
   const anvil = spawn(
     'anvil',
     [
@@ -1016,11 +1057,15 @@ export async function runLoopingCompilerForkProof({
 
   try {
     await waitForAnvil(localRpcUrl, anvil, chainId)
-    const account = privateKeyToAccount(TEST_PRIVATE_KEY)
+    // Public deterministic fixture keys can acquire live EIP-7702 delegation
+    // and cease to model an EOA. Use a disposable account for this local fork;
+    // production delegated-account rejection stays intact.
+    const account = privateKeyToAccount(generatePrivateKey())
     const basePublicClient = createPublicClient({
       chain,
       transport: http(localRpcUrl, { retryCount: 0, timeout: 120_000 }),
     })
+    await assertCompilerForkHead(basePublicClient, sourceBlock)
     const publicClient = withAnvilPendingCompatibility(basePublicClient)
     const walletClient = createWalletClient({
       account,

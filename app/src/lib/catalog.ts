@@ -52,10 +52,24 @@ export interface CatalogMarket {
   icon: string | null
   /** USD value reported by Pendle. Not reliable as a current metric after maturity. */
   tvl: number | null
+  /** Pendle-reported market liquidity in USD. */
+  liquidity: number | null
   /** Decimal APY: 0.05 means 5%. */
   impliedApy: number | null
   /** Pendle-reported APY for the underlying/SY exposure. */
   underlyingApy: number | null
+  /** Asset whose live USD price represents one unit of the yield-bearing exposure. */
+  underlyingAsset: Address | null
+  /** Asset used by Pendle as the market's unit of account. */
+  accountingAsset: Address | null
+  /** Underlying units represented by one SY unit, as reported by Pendle. */
+  conversionRate: number | null
+  /** Pendle market discovery categories, normalized for filtering only. */
+  categoryIds: string[]
+  /** Pendle's own Prime-market curation flag; not a guarantee of safety. */
+  isPrime: boolean
+  /** Pendle's volatile-exposure flag. Null means the API omitted it. */
+  isVolatile: boolean | null
   /** Unix seconds. */
   createdAt: number | null
   /** On-chain time lifecycle; independent from Pendle frontend listing state. */
@@ -280,6 +294,15 @@ function nonNegativeNumber(value: unknown): number | null {
   return parsed !== null && parsed >= 0 ? parsed : null
 }
 
+function positiveNumber(value: unknown): number | null {
+  const parsed = finiteNumber(value)
+  return parsed !== null && parsed > 0 ? parsed : null
+}
+
+function optionalBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
+}
+
 function unixSeconds(value: unknown): number | null {
   const numeric = finiteNumber(value)
   if (numeric !== null) {
@@ -422,6 +445,14 @@ export function normalizeCatalogMarket(
   if (marketAddress === null) return null
 
   const details = record(row.details)
+  const marketInfo = record(row.marketInfo)
+  const conversionRate = record(marketInfo?.conversionRate)
+  const categoryIds = Array.isArray(row.categoryIds)
+    ? row.categoryIds
+        .map((candidate) => displayText(candidate, 80)?.toLowerCase() ?? null)
+        .filter((candidate): candidate is string => candidate !== null)
+        .slice(0, 64)
+    : []
   const expiry = firstValid([row.expiry, row.expiryTimestamp], unixSeconds)
   return {
     key: catalogMarketKey(chainId, marketAddress),
@@ -439,11 +470,27 @@ export function normalizeCatalogMarket(
     sy: firstValid([row.sy, row.syAddress], (candidate) => assetAddress(candidate, chainId)),
     icon: firstValid([row.icon, row.iconUrl], (candidate) => displayText(candidate, 2_048)),
     tvl: firstValid([details?.totalTvl, row.totalTvl, row.tvl], nonNegativeNumber),
+    liquidity: firstValid([details?.liquidity, row.liquidity], nonNegativeNumber),
     impliedApy: firstValid([details?.impliedApy, row.impliedApy], finiteNumber),
     underlyingApy: firstValid(
       [details?.underlyingApy, row.underlyingApy],
       underlyingApyNumber,
     ),
+    underlyingAsset: firstValid(
+      [row.underlyingAsset, row.underlyingAssetAddress],
+      (candidate) => assetAddress(candidate, chainId),
+    ),
+    accountingAsset: firstValid(
+      [row.accountingAsset, row.accountingAssetAddress],
+      (candidate) => assetAddress(candidate, chainId),
+    ),
+    conversionRate: firstValid(
+      [conversionRate?.rate, row.conversionRate],
+      positiveNumber,
+    ),
+    categoryIds,
+    isPrime: optionalBoolean(row.isPrime) ?? false,
+    isVolatile: optionalBoolean(row.isVolatile),
     createdAt: firstValid([row.timestamp, row.createdAt], unixSeconds),
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus,
@@ -1064,8 +1111,16 @@ function mergePendleRows(
     sy: preferred.sy ?? fallback.sy,
     icon: preferred.icon ?? fallback.icon,
     tvl: preferred.tvl ?? fallback.tvl,
+    liquidity: preferred.liquidity ?? fallback.liquidity,
     impliedApy: preferred.impliedApy ?? fallback.impliedApy,
     underlyingApy: preferred.underlyingApy ?? fallback.underlyingApy,
+    underlyingAsset: preferred.underlyingAsset ?? fallback.underlyingAsset,
+    accountingAsset: preferred.accountingAsset ?? fallback.accountingAsset,
+    conversionRate: preferred.conversionRate ?? fallback.conversionRate,
+    categoryIds:
+      preferred.categoryIds.length > 0 ? preferred.categoryIds : fallback.categoryIds,
+    isPrime: preferred.isPrime || fallback.isPrime,
+    isVolatile: preferred.isVolatile ?? fallback.isVolatile,
     createdAt: preferred.createdAt ?? fallback.createdAt,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus:
@@ -1092,8 +1147,15 @@ function factoryCatalogMarket(
     sy: market.sy ?? null,
     icon: null,
     tvl: null,
+    liquidity: null,
     impliedApy: null,
     underlyingApy: null,
+    underlyingAsset: null,
+    accountingAsset: null,
+    conversionRate: null,
+    categoryIds: [],
+    isPrime: false,
+    isVolatile: null,
     createdAt: market.createdAt ?? null,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus: null,
@@ -1117,8 +1179,16 @@ function enrichFactoryMarket(
     sy: factory.sy ?? pendle.sy,
     icon: pendle.icon ?? factory.icon,
     tvl: pendle.tvl ?? factory.tvl,
+    liquidity: pendle.liquidity ?? factory.liquidity,
     impliedApy: pendle.impliedApy ?? factory.impliedApy,
     underlyingApy: pendle.underlyingApy ?? factory.underlyingApy,
+    underlyingAsset: pendle.underlyingAsset ?? factory.underlyingAsset,
+    accountingAsset: pendle.accountingAsset ?? factory.accountingAsset,
+    conversionRate: pendle.conversionRate ?? factory.conversionRate,
+    categoryIds:
+      pendle.categoryIds.length > 0 ? pendle.categoryIds : factory.categoryIds,
+    isPrime: pendle.isPrime || factory.isPrime,
+    isVolatile: pendle.isVolatile ?? factory.isVolatile,
     createdAt: factory.createdAt ?? pendle.createdAt,
     lifecycle: catalogMarketLifecycle(expiry, now),
     pendleStatus: pendle.pendleStatus,

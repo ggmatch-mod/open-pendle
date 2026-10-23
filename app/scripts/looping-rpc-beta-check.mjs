@@ -24,9 +24,7 @@ import {
   mayUseLoopingWalletReadFallback,
 } from '../src/lib/loopingRpc.ts'
 import {
-  LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS,
   LOOPING_RUNTIME_ENTRY_POLICY_MAX_MARKETS,
-  LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS,
   LOOPING_RUNTIME_ENTRY_POLICY_PATH,
   LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA,
   LoopingRuntimePolicyError,
@@ -60,7 +58,7 @@ const pageSource = readFileSync(
 )
 const headersSource = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8')
 const committedPolicySource = readFileSync(
-  new URL('../public/looping-execution-policy.v1.json', import.meta.url),
+  new URL('../public/looping-execution-policy.v2.json', import.meta.url),
   'utf8',
 )
 const committedPolicy = JSON.parse(committedPolicySource)
@@ -223,7 +221,7 @@ assert.doesNotMatch(panelSource, /Beta caps:|temporary amount cap/)
 assert.match(panelSource, /no beta-size amount cap/)
 
 console.log('The live entry switch is same-origin, no-store, scoped, and fail-closed')
-assert.equal(LOOPING_RUNTIME_ENTRY_POLICY_PATH, '/looping-execution-policy.v1.json')
+assert.equal(LOOPING_RUNTIME_ENTRY_POLICY_PATH, '/looping-execution-policy.v2.json')
 const expectedCommittedPolicyMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY
   .map((market) => ({
     chainId: market.chainId,
@@ -233,27 +231,30 @@ const expectedCommittedPolicyMarkets = LOOPING_ENTRY_EXECUTION_REGISTRY
     left.chainId - right.chainId ||
     left.morphoMarketId.localeCompare(right.morphoMarketId))
 assert.equal(committedPolicy.schema, LOOPING_RUNTIME_ENTRY_POLICY_SCHEMA)
-assert.equal(committedPolicy.revision, 3)
-assert.equal(committedPolicy.entry.enabled, true)
-assert.equal(typeof committedPolicy.entry.validUntil, 'string')
-assert.deepEqual(committedPolicy.entry.markets, expectedCommittedPolicyMarkets)
-assert.ok(
-  Buffer.byteLength(committedPolicySource, 'utf8') <= 4_096,
-  'The committed runtime entry policy must fit its response-size limit.',
-)
-const committedPolicyRemainingMs =
-  Date.parse(committedPolicy.entry.validUntil) - Date.now()
-assert.ok(
-  committedPolicyRemainingMs >= LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS,
-  'The committed runtime entry policy must still be live.',
-)
-assert.ok(
-  committedPolicyRemainingMs <= LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS,
-  'The committed runtime entry policy must not exceed seven days.',
-)
+assert.ok(committedPolicy.revision >= 1)
+assert.equal(typeof committedPolicy.entry.enabled, 'boolean')
+assert.deepEqual(Object.keys(committedPolicy.entry).sort(), ['enabled', 'markets'])
+assert.equal(committedPolicy.entry.enabled, committedPolicy.entry.markets.length > 0)
+const reviewedPolicyMarkets = new Set(expectedCommittedPolicyMarkets.map(
+  ({ chainId, morphoMarketId }) => `${chainId}:${morphoMarketId}`,
+))
+for (const scoped of committedPolicy.entry.markets) {
+  const key = `${scoped.chainId}:${scoped.morphoMarketId}`
+  assert.ok(reviewedPolicyMarkets.has(key), 'Production entry scope must be reviewed.')
+  const market = LOOPING_ENTRY_EXECUTION_REGISTRY.find((candidate) =>
+    candidate.chainId === scoped.chainId && candidate.marketId.toLowerCase() === scoped.morphoMarketId)
+  assert.ok(market.pendleMarketExpiry > BigInt(Math.floor(Date.now() / 1_000)),
+    'Production entry scope must not contain a matured market.')
+}
+assert.ok(Buffer.byteLength(committedPolicySource, 'utf8') <= 4_096)
+const legacyPolicy = JSON.parse(readFileSync(
+  new URL('../public/looping-execution-policy.v1.json', import.meta.url), 'utf8',
+))
+assert.equal(legacyPolicy.schema, 'openpendle.looping-execution-policy.v1')
+assert.deepEqual(legacyPolicy.entry, { enabled: false, validUntil: null, markets: [] })
 assert.match(
   headersSource,
-  /\/looping-execution-policy\.v1\.json\n\s+Cache-Control: no-store, no-cache, must-revalidate, max-age=0\n\s+Cloudflare-CDN-Cache-Control: no-store\n\s+CDN-Cache-Control: no-store/,
+  /\/looping-execution-policy\.v2\.json\n\s+Cache-Control: no-store, no-cache, must-revalidate, max-age=0\n\s+Cloudflare-CDN-Cache-Control: no-store\n\s+CDN-Cache-Control: no-store/,
 )
 assert.equal(hookSource.includes('assertLoopingRuntimeEntryEnabled'), true)
 
@@ -263,7 +264,6 @@ const disabledPolicy = {
   revision: 1,
   entry: {
     enabled: false,
-    validUntil: null,
     markets: [],
   },
 }
@@ -272,9 +272,6 @@ const enabledPolicy = {
   revision: 7,
   entry: {
     enabled: true,
-    validUntil: new Date(
-      policyNow + LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS,
-    ).toISOString(),
     markets: [{
       chainId: 42161,
       morphoMarketId:
@@ -398,39 +395,55 @@ await expectPolicyFailure({
   marketId: ARBITRUM_LOOPING_USDT0_USDAI.marketId,
   clock: Date.now,
   fetchPolicy: async (input) => policyResponseFor(input, committedPolicy),
-}, 'does not cover')
+}, committedPolicy.entry.enabled ? 'does not cover' : 'paused')
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(
     input,
     { ...enabledPolicy, extra: true },
   ),
 }, 'invalid')
+// Capability authorization is durable; market maturities remain compiler checks.
+for (const clockDate of ['2026-10-17T00:00:00.000Z', '2100-01-01T00:00:00.000Z']) {
+  await assertLoopingRuntimeEntryEnabled({
+    chainId: 42161,
+    marketId: enabledPolicy.entry.markets[0].morphoMarketId,
+    origin: 'https://openpendle.com',
+    clock: () => Date.parse(clockDate),
+    fetchPolicy: async (input) => policyResponseFor(input, enabledPolicy),
+  })
+}
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(input, {
-    ...enabledPolicy,
-    entry: { ...enabledPolicy.entry, validUntil: '2026-07-20T13:59:59.000Z' },
+    ...enabledPolicy, entry: { ...enabledPolicy.entry, validUntil: null },
   }),
-}, 'expired')
+}, 'invalid')
 await expectPolicyFailure({
-  fetchPolicy: async (input) => policyResponseFor(input, {
-    ...enabledPolicy,
-    entry: {
-      ...enabledPolicy.entry,
-      validUntil: new Date(
-        policyNow + LOOPING_RUNTIME_ENTRY_POLICY_MIN_REMAINING_MS - 1,
-      ).toISOString(),
+  fetchPolicy: async (input) => policyResponseFor(input, legacyPolicy),
+}, 'invalid')
+let emergencyDisabled = false
+const emergencyFetch = async (input) =>
+  policyResponseFor(input, emergencyDisabled ? disabledPolicy : enabledPolicy)
+await assertLoopingRuntimeEntryEnabled({
+  chainId: 42161,
+  marketId: enabledPolicy.entry.markets[0].morphoMarketId,
+  origin: 'https://openpendle.com',
+  fetchPolicy: emergencyFetch,
+  clock: () => policyNow,
+})
+emergencyDisabled = true
+await expectPolicyFailure({ fetchPolicy: emergencyFetch }, 'paused')
+for (const hangBody of [false, true]) {
+  await expectPolicyFailure({
+    timeoutMs: 5,
+    fetchPolicy: async (input) => {
+      const never = new Promise(() => {})
+      if (!hangBody) return never
+      const response = policyResponseFor(input, enabledPolicy)
+      response.text = () => never
+      return response
     },
-  }),
-}, 'expired')
-let policyClockCalls = 0
-await expectPolicyFailure({
-  clock: () => {
-    policyClockCalls += 1
-    return policyClockCalls === 1
-      ? policyNow
-      : policyNow + LOOPING_RUNTIME_ENTRY_POLICY_MAX_VALIDITY_MS
-  },
-}, 'expired')
+  }, 'could not be verified')
+}
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(
     input,
@@ -466,12 +479,12 @@ await expectPolicyFailure({
 }, 'could not be verified')
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(input, enabledPolicy, {
-    url: 'https://example.com/looping-execution-policy.v1.json',
+    url: 'https://example.com/looping-execution-policy.v2.json',
   }),
 }, 'invalid')
 await expectPolicyFailure({
   fetchPolicy: async (input) => policyResponseFor(input, enabledPolicy, {
-    url: 'https://openpendle.com/looping-execution-policy.v1.json',
+    url: 'https://openpendle.com/looping-execution-policy.v2.json',
   }),
 }, 'invalid')
 await expectPolicyFailure({

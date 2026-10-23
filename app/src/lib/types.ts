@@ -53,7 +53,7 @@ export interface SyInfo {
   yieldToken: Address
   tokensIn: Address[]
   tokensOut: Address[]
-  /** 1e18-scaled SY -> accounting asset. */
+  /** Raw asset = raw SY * exchangeRate / 1e18. Zero means unavailable. */
   exchangeRate: bigint
 }
 

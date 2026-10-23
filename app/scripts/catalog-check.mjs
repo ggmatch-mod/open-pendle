@@ -25,6 +25,8 @@ const A = {
   pt: '0x2222222222222222222222222222222222222222',
   yt: '0x3333333333333333333333333333333333333333',
   sy: '0x4444444444444444444444444444444444444444',
+  underlying: '0x5555555555555555555555555555555555555555',
+  accounting: '0x6666666666666666666666666666666666666666',
 }
 
 function pendleRow(overrides = {}) {
@@ -39,8 +41,15 @@ function pendleRow(overrides = {}) {
     pt: `42161-${A.pt}`,
     yt: `42161-${A.yt}`,
     sy: `42161-${A.sy}`,
+    underlyingAsset: `42161-${A.underlying}`,
+    accountingAsset: `42161-${A.accounting}`,
+    categoryIds: ['Stables', 'RWA'],
+    isPrime: true,
+    isVolatile: false,
+    marketInfo: { conversionRate: { rate: 1.234 } },
     details: {
       totalTvl: 123_456.78,
+      liquidity: 98_765.43,
       impliedApy: 0.071,
       underlyingApy: 0.052,
     },
@@ -177,8 +186,15 @@ assert.equal(normalized.yt, A.yt)
 assert.equal(normalized.sy, A.sy)
 assert.equal(normalized.expiry, Date.parse('2027-02-25T00:00:00.000Z') / 1_000)
 assert.equal(normalized.tvl, 123_456.78)
+assert.equal(normalized.liquidity, 98_765.43)
 assert.equal(normalized.impliedApy, 0.071)
 assert.equal(normalized.underlyingApy, 0.052)
+assert.equal(normalized.underlyingAsset, A.underlying)
+assert.equal(normalized.accountingAsset, A.accounting)
+assert.equal(normalized.conversionRate, 1.234)
+assert.deepEqual(normalized.categoryIds, ['stables', 'rwa'])
+assert.equal(normalized.isPrime, true)
+assert.equal(normalized.isVolatile, false)
 assert.equal(normalized.lifecycle, 'live')
 assert.equal(normalized.pendleStatus, 'active')
 assert.deepEqual(normalized.sources, ['pendle-listed'])
@@ -214,7 +230,18 @@ const malformed = normalizeCatalogMarket(
     yt: `1-${A.yt}`,
     sy: {},
     icon: '',
-    details: { totalTvl: -1, impliedApy: 'NaN', underlyingApy: 'NaN' },
+    underlyingAsset: '42161-bad',
+    accountingAsset: `1-${A.accounting}`,
+    categoryIds: ['\u202E Stable ', null],
+    isPrime: 'yes',
+    isVolatile: 'no',
+    marketInfo: { conversionRate: { rate: 0 } },
+    details: {
+      totalTvl: -1,
+      liquidity: -1,
+      impliedApy: 'NaN',
+      underlyingApy: 'NaN',
+    },
   }),
   'active',
   NOW,
@@ -229,11 +256,18 @@ assert.deepEqual(
     malformed.sy,
     malformed.icon,
     malformed.tvl,
+    malformed.liquidity,
     malformed.impliedApy,
     malformed.underlyingApy,
+    malformed.underlyingAsset,
+    malformed.accountingAsset,
+    malformed.conversionRate,
+    malformed.isPrime,
+    malformed.isVolatile,
   ],
-  [null, null, null, null, null, null, null, null, null],
+  [null, null, null, null, null, null, null, null, null, null, null, null, null, false, null],
 )
+assert.deepEqual(malformed.categoryIds, ['stable'])
 assert.equal(
   normalizeCatalogMarket(
     pendleRow({ details: { underlyingApy: -1.01 } }),

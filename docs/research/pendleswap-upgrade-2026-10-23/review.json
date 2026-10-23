@@ -1,0 +1,3442 @@
+{
+  "reviewedAt": "2026-10-23T10:30:01.618568+00:00",
+  "implementation": "0x22988295f144cec67b39cc437fac36a62792b7ea",
+  "proxy": {
+    "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+    "implementationStorageSlot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+  },
+  "previousReview": "../pendleswap-upgrade-2026-10-17/review.json",
+  "sourceUrls": [
+    "https://etherscan.io/address/0x22988295f144cec67b39cc437fac36a62792b7ea#code",
+    "https://arbiscan.io/address/0x22988295f144cec67b39cc437fac36a62792b7ea#code",
+    "https://monadscan.com/address/0x22988295f144cec67b39cc437fac36a62792b7ea#code"
+  ],
+  "compiler": {
+    "version": "0.8.30+commit.73712a01",
+    "npmIntegrity": "sha512-9Srk/gndtBmoUbg4CE6ypAzPQlElv8ntbnl6SigUBAzgXKn35v87sj04uZeoZWjtDkdzT0qKFcIo/wl63UMxdw==",
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "optimizerRuns": 1000000,
+    "inputSha256": "65e13c5bbf0435b175be63666f3dbd7da576e87ea9747e2522a7de0ff231dd3d",
+    "settings": {
+      "remappings": [
+        "@pendle/core-v2/=lib/pendle-core-v2/",
+        "@pendle/sy/=lib/pendle-sy/",
+        "forge-std/=lib/forge-std/",
+        "vendor/=vendor/",
+        "vendor-locked/=vendor-locked/",
+        "@chainlink/=node_modules/@chainlink/",
+        "@eth-optimism/=node_modules/@eth-optimism/",
+        "@layerzerolabs/=node_modules/@layerzerolabs/",
+        "@openzeppelin/=node_modules/@openzeppelin/",
+        "hardhat/=node_modules/hardhat/",
+        "pendle-core-v2/=lib/pendle-core-v2/",
+        "pendle-sy/=lib/pendle-sy/contracts/",
+        "solidity-bytes-utils/=node_modules/solidity-bytes-utils/"
+      ],
+      "optimizer": {
+        "enabled": true,
+        "runs": 1000000
+      },
+      "metadata": {
+        "useLiteralContent": false,
+        "bytecodeHash": "none",
+        "appendCBOR": true
+      },
+      "outputSelection": {
+        "*": {
+          "*": [
+            "evm.deployedBytecode",
+            "evm.bytecode",
+            "metadata",
+            "storageLayout",
+            "abi"
+          ]
+        }
+      },
+      "evmVersion": "cancun",
+      "viaIR": true
+    },
+    "soljsonSha256": "3bb491a777f76dff9b2fe73ce29ca20e21a971b59a2f2cf8f73415424f00be06",
+    "officialPackageUrl": "https://registry.npmjs.org/solc/-/solc-0.8.30.tgz",
+    "reproduceCommand": "node app/scripts/reproduce-pendleswap-upgrade.mjs --review docs/research/pendleswap-upgrade-2026-10-23/review.json --soljson /absolute/path/to/official-npm-solc-0.8.30/soljson.js",
+    "artifactProvenance": "SHA256 and npmIntegrity identify the official npm solc@0.8.30 artifact explicitly. The independently reproduced Router facets used the separately manifest-verified binaries.soliditylang.org distribution; its packaging SHA256 differs and is recorded in routerFacetReview.compiler."
+  },
+  "sourceFiles": [
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/PendleSwap.sol",
+      "sha256": "23cdfd12a56522f71631a60089027b6b4dcb0e84ac8d753c77dfbb07156e7ddf",
+      "changedFromOctober17Source": true
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/core/libraries/TokenHelper.sol",
+      "sha256": "90fa51092a49787497070ab489e52794910316cdfa25086859958a0e823cd885",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+      "sha256": "d27fabd2ffb710166c654109837ffa5c82dbeb4e20205af1066e64bb50ca201f",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/OKXScaleHelper.sol",
+      "sha256": "31ab9b46e3ecb949dcf4430ca76e3b5de59bbe719b3a20be9ff46ba13c6fe12b",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/ParaswapScaleHelper.sol",
+      "sha256": "b492baea2e73bc714e530408bdfe3c91fd3cac52758747267cdb90f1003e14d4",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+      "sha256": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/core/libraries/BoringOwnableUpgradeableV2.sol",
+      "sha256": "cdd28bb688649f1d4ca5f727de335fc4020bb0d4679129ff4b41d9385a8c07a5",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol",
+      "sha256": "81fd7eff33a96b439a265d21a3244b4cfc2b674493420ae02e1f44088a8c84fc",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "lib/pendle-core-v2/contracts/interfaces/IWETH.sol",
+      "sha256": "afe441cc377f202df374f744b94d0dfcd91b72f5ae60f56a86e4b51eaaf361fc",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+      "sha256": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
+      "sha256": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
+      "sha256": "b7383c48331f3cc9901fc05e5d5830fcd533699a77f3ee1e756a98681bfbb2ee",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/utils/Address.sol",
+      "sha256": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+      "sha256": "a2c4e5c274a586f145d278293ae33198cd8f412ab7e6d26f2394c8949b32b24b",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol",
+      "sha256": "38728bce05e2b518d0ef66d514dbfcdee5555aeac2d57729480bf1409ee63630",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol",
+      "sha256": "05f8710ad6a17e156b51e2c5baa87fd6281c4be50a891ad717d6cfa628301da8",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol",
+      "sha256": "db92fc1b515decad3a783b1422190877d2d70b907c6e36fb0998d9465aee42db",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol",
+      "sha256": "6afea1d83856ed8e0495fe78109f674f925cfdc79fe2e24e854b1237e742f011",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol",
+      "sha256": "dddc79fd955a7dbf954b63358f67be734da61a406bc610a90c91821a2ff84bc6",
+      "changedFromOctober17Source": false
+    },
+    {
+      "path": "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol",
+      "sha256": "51c993d87ee6096af06f8701d8497272751c8cc9c9c2b31e67a3087d5f2302df",
+      "changedFromOctober17Source": false
+    }
+  ],
+  "sourceReview": {
+    "changedFiles": 1,
+    "unchangedFiles": 19,
+    "PendleSwap.sol": "Adds immutable REFUND_RECEIVER set by the constructor and transfers the entire remaining input-token balance to it after each swap. Kyber scaling, approvals, upgrade authorization, swap enum and every imported dependency are unchanged from the exact October17 reviewed source.",
+    "economicBehavior": "Unused input is transferred to the fixed receiver, not returned to the user. Exact-input fixtures must independently reconcile swap input events, ERC20 transfers, swap balances and actual receiver balance deltas; transaction input swept to that receiver must be zero. Existing output-floor, collateral/debt, allowance and authorization checks remain mandatory.",
+    "refundReceiver": "0x1FcCC097db89A86Bfc474A1028F93958295b1Fb7",
+    "refundReceiverAttribution": "Observed immutable destination; external ownership or protocol accounting attribution is not established by this review.",
+    "abiChanges": "Constructor gains refundReceiver and a REFUND_RECEIVER() getter; swap(address,uint256,SwapData) and SwapSingle event shapes remain unchanged.",
+    "officialRepositoryLimitation": "Official pendle-core-v2-public main source fetched October23 still predates this deployed version. Reproduction uses verified explorer source and exact live runtime, rather than claiming the public main branch contains the upgrade.",
+    "unpinnedSimpleFacetBranch": "Looping buy validation requires guessOffchain>0 and rejects canonical zero-guess calldata; the independent Simple selector remains outside the allowed dependency surface."
+  },
+  "storage": {
+    "old": [
+      {
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_address"
+      },
+      {
+        "label": "pendingOwner",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_address"
+      },
+      {
+        "label": "_initialized",
+        "offset": 20,
+        "slot": "1",
+        "type": "t_uint8"
+      },
+      {
+        "label": "_initializing",
+        "offset": 21,
+        "slot": "1",
+        "type": "t_bool"
+      },
+      {
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)48_storage"
+      }
+    ],
+    "new": [
+      {
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_address"
+      },
+      {
+        "label": "pendingOwner",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_address"
+      },
+      {
+        "label": "_initialized",
+        "offset": 20,
+        "slot": "1",
+        "type": "t_uint8"
+      },
+      {
+        "label": "_initializing",
+        "offset": 21,
+        "slot": "1",
+        "type": "t_bool"
+      },
+      {
+        "label": "__gap",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_array(t_uint256)48_storage"
+      }
+    ],
+    "exactLayoutMatch": true
+  },
+  "bytecodeReproduction": {
+    "compiler": "0.8.30+commit.73712a01",
+    "artifact": "official npm solc@0.8.30",
+    "results": [
+      {
+        "chain": "ethereum",
+        "blockNumber": "26254709",
+        "blockHash": "0xf0dbac8900b6e83a03a654fc388862e620127e2c1997e620deb088ed8014c7b4",
+        "exactMatch": true,
+        "hash": "0x3a3fa12af0a1fe0e72116b7bdf6bed23b776a35c845528d97e8438ab230fc87e",
+        "runtimeBytes": 17578,
+        "refundReceiver": "0x1FcCC097db89A86Bfc474A1028F93958295b1Fb7",
+        "tokenApprove": "0x40aA958dd87FC8305b97f2BA922CDdCa374bcD7f",
+        "proxyOwner": "0x8119EC16F0573B7dAc7C0CB94EB504FB32456ee1",
+        "immutableValues": [
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 1586,
+            "length": 32,
+            "value": "00000000000000000000000040aa958dd87fc8305b97f2ba922cddca374bcd7f"
+          },
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 4520,
+            "length": 32,
+            "value": "00000000000000000000000040aa958dd87fc8305b97f2ba922cddca374bcd7f"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 1055,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 3659,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 1342,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2354,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2877,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          }
+        ]
+      },
+      {
+        "chain": "monad",
+        "blockNumber": "115872950",
+        "blockHash": "0xe1a8468809fabfe6cfe96eaa6146d61156f9c4a58ea0a34b602455fbcf3c8622",
+        "exactMatch": true,
+        "hash": "0xb0e1c1e9d33e0a3537dfc864d42fb51348d414a92b0845fbada2faddcdd6248a",
+        "runtimeBytes": 17578,
+        "refundReceiver": "0x1FcCC097db89A86Bfc474A1028F93958295b1Fb7",
+        "tokenApprove": "0xf534A8a1CAD0543Cd6438f7534CA3486c01998d4",
+        "proxyOwner": "0x7877AdFaDEd756f3248a0EBfe8Ac2E2eF87b75Ac",
+        "immutableValues": [
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 1586,
+            "length": 32,
+            "value": "000000000000000000000000f534a8a1cad0543cd6438f7534ca3486c01998d4"
+          },
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 4520,
+            "length": 32,
+            "value": "000000000000000000000000f534a8a1cad0543cd6438f7534ca3486c01998d4"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 1055,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 3659,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 1342,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2354,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2877,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          }
+        ]
+      },
+      {
+        "chain": "arbitrum",
+        "blockNumber": "517506718",
+        "blockHash": "0xb7f7f4f7c056a37113e6014651f590b202811c8fe49310382b7316353593bedb",
+        "exactMatch": true,
+        "hash": "0x16bec77a008c20d998d828aa1908221da056d9be0e0be74fe798cedaccc848ee",
+        "runtimeBytes": 17578,
+        "refundReceiver": "0x1FcCC097db89A86Bfc474A1028F93958295b1Fb7",
+        "tokenApprove": "0x70cBb871E8f30Fc8Ce23609E9E0Ea87B6b222F58",
+        "proxyOwner": "0x7877AdFaDEd756f3248a0EBfe8Ac2E2eF87b75Ac",
+        "immutableValues": [
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 1586,
+            "length": 32,
+            "value": "00000000000000000000000070cbb871e8f30fc8ce23609e9e0ea87b6b222f58"
+          },
+          {
+            "astId": "577",
+            "name": "_tokenApprove",
+            "start": 4520,
+            "length": 32,
+            "value": "00000000000000000000000070cbb871e8f30fc8ce23609e9e0ea87b6b222f58"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 1055,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "2309",
+            "name": "REFUND_RECEIVER",
+            "start": 3659,
+            "length": 32,
+            "value": "0000000000000000000000001fccc097db89a86bfc474a1028f93958295b1fb7"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 1342,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2354,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          },
+          {
+            "astId": "3533",
+            "name": "UUPS.__self",
+            "start": 2877,
+            "length": 32,
+            "value": "00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea"
+          }
+        ]
+      }
+    ]
+  },
+  "routeBoundary": {
+    "allowedAggregator": "kyberswap",
+    "allowedSwapType": 1,
+    "newAggregatorsEnabled": false,
+    "policyScopes": [
+      {
+        "chainId": 1,
+        "marketId": "0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64"
+      },
+      {
+        "chainId": 143,
+        "marketId": "0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439"
+      }
+    ],
+    "arbitrum": "Matured management only",
+    "mintIncreaseEnabled": false,
+    "policyExpiration": false
+  },
+  "remainingReleaseGates": [
+    "Final fresh GitHub CI on committed release files",
+    "Authorized production merge/deployment and production artifact/browser verification"
+  ],
+  "distribution": "No raw upstream contract sources or compiler binaries are vendored. Review records source/compiler digests and exact public retrieval URLs.",
+  "routerFacetReview": {
+    "observedAt": "2026-10-23T10:29:29.894Z",
+    "compiler": {
+      "version": "0.8.30+commit.73712a01",
+      "manifest": "https://binaries.soliditylang.org/bin/list.json",
+      "path": "soljson-v0.8.30+commit.73712a01.js",
+      "sha256": "81475c98b6d2094a821fd9d7b6278556d8095ccc23e0b8a1029b1c08a89cd4b2"
+    },
+    "facets": [
+      {
+        "name": "router",
+        "contract": "ActionSwapPTV3",
+        "address": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+        "hash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+        "selectors": [
+          "0xc81f847a",
+          "0x594a88cc"
+        ],
+        "compilerInputSha256": "33e641b1a0fca51d7f492277e7e56dfc8b7ae3f3478d27205ed78ca1def59a9a",
+        "sourceFiles": [
+          {
+            "path": "lib/pendle-core-v2/contracts/router/ActionSwapPTV3.sol",
+            "sha256": "7264826aec85b631a0be77ff3380f1508662237e257b9d4065bd8c0d72009ac1"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPActionSwapPTV3.sol",
+            "sha256": "88e16b8549721dab301ffcfdf75b549d0f9b50db933f4acc5a7c199012614474"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/base/ActionBase.sol",
+            "sha256": "7f3cdcdd3f36d92ac6eb0524650fdd541e4dd61c1988a0814d7aa6e319a2c818"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/base/ActionDelegateBase.sol",
+            "sha256": "f73cb49cc8c4a6ad60c69e588ca5e178498483636575f22347dfa2aeb609ed2f"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/math/MarketApproxLibV2.sol",
+            "sha256": "a6b62070965449b855967005a593748672f3a7118cf4b11e568aeb74a7aae171"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPAllActionTypeV3.sol",
+            "sha256": "cce777cc4a48fd1bddfe378931405cc020c3f12a1eecd17622ee85e5e953664d"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPAllEventsV3.sol",
+            "sha256": "0183b7439dbc4493307c99b82b87d3668f5e383ac2ed3004c7f0642ae071cb3b"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/Errors.sol",
+            "sha256": "6c1aff317b7060452d030be8473a6df9818566bd8249eeecd8119dd9672b6f0a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/SyRedeemerContext.sol",
+            "sha256": "da21c0401cd9788cd7f280f42279f004d7d036151b25ea45f25bc39826049e11"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/TokenHelper.sol",
+            "sha256": "90fa51092a49787497070ab489e52794910316cdfa25086859958a0e823cd885"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPMarket.sol",
+            "sha256": "3ba8cf17382743c45dbf3ea18168977c76d5a571d421f0e64be832e2b5a615ea"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPYieldToken.sol",
+            "sha256": "42df4fc50a0c152ef2ac239236418cd897959d917b361e55773225c510475e8e"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IStandardizedYield.sol",
+            "sha256": "d03b8cc393308fcc8f66588896dd1ee6a9ac0cfd4dbd0ff10a0a64a1f3ad803e"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+            "sha256": "d27fabd2ffb710166c654109837ffa5c82dbeb4e20205af1066e64bb50ca201f"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/base/CallbackHelper.sol",
+            "sha256": "4671fff30588ce9698ccfc357cbcd3b1e79c85f713eefd5cbbeb9a36640cb197"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPActionSimple.sol",
+            "sha256": "030140aff7c31ec278ba3294567720aa67f24949a09f1d0d1d4ca4e2c5a834e2"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/Market/MarketMathCore.sol",
+            "sha256": "34dc6ecf3aadedfb700d7d88302b17a9eecd11631bbb9b4c6303246a84e9b3a7"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/math/PMath.sol",
+            "sha256": "f311f1ed8cfe3f8a405d05eedae7c54621cf106838aa8b3292d0b58f5bf4be78"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPLimitRouter.sol",
+            "sha256": "087e1c1dfb554b9f8934de776d70e9a246faa4414ba8f50eef43d762a58e623a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IWETH.sol",
+            "sha256": "afe441cc377f202df374f744b94d0dfcd91b72f5ae60f56a86e4b51eaaf361fc"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+            "sha256": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+            "sha256": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPGauge.sol",
+            "sha256": "2ff31307245958f59f2fbc051fdda266d6f36835242bb2d3a54ad1575a7a8a0a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPPrincipalToken.sol",
+            "sha256": "68c0474410cc42096792265ab407772dbf2ec4d4cbcbfaaa2e1a1b579ad31c99"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPInterestManagerYT.sol",
+            "sha256": "264829fbcadcdd59810f0c62a39cb722790b8668ab945ccde2fc7c12db492098"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IRewardManager.sol",
+            "sha256": "7029da81a08b702ac58aec8d7974e89baf60ce8f40bf8eb25335fff5d754e1aa"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/math/LogExpMath.sol",
+            "sha256": "094a3114366a11375096715e3edf2885321b99082d08e7de6dfb82bdcbde5649"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/StandardizedYield/PYIndex.sol",
+            "sha256": "4173c3813349b212cc0afd97ae971156595caf7f1a9c026a745ea93215e5ee13"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/MiniHelpers.sol",
+            "sha256": "2e1e0aaa04ee0a276ca03b941e688a40768c1db0af383169f33a94ec1ad04390"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
+            "sha256": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
+            "sha256": "b7383c48331f3cc9901fc05e5d5830fcd533699a77f3ee1e756a98681bfbb2ee"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/utils/Address.sol",
+            "sha256": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/StandardizedYield/SYUtils.sol",
+            "sha256": "25af0a883e174b713a88296b97998bb323ab79356d65cb50f3c7adcef91158c3"
+          }
+        ],
+        "persistentStorageEntries": 0,
+        "selectedMethods": {
+          "swapExactPtForToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))": "594a88cc",
+          "swapExactTokenForPt(address,address,uint256,(uint256,uint256,uint256,uint256,uint256),(address,uint256,address,address,(uint8,address,bytes,bool)),(address,uint256,((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],((uint256,uint256,uint256,uint8,address,address,address,address,uint256,uint256,uint256,bytes),bytes,uint256)[],bytes))": "c81f847a"
+        },
+        "abiCompatibility": [
+          {
+            "oldName": "old-router",
+            "removed": [],
+            "added": [],
+            "oldPersistentStorageEntries": 0,
+            "existingOutputsAndMutabilityPreserved": true,
+            "functionsCompared": 4
+          },
+          {
+            "oldName": "old-monad-router",
+            "removed": [],
+            "added": [],
+            "oldPersistentStorageEntries": 0,
+            "existingOutputsAndMutabilityPreserved": true,
+            "functionsCompared": 4
+          }
+        ],
+        "results": [
+          {
+            "chain": "ethereum",
+            "chainId": 1,
+            "block": 26254695,
+            "blockHash": "0x7f1b2ef35ed9c10e2400c0c41659bd0386c9caa0fae4e158607c54a4d0a781fd",
+            "hash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "bytes": 18379,
+            "exact": true
+          },
+          {
+            "chain": "monad",
+            "chainId": 143,
+            "block": 115872423,
+            "blockHash": "0x227ccaac7623757ea4149cf7bcec7fc2625b8c7ea080ed8c02424ed1ea283256",
+            "hash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "bytes": 18379,
+            "exact": true
+          },
+          {
+            "chain": "arbitrum",
+            "chainId": 42161,
+            "block": 517506193,
+            "blockHash": "0x0345016aaae1abab075cc8a4727d0955d694419af921dcd44f552c1ef666bcc3",
+            "hash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "bytes": 18379,
+            "exact": true
+          }
+        ]
+      },
+      {
+        "name": "redeem",
+        "contract": "ActionMiscV3",
+        "address": "0x1266261289d815650a6bcdb308766be36efa8149",
+        "hash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+        "selectors": [
+          "0x47f1de22",
+          "0xd0f42385"
+        ],
+        "compilerInputSha256": "87c9579f3afd2bc982815ec26ab4ff9b3329987ac02a9a92bb7e8982e6c882a5",
+        "sourceFiles": [
+          {
+            "path": "lib/pendle-core-v2/contracts/router/ActionMiscV3.sol",
+            "sha256": "56a6b3ebad94aa336bb25ccd24e01897826de986c27ab0e29ddee94a803df380"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/SyRedeemerContext.sol",
+            "sha256": "da21c0401cd9788cd7f280f42279f004d7d036151b25ea45f25bc39826049e11"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPActionMiscV3.sol",
+            "sha256": "398a03724ca3b6c3f2daa7bc240ea44abd2f8ede463f98b7795b3181ed535226"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPReflector.sol",
+            "sha256": "2ceab24ab6370d43f360ae1369f008a1190fa8352c98795857f51efb0be1cd5f"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/base/ActionBase.sol",
+            "sha256": "7f3cdcdd3f36d92ac6eb0524650fdd541e4dd61c1988a0814d7aa6e319a2c818"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/math/MarketApproxLibV2.sol",
+            "sha256": "a6b62070965449b855967005a593748672f3a7118cf4b11e568aeb74a7aae171"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPAllActionTypeV3.sol",
+            "sha256": "cce777cc4a48fd1bddfe378931405cc020c3f12a1eecd17622ee85e5e953664d"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPAllEventsV3.sol",
+            "sha256": "0183b7439dbc4493307c99b82b87d3668f5e383ac2ed3004c7f0642ae071cb3b"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPMarket.sol",
+            "sha256": "3ba8cf17382743c45dbf3ea18168977c76d5a571d421f0e64be832e2b5a615ea"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IStandardizedYield.sol",
+            "sha256": "d03b8cc393308fcc8f66588896dd1ee6a9ac0cfd4dbd0ff10a0a64a1f3ad803e"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/Errors.sol",
+            "sha256": "6c1aff317b7060452d030be8473a6df9818566bd8249eeecd8119dd9672b6f0a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/TokenHelper.sol",
+            "sha256": "90fa51092a49787497070ab489e52794910316cdfa25086859958a0e823cd885"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPYieldToken.sol",
+            "sha256": "42df4fc50a0c152ef2ac239236418cd897959d917b361e55773225c510475e8e"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/swap-aggregator/IPSwapAggregator.sol",
+            "sha256": "d27fabd2ffb710166c654109837ffa5c82dbeb4e20205af1066e64bb50ca201f"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/router/base/CallbackHelper.sol",
+            "sha256": "4671fff30588ce9698ccfc357cbcd3b1e79c85f713eefd5cbbeb9a36640cb197"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/Market/MarketMathCore.sol",
+            "sha256": "34dc6ecf3aadedfb700d7d88302b17a9eecd11631bbb9b4c6303246a84e9b3a7"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/math/PMath.sol",
+            "sha256": "f311f1ed8cfe3f8a405d05eedae7c54621cf106838aa8b3292d0b58f5bf4be78"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPLimitRouter.sol",
+            "sha256": "087e1c1dfb554b9f8934de776d70e9a246faa4414ba8f50eef43d762a58e623a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPGauge.sol",
+            "sha256": "2ff31307245958f59f2fbc051fdda266d6f36835242bb2d3a54ad1575a7a8a0a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPPrincipalToken.sol",
+            "sha256": "68c0474410cc42096792265ab407772dbf2ec4d4cbcbfaaa2e1a1b579ad31c99"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+            "sha256": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IWETH.sol",
+            "sha256": "afe441cc377f202df374f744b94d0dfcd91b72f5ae60f56a86e4b51eaaf361fc"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+            "sha256": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IPInterestManagerYT.sol",
+            "sha256": "264829fbcadcdd59810f0c62a39cb722790b8668ab945ccde2fc7c12db492098"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/interfaces/IRewardManager.sol",
+            "sha256": "7029da81a08b702ac58aec8d7974e89baf60ce8f40bf8eb25335fff5d754e1aa"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/math/LogExpMath.sol",
+            "sha256": "094a3114366a11375096715e3edf2885321b99082d08e7de6dfb82bdcbde5649"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/StandardizedYield/PYIndex.sol",
+            "sha256": "4173c3813349b212cc0afd97ae971156595caf7f1a9c026a745ea93215e5ee13"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/libraries/MiniHelpers.sol",
+            "sha256": "2e1e0aaa04ee0a276ca03b941e688a40768c1db0af383169f33a94ec1ad04390"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol",
+            "sha256": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
+            "sha256": "b7383c48331f3cc9901fc05e5d5830fcd533699a77f3ee1e756a98681bfbb2ee"
+          },
+          {
+            "path": "node_modules/@openzeppelin/contracts/utils/Address.sol",
+            "sha256": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602"
+          },
+          {
+            "path": "lib/pendle-core-v2/contracts/core/StandardizedYield/SYUtils.sol",
+            "sha256": "25af0a883e174b713a88296b97998bb323ab79356d65cb50f3c7adcef91158c3"
+          }
+        ],
+        "persistentStorageEntries": 0,
+        "selectedMethods": {
+          "mintPyFromToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))": "d0f42385",
+          "redeemPyToToken(address,address,uint256,(address,uint256,address,address,(uint8,address,bytes,bool)))": "47f1de22"
+        },
+        "abiCompatibility": [
+          {
+            "oldName": "old-redeem",
+            "removed": [],
+            "added": [
+              "burnAccount()",
+              "requestBurnQuota(address,uint256,bytes)"
+            ],
+            "oldPersistentStorageEntries": 0,
+            "existingOutputsAndMutabilityPreserved": true,
+            "functionsCompared": 18
+          },
+          {
+            "oldName": "old-monad-redeem",
+            "removed": [],
+            "added": [
+              "burnAccount()",
+              "requestBurnQuota(address,uint256,bytes)"
+            ],
+            "oldPersistentStorageEntries": 0,
+            "existingOutputsAndMutabilityPreserved": true,
+            "functionsCompared": 18
+          }
+        ],
+        "results": [
+          {
+            "chain": "ethereum",
+            "chainId": 1,
+            "block": 26254695,
+            "blockHash": "0x7f1b2ef35ed9c10e2400c0c41659bd0386c9caa0fae4e158607c54a4d0a781fd",
+            "hash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "bytes": 24309,
+            "exact": true
+          },
+          {
+            "chain": "monad",
+            "chainId": 143,
+            "block": 115872423,
+            "blockHash": "0x227ccaac7623757ea4149cf7bcec7fc2625b8c7ea080ed8c02424ed1ea283256",
+            "hash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "bytes": 24309,
+            "exact": true
+          },
+          {
+            "chain": "arbitrum",
+            "chainId": 42161,
+            "block": 517506193,
+            "blockHash": "0x0345016aaae1abab075cc8a4727d0955d694419af921dcd44f552c1ef666bcc3",
+            "hash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "bytes": 24309,
+            "exact": true
+          }
+        ]
+      }
+    ],
+    "scope": {
+      "readOnly": true,
+      "liveTransactions": false,
+      "reviewedChains": [
+        1,
+        143,
+        42161
+      ],
+      "sourceUrls": {
+        "router": "https://etherscan.io/address/0x9d215290f43366bbceff40a79fbac9dd23325379#code",
+        "redeem": "https://etherscan.io/address/0x1266261289d815650a6bcdb308766be36efa8149#code",
+        "oldEthereumArbitrumRouter": "https://etherscan.io/address/0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15#code",
+        "oldEthereumArbitrumRedeem": "https://etherscan.io/address/0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44#code",
+        "oldMonadRouter": "https://monadscan.com/address/0xbb0Dd79794e58795b08b599297ec55a6Afb6AB58#code",
+        "oldMonadRedeem": "https://monadscan.com/address/0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97#code"
+      }
+    },
+    "semanticFindings": [
+      {
+        "change": "SY redemption caller context",
+        "source": "contracts/router/base/ActionBase.sol:_redeemSyToToken; contracts/core/libraries/SyRedeemerContext.sol",
+        "behavior": "Immediately before SY.redeem, stores the immediate Router caller in transient namespace slot 0xe8cb61b87f041ce7ba1d7b88bf113ca84d0bcb904414c3716402eebd313d5c00; clears it after successful redemption. Reverting calls roll back transient writes. Uses no persistent state.",
+        "integration": "Bundler routes expose GeneralAdapter1 as the immediate caller, not the wallet owner. Existing output min, receiver, transfer, and approval rules remain in force. Compatibility must be proven for each admitted SY using the production compiler fork."
+      },
+      {
+        "change": "Misc helper additions",
+        "source": "contracts/router/ActionMiscV3.sol:requestBurnQuota,burnAccount",
+        "behavior": "requestBurnQuota only emits caller/token/amount/optData; burnAccount returns transient redeemer caller. Existing 18 method inputs, outputs, and mutability remain unchanged."
+      },
+      {
+        "change": "ETH/ARB limit order optData split",
+        "source": "contracts/router/base/ActionBase.sol:_fillLimit,_decodeLimOptData",
+        "behavior": "Nonempty optData now decodes (uint256 version, bytes payload), requires version 1, then decodes normal/flash payloads. Empty 0x remains valid.",
+        "integration": "OpenPendle builds empty LimitOrderData; loopingExecution.assertEmptyLimitOrderData rejects fills and nonempty optData. No admitted route encoding change required."
+      },
+      {
+        "change": "Swap enum repurposed spare/deprecated slots",
+        "source": "contracts/router/swap-aggregator/IPSwapAggregator.sol:SwapType",
+        "behavior": "Deprecated ODOS slot 2 becomes reserved; slots 6 and 7 name PARASWAP and ZEROX. NONE=0 and KYBERSWAP=1 unchanged.",
+        "integration": "Regular app routes use NONE; reviewed looping routes accept NONE direct or pinned KYBERSWAP only."
+      },
+      {
+        "change": "ETH/ARB transfer and library refactors",
+        "source": "contracts/core/libraries/TokenHelper.sol; contracts/core/libraries/math/PMath.sol; interfaces",
+        "behavior": "Self-directed transferOut becomes a no-op; balance helper extracted; unused math casts/clamp and interface functions added. Permitted path transfer/approval recipients and financial arithmetic are unchanged."
+      }
+    ],
+    "actionableFindings": [
+      {
+        "priority": "P1",
+        "file": "app/src/lib/loopingExecution.ts",
+        "function": "validatePendleBuyRoute",
+        "finding": "guessOffchain=0 can select swapExactTokenForPtSimple through self-delegatecall, which lies outside the currently pinned facet set.",
+        "recommendedFix": "Require a positive guessOffchain for reviewed looping buy routes, and test rejection of the zero-hint case without broadening the pinned facet dependency set.",
+        "status": "Implemented by parent: positive guessOffchain guard and explicit zero-hint rejection fixture independently inspected in working tree"
+      }
+    ],
+    "limitations": [
+      "This is a bounded dependency and compatibility review, not a complete independent audit of every Pendle function or arbitrary SY.",
+      "Final production compiler fork regressions are owned by the source-review agent.",
+      "No raw upstream contract sources should be committed; this artifact contains digests and review evidence only."
+    ],
+    "currentSyDependencies": [
+      {
+        "name": "eth",
+        "chainId": 1,
+        "sy": "0x9487Bd5A3b16Ecb5F3184453E3ee75B800141648",
+        "block": 26254695,
+        "implementation": "0xba923d186156e48baab7e3c749e10f06e0b25067",
+        "yieldToken": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+        "implementationRuntimeCodeHash": "0xc1c562643ec0352d595785b15a04260c8b27d2cf9d68a3fa264cf85dc5ce471a",
+        "implementationRuntimeBytes": 18057,
+        "verifiedSourceInputSha256": "804f4f3603ffea2613547ec70142b584bfd87c5e1fd57a73bba7aa2a722fa88e",
+        "callbackSourceSearch": {
+          "burnAccount": false,
+          "requestBurnQuota": false
+        },
+        "redeemBranch": "Simple ERC20 SY transfers yieldToken to receiver"
+      },
+      {
+        "name": "monad",
+        "chainId": 143,
+        "sy": "0x0898C3346275e79dB4892feB1C18875eC154F274",
+        "block": 115872423,
+        "implementation": "0xcd85b66df1839f7a14ed112f639cb7db90dcac7a",
+        "yieldToken": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+        "implementationRuntimeCodeHash": "0xbee72ffc240c9246f3f526def0569d85aace6fcc27e27c8086475453da5a7c32",
+        "implementationRuntimeBytes": 20605,
+        "verifiedSourceInputSha256": "5732b329db6e398889af58b7881790a018e6de05ddc9a6951cf90a56537262e1",
+        "callbackSourceSearch": {
+          "burnAccount": false,
+          "requestBurnQuota": false
+        },
+        "redeemBranch": "Allowed USDat token matches live yieldToken and selects direct transfer rather than adapter conversion"
+      },
+      {
+        "name": "arb",
+        "chainId": 42161,
+        "sy": "0x5edCBC20Cac67AdC2e724d4348Ff85132B085b82",
+        "block": 517506193,
+        "implementation": "0x06be51f3af48296f0f0e068294c4d7059b1b9ce2",
+        "yieldToken": "0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef",
+        "implementationRuntimeCodeHash": "0x11b230d0c80409ce92c81d0172877a5e589aa6438a4276f79f6ec75d44ed09c3",
+        "implementationRuntimeBytes": 17694,
+        "sourceReview": "Explorer source unavailable; genuine matured exit trace at source block517509161 shows only pinned redeemPyToToken selector, delegated to reviewed Misc facet, and no new callback selectors"
+      }
+    ],
+    "routerCallbackEvidence": {
+      "observedAt": "2026-10-23T10:37:44.833Z",
+      "scope": "Observed successful ETH and Monad Market/Mint compiler lifecycles plus genuine matured Arbitrum exit; no assertion about arbitrary future SY implementations or unused selectors",
+      "newSelectors": [
+        {
+          "name": "burnAccount()",
+          "selector": "0x327b32b8"
+        },
+        {
+          "name": "requestBurnQuota(address,uint256,bytes)",
+          "selector": "0x4eafc716"
+        }
+      ],
+      "traceFiles": [
+        "1-compiled-signed-entry-0x05588c6476db063e69e1292cff877f5309eb380bf3a77d590bb3dd7b568743e4.json",
+        "1-compiled-signed-entry-0x1ed05e2b2e074045737a6f190f70d5a87aa28d3c4a09ac49e609303113ca6531.json",
+        "1-compiled-signed-entry-0x4afa95778db84cdae813b257a4e4d64e12c94723011860cc900b351f3ae005ea.json",
+        "1-compiled-signed-entry-0x6b70f2c87355c84b92739ba0225c779e7143e6acca899119202d2afeb761efd5.json",
+        "1-compiled-signed-entry-0x8deb9bb4a391a15286f5445806222ad12d9cc523842b0b17a9578f34b31314a8.json",
+        "1-compiled-signed-entry-0xdcbb1e09907ce247174bf5ab09612d4698b68eaf0439d817496c365d038cb24f.json",
+        "1-compiled-signed-exit-0x01a29832d7ab6bf6831dae42f536fa0056f5dd04be9cd6369a488daa00b8ca26.json",
+        "1-compiled-signed-exit-0x522998cdd7cb1aeb80a93949442ed457bf4f92a000b28c6ec08c68a278767465.json",
+        "1-compiled-signed-exit-0x7d3b80167fff698270a98ecdd4435bde56d8f860ca085accd5665328569f8848.json",
+        "1-compiled-signed-exit-0xa8cd39ee841b3d2b3e351ad3a66ee9ac24fc091f6e440009435d954fd9b80b8a.json",
+        "1-compiled-signed-leverage-increase-0x21028b71ee1a8228ef1a4ab7276fde20e8c609e324ccf96ca911f641cd9c9626.json",
+        "1-compiled-signed-leverage-increase-0x448d3fbe70a39654b0a9401d7886fea31437f3db0d5180a1a5919188aa1d0c74.json",
+        "1-compiled-signed-partial-leverage-decrease-0xba9a0b8a31c9eceaecee84084ffeadc58767e8267cfc9d97281fb3942e6f2f2c.json",
+        "1-compiled-signed-partial-leverage-decrease-0xf3ff5480bfd1abcf4101272ec2dc95b8f0ecabe2eee05319295183e90eecd934.json",
+        "143-compiled-signed-entry-0x244ac2455c01309635c67a68924c4f7f4bb0cf7d3368f8c5d129ee39439c4581.json",
+        "143-compiled-signed-entry-0x66c966a0848079456193bb072c4a1f9bc3e100cf6d4e130b4d8be313850726b4.json",
+        "143-compiled-signed-entry-0x879dc6af7b1a5cec99350772d0765e972fa9fa9dc0ec098db26ca2f7d946f3cf.json",
+        "143-compiled-signed-entry-0x924dc5b1154e657012b27d43289b02ece486e2174e7c7f6fdce884080693cb0f.json",
+        "143-compiled-signed-entry-0xa3c9dc0f1e4050d7755183d5f899a7c480c4cccf8ed0b0504009895e1e054d2e.json",
+        "143-compiled-signed-entry-0xa5424cf5b06057727f361b776735978dbd0510989eb3158f374496869c35ede3.json",
+        "143-compiled-signed-exit-0x15d66b5cddb345159b83cf53ff9c9052ad42e009d88fa6b90ff3bbbccd98d453.json",
+        "143-compiled-signed-exit-0x42af9d5c6b9253942f75a412403106e0f903281b2f9367539d1c56b101524e14.json",
+        "143-compiled-signed-exit-0x5299153b4d060d5c6103b80bdbe9ebae5947e545c907de1731652d1b81e683f7.json",
+        "143-compiled-signed-exit-0xcbc9c97a08d5f89dae7c6605050bdad4af3fa4776ce41ecdce09570b33274eac.json",
+        "143-compiled-signed-leverage-increase-0xa3f946f3d3b456db8dd7b89f3350697f89bdbbf8fae0844dd52de76c7fb842c3.json",
+        "143-compiled-signed-leverage-increase-0xe13017ca839a4b4d6f20d7a7a8e5cc1977223ae974bb3e9cb7a62e1d5b604f78.json",
+        "143-compiled-signed-partial-leverage-decrease-0x998e605b605c564a5362ca2491fe456225b58f6380183bf11579a759681fbff6.json",
+        "143-compiled-signed-partial-leverage-decrease-0xb605b3e0bf85633fe33eb4eebc6f2b47837cd4e32be4b1e840230a68b9e0484a.json",
+        "42161-matured-exit-0x5dab0877857da2326e0e7146011e4cba5856117da4c1a6ff88e9703950c4eff0.json"
+      ],
+      "totalFrames": 5199,
+      "newCallbackCalls": 0,
+      "groups": {
+        "1": {
+          "files": 14,
+          "frames": 2581,
+          "routerCalls": {
+            "0xc81f847a": 7,
+            "0xd0f42385": 7,
+            "0x594a88cc": 4,
+            "0x47f1de22": 2
+          },
+          "facetDelegates": {
+            "0xc81f847a:0x9d215290f43366bbceff40a79fbac9dd23325379": 7,
+            "0xd0f42385:0x1266261289d815650a6bcdb308766be36efa8149": 7,
+            "0x594a88cc:0x9d215290f43366bbceff40a79fbac9dd23325379": 4,
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 2
+          },
+          "newCallbackCalls": 0
+        },
+        "143": {
+          "files": 14,
+          "frames": 2469,
+          "routerCalls": {
+            "0xd0f42385": 7,
+            "0xc81f847a": 7,
+            "0x47f1de22": 2,
+            "0x594a88cc": 4
+          },
+          "facetDelegates": {
+            "0xd0f42385:0x1266261289d815650a6bcdb308766be36efa8149": 7,
+            "0xc81f847a:0x9d215290f43366bbceff40a79fbac9dd23325379": 7,
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 2,
+            "0x594a88cc:0x9d215290f43366bbceff40a79fbac9dd23325379": 4
+          },
+          "newCallbackCalls": 0
+        },
+        "42161": {
+          "files": 1,
+          "frames": 149,
+          "routerCalls": {
+            "0x47f1de22": 1
+          },
+          "facetDelegates": {
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 1
+          },
+          "newCallbackCalls": 0
+        }
+      },
+      "unexpected": []
+    },
+    "sourceReviewSummary": "Existing routed swap, mint and redeem signatures remain compatible; facets have no persistent storage. SY redemption now installs and clears a transient origin context so compatible SYs can query the original redeemer; no new external target or persistent routing mapping is added. A zero offchain PT buy approximation can delegate to a separate Simple facet, so looping now rejects that branch rather than widening implementation pins.",
+    "causalCallbackTraceSummary": {
+      "observedAt": "2026-10-23T10:37:44.833Z",
+      "scope": "Observed successful ETH and Monad Market/Mint compiler lifecycles plus genuine matured Arbitrum exit; no assertion about arbitrary future SY implementations or unused selectors",
+      "newSelectors": [
+        {
+          "name": "burnAccount()",
+          "selector": "0x327b32b8"
+        },
+        {
+          "name": "requestBurnQuota(address,uint256,bytes)",
+          "selector": "0x4eafc716"
+        }
+      ],
+      "traceFiles": [
+        "1-compiled-signed-entry-0x05588c6476db063e69e1292cff877f5309eb380bf3a77d590bb3dd7b568743e4.json",
+        "1-compiled-signed-entry-0x1ed05e2b2e074045737a6f190f70d5a87aa28d3c4a09ac49e609303113ca6531.json",
+        "1-compiled-signed-entry-0x4afa95778db84cdae813b257a4e4d64e12c94723011860cc900b351f3ae005ea.json",
+        "1-compiled-signed-entry-0x6b70f2c87355c84b92739ba0225c779e7143e6acca899119202d2afeb761efd5.json",
+        "1-compiled-signed-entry-0x8deb9bb4a391a15286f5445806222ad12d9cc523842b0b17a9578f34b31314a8.json",
+        "1-compiled-signed-entry-0xdcbb1e09907ce247174bf5ab09612d4698b68eaf0439d817496c365d038cb24f.json",
+        "1-compiled-signed-exit-0x01a29832d7ab6bf6831dae42f536fa0056f5dd04be9cd6369a488daa00b8ca26.json",
+        "1-compiled-signed-exit-0x522998cdd7cb1aeb80a93949442ed457bf4f92a000b28c6ec08c68a278767465.json",
+        "1-compiled-signed-exit-0x7d3b80167fff698270a98ecdd4435bde56d8f860ca085accd5665328569f8848.json",
+        "1-compiled-signed-exit-0xa8cd39ee841b3d2b3e351ad3a66ee9ac24fc091f6e440009435d954fd9b80b8a.json",
+        "1-compiled-signed-leverage-increase-0x21028b71ee1a8228ef1a4ab7276fde20e8c609e324ccf96ca911f641cd9c9626.json",
+        "1-compiled-signed-leverage-increase-0x448d3fbe70a39654b0a9401d7886fea31437f3db0d5180a1a5919188aa1d0c74.json",
+        "1-compiled-signed-partial-leverage-decrease-0xba9a0b8a31c9eceaecee84084ffeadc58767e8267cfc9d97281fb3942e6f2f2c.json",
+        "1-compiled-signed-partial-leverage-decrease-0xf3ff5480bfd1abcf4101272ec2dc95b8f0ecabe2eee05319295183e90eecd934.json",
+        "143-compiled-signed-entry-0x244ac2455c01309635c67a68924c4f7f4bb0cf7d3368f8c5d129ee39439c4581.json",
+        "143-compiled-signed-entry-0x66c966a0848079456193bb072c4a1f9bc3e100cf6d4e130b4d8be313850726b4.json",
+        "143-compiled-signed-entry-0x879dc6af7b1a5cec99350772d0765e972fa9fa9dc0ec098db26ca2f7d946f3cf.json",
+        "143-compiled-signed-entry-0x924dc5b1154e657012b27d43289b02ece486e2174e7c7f6fdce884080693cb0f.json",
+        "143-compiled-signed-entry-0xa3c9dc0f1e4050d7755183d5f899a7c480c4cccf8ed0b0504009895e1e054d2e.json",
+        "143-compiled-signed-entry-0xa5424cf5b06057727f361b776735978dbd0510989eb3158f374496869c35ede3.json",
+        "143-compiled-signed-exit-0x15d66b5cddb345159b83cf53ff9c9052ad42e009d88fa6b90ff3bbbccd98d453.json",
+        "143-compiled-signed-exit-0x42af9d5c6b9253942f75a412403106e0f903281b2f9367539d1c56b101524e14.json",
+        "143-compiled-signed-exit-0x5299153b4d060d5c6103b80bdbe9ebae5947e545c907de1731652d1b81e683f7.json",
+        "143-compiled-signed-exit-0xcbc9c97a08d5f89dae7c6605050bdad4af3fa4776ce41ecdce09570b33274eac.json",
+        "143-compiled-signed-leverage-increase-0xa3f946f3d3b456db8dd7b89f3350697f89bdbbf8fae0844dd52de76c7fb842c3.json",
+        "143-compiled-signed-leverage-increase-0xe13017ca839a4b4d6f20d7a7a8e5cc1977223ae974bb3e9cb7a62e1d5b604f78.json",
+        "143-compiled-signed-partial-leverage-decrease-0x998e605b605c564a5362ca2491fe456225b58f6380183bf11579a759681fbff6.json",
+        "143-compiled-signed-partial-leverage-decrease-0xb605b3e0bf85633fe33eb4eebc6f2b47837cd4e32be4b1e840230a68b9e0484a.json",
+        "42161-matured-exit-0x5dab0877857da2326e0e7146011e4cba5856117da4c1a6ff88e9703950c4eff0.json"
+      ],
+      "totalFrames": 5199,
+      "newCallbackCalls": 0,
+      "groups": {
+        "1": {
+          "files": 14,
+          "frames": 2581,
+          "routerCalls": {
+            "0xc81f847a": 7,
+            "0xd0f42385": 7,
+            "0x594a88cc": 4,
+            "0x47f1de22": 2
+          },
+          "facetDelegates": {
+            "0xc81f847a:0x9d215290f43366bbceff40a79fbac9dd23325379": 7,
+            "0xd0f42385:0x1266261289d815650a6bcdb308766be36efa8149": 7,
+            "0x594a88cc:0x9d215290f43366bbceff40a79fbac9dd23325379": 4,
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 2
+          },
+          "newCallbackCalls": 0
+        },
+        "143": {
+          "files": 14,
+          "frames": 2469,
+          "routerCalls": {
+            "0xd0f42385": 7,
+            "0xc81f847a": 7,
+            "0x47f1de22": 2,
+            "0x594a88cc": 4
+          },
+          "facetDelegates": {
+            "0xd0f42385:0x1266261289d815650a6bcdb308766be36efa8149": 7,
+            "0xc81f847a:0x9d215290f43366bbceff40a79fbac9dd23325379": 7,
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 2,
+            "0x594a88cc:0x9d215290f43366bbceff40a79fbac9dd23325379": 4
+          },
+          "newCallbackCalls": 0
+        },
+        "42161": {
+          "files": 1,
+          "frames": 149,
+          "routerCalls": {
+            "0x47f1de22": 1
+          },
+          "facetDelegates": {
+            "0x47f1de22:0x1266261289d815650a6bcdb308766be36efa8149": 1
+          },
+          "newCallbackCalls": 0
+        }
+      },
+      "unexpected": []
+    }
+  },
+  "kyberScalingHelperReview": {
+    "implementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+    "runtimeCodeHash": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7",
+    "runtimeBytes": 11883,
+    "sourceVerified": false,
+    "limitation": "Ethereum and Monad explorers expose no verified implementation source, Sourcify metadata was unavailable, and the official source repository did not establish an exact source match. This is a bounded binary/interface/access-control/concrete-route behavior review of an existing external dependency, not a full source audit. The embedded 5.0.0 string identifies OpenZeppelin UUPS interface version, not a helper version.",
+    "behavior": {
+      "observedAt": "2026-10-23T10:31:18.781Z",
+      "readOnly": true,
+      "implementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+      "helperProxy": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+      "sourceVerified": false,
+      "networks": [
+        {
+          "chainId": 1,
+          "blockNumber": "26254695",
+          "blockHash": "0x7f1b2ef35ed9c10e2400c0c41659bd0386c9caa0fae4e158607c54a4d0a781fd",
+          "tests": [],
+          "routeComparisons": [
+            {
+              "newAmount": "919309171189402998",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "919309171189402998",
+                  "minReturnAmount": "917217",
+                  "scaledCalldataHash": "0xf379d59853c86f65db716f011007d18a5cd0196572bf7975dd5ae1574eeecf74",
+                  "sameProxyAndDirectImplementation": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "scaledCalldataHash": "0xf379d59853c86f65db716f011007d18a5cd0196572bf7975dd5ae1574eeecf74",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "919309171189402997",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "919309171189402997",
+                  "minReturnAmount": "917216",
+                  "scaledCalldataHash": "0xaf7e659e3fa55d502617144361231507f1e140b44f23ae6024f565e44608feab",
+                  "sameProxyAndDirectImplementation": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "scaledCalldataHash": "0xaf7e659e3fa55d502617144361231507f1e140b44f23ae6024f565e44608feab",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "919309171189402999",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "919309171189402999",
+                  "minReturnAmount": "917217",
+                  "scaledCalldataHash": "0xc619c8ad883e085ac691d4a371c10bb95c573783804ee8404c706d650e104ae1",
+                  "sameProxyAndDirectImplementation": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "scaledCalldataHash": "0xc619c8ad883e085ac691d4a371c10bb95c573783804ee8404c706d650e104ae1",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "919217240272284057",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "919217240272284057",
+                  "minReturnAmount": "917125",
+                  "scaledCalldataHash": "0x2e7ef5b18297ade7c328d032bcc5fb5bad367ebfafe1d0be1756722312a8b720",
+                  "sameProxyAndDirectImplementation": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "scaledCalldataHash": "0x2e7ef5b18297ade7c328d032bcc5fb5bad367ebfafe1d0be1756722312a8b720",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "919401102106521938",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "919401102106521938",
+                  "minReturnAmount": "917308",
+                  "scaledCalldataHash": "0x6f4aacade8c36c057179ada79b1ca56e9d06d25c3075945e903d0b86de33d468",
+                  "sameProxyAndDirectImplementation": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "scaledCalldataHash": "0x6f4aacade8c36c057179ada79b1ca56e9d06d25c3075945e903d0b86de33d468",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "459654585594701499",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "unscalable": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "matchesNew": true
+                }
+              }
+            },
+            {
+              "newAmount": "1838618342378805996",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "unscalable": true
+                }
+              },
+              "oldRuntimeAtCurrentProxyState": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "matchesNew": true
+                }
+              }
+            }
+          ],
+          "codeHash": {
+            "ok": true,
+            "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+          },
+          "owner": {
+            "ok": true,
+            "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+          },
+          "upgradeInterfaceVersion": {
+            "ok": true,
+            "value": "5.0.0"
+          },
+          "proxyInitialize": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedOwnerChange": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedUpgrade": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "implementationInitialization": {
+            "ok": true,
+            "value": {
+              "acceptsInitialization": true,
+              "liveStateChanged": false
+            }
+          },
+          "oldImplementationInitialization": {
+            "ok": true,
+            "value": {
+              "acceptsInitialization": true,
+              "liveStateChanged": false
+            }
+          },
+          "malformed-0x": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "The contract function \"getScaledInputData\" reverted."
+            }
+          },
+          "malformed-0x12345678": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          },
+          "malformed-0x1234567800": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          },
+          "freshExitRoute": {
+            "ok": true,
+            "value": {
+              "quotedAtMs": 1792751481573,
+              "ptIn": "1014479",
+              "minLoanOut": "989156",
+              "executor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+            }
+          }
+        },
+        {
+          "chainId": 143,
+          "blockNumber": "115872423",
+          "blockHash": "0x227ccaac7623757ea4149cf7bcec7fc2625b8c7ea080ed8c02424ed1ea283256",
+          "tests": [],
+          "routeComparisons": [
+            {
+              "newAmount": "1019115",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "1019115",
+                  "minReturnAmount": "917104",
+                  "scaledCalldataHash": "0xfadb46aea37304cc49229183f9ac10a2170f3b69726cd944230787181569470e",
+                  "sameProxyAndDirectImplementation": true
+                }
+              }
+            },
+            {
+              "newAmount": "1019114",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "1019114",
+                  "minReturnAmount": "917103",
+                  "scaledCalldataHash": "0x4979af55dd380ccd8472d5ef27a9fa704d70fc8b321fcf592f5a57ac76f6a2f7",
+                  "sameProxyAndDirectImplementation": true
+                }
+              }
+            },
+            {
+              "newAmount": "1019116",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "1019116",
+                  "minReturnAmount": "917104",
+                  "scaledCalldataHash": "0x549376b1e47d2131b5769abb5053fb9f0988a88b9599592e2e8a5917629ded5b",
+                  "sameProxyAndDirectImplementation": true
+                }
+              }
+            },
+            {
+              "newAmount": "1019013",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "1019013",
+                  "minReturnAmount": "917012",
+                  "scaledCalldataHash": "0x7c8a3533d677be40c2c688f306ebbab6f879c6bfb2cdb903a630176c535db2de",
+                  "sameProxyAndDirectImplementation": true
+                }
+              }
+            },
+            {
+              "newAmount": "1019216",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": true,
+                  "unchangedReceiverTokensFeesAndFlags": true,
+                  "amount": "1019216",
+                  "minReturnAmount": "917194",
+                  "scaledCalldataHash": "0x8760c72e13799263295bbe604451b88e6f62c98e3c6e1d451dc75d9eb513a0a4",
+                  "sameProxyAndDirectImplementation": true
+                }
+              }
+            },
+            {
+              "newAmount": "509557",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "unscalable": true
+                }
+              }
+            },
+            {
+              "newAmount": "2038230",
+              "newHelper": {
+                "ok": true,
+                "value": {
+                  "success": false,
+                  "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                  "unscalable": true
+                }
+              }
+            }
+          ],
+          "codeHash": {
+            "ok": true,
+            "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+          },
+          "owner": {
+            "ok": true,
+            "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+          },
+          "upgradeInterfaceVersion": {
+            "ok": true,
+            "value": "5.0.0"
+          },
+          "proxyInitialize": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedOwnerChange": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedUpgrade": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "implementationInitialization": {
+            "ok": true,
+            "value": {
+              "acceptsInitialization": true,
+              "liveStateChanged": false
+            }
+          },
+          "malformed-0x": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "The contract function \"getScaledInputData\" reverted."
+            }
+          },
+          "malformed-0x12345678": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          },
+          "malformed-0x1234567800": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          },
+          "freshExitRoute": {
+            "ok": true,
+            "value": {
+              "quotedAtMs": 1792751484050,
+              "ptIn": "1019950",
+              "minLoanOut": "989021",
+              "executor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+            }
+          }
+        },
+        {
+          "chainId": 42161,
+          "blockNumber": "517506193",
+          "blockHash": "0x0345016aaae1abab075cc8a4727d0955d694419af921dcd44f552c1ef666bcc3",
+          "tests": [],
+          "routeComparisons": [],
+          "codeHash": {
+            "ok": true,
+            "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+          },
+          "owner": {
+            "ok": true,
+            "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+          },
+          "upgradeInterfaceVersion": {
+            "ok": true,
+            "value": "5.0.0"
+          },
+          "proxyInitialize": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedOwnerChange": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "unauthorizedUpgrade": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "Execution reverted for an unknown reason."
+            }
+          },
+          "implementationInitialization": {
+            "ok": true,
+            "value": {
+              "acceptsInitialization": true,
+              "liveStateChanged": false
+            }
+          },
+          "malformed-0x": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "error": "The contract function \"getScaledInputData\" reverted."
+            }
+          },
+          "malformed-0x12345678": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          },
+          "malformed-0x1234567800": {
+            "ok": true,
+            "value": {
+              "rejected": true,
+              "successFlag": false
+            }
+          }
+        }
+      ]
+    },
+    "reviewSummary": "Same encoded amount, plus/minus one raw unit and plus/minus one basis point scale successfully on fresh Ethereum/Monad exits with token/receiver/fee/flag/permit fields unchanged. New proxy and direct implementation outputs match. Old Ethereum runtime substituted only inside eth_call gives identical outputs for tested cases. Half/double fail identically in old and new helpers; arbitrary route scaling is not guaranteed. Proxy initialization and unauthenticated ownership/upgrades reject on all three chains; implementation initialization accepts eth_call as the old implementation did. Full lifecycle scaled-exit fork proof remains required.",
+    "independentReview": {
+      "reviewedAt": "2026-10-23T10:31:18.781Z",
+      "readOnly": true,
+      "verdict": "No actionable P1/P2 found in this bounded binary/behavior review. Renew only exact observed pins and require fresh scaled-exit lifecycle forks before release.",
+      "sourceReviewStatus": "UNVERIFIED",
+      "implementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+      "helperProxy": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+      "implementationCodeHash": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7",
+      "implementationBytes": 11883,
+      "sourceRetrieval": {
+        "explorers": {
+          "Ethereum": "Unverified; editor_contractJsonData={} and Verify and Publish prompt",
+          "Monad": "Unverified; editor_contractJsonData={} and Verify and Publish prompt",
+          "Base": "Unverified; editor_contractJsonData={} and Verify and Publish prompt"
+        },
+        "SourcifyEthereumFullMatch": 404,
+        "SourcifyEthereumPartialMatch": 404,
+        "metadataCID": "QmXzk6VyeMUCSo5G74H5B5kDihaUYobedFhwWe3zs7VAd1",
+        "ipfsRetrieval": "ipfs.io,dweb.link HTTP403; pinata timeout; cloudflare-ipfs DNS unavailable",
+        "publicRepositoryComparison": "UncleGrandpa925/ks-helper-sc contains older Solidity0.8.9 non-UUPS architecture; not a matching verified source for this deployed implementation"
+      },
+      "runtimeDifference": {
+        "oldBytes": 10103,
+        "newBytes": 11883,
+        "oldPublicSelectors": [
+          "0x0fea3806",
+          "0x28ad179b",
+          "0x43ae962b",
+          "0x463f99d6",
+          "0x4f1ef286",
+          "0x52d1902d",
+          "0x715018a6",
+          "0x8129fc1c",
+          "0x8500fc87",
+          "0x8da5cb5b",
+          "0xa18735de",
+          "0xad3cb1cc",
+          "0xb0cddf03",
+          "0xd77cc0bf",
+          "0xe4da6f2e",
+          "0xece69692",
+          "0xf2fde38b"
+        ],
+        "newPublicSelectors": [
+          "0x4f1ef286",
+          "0x52d1902d",
+          "0x63083b4e",
+          "0x715018a6",
+          "0x8129fc1c",
+          "0x8da5cb5b",
+          "0xad3cb1cc",
+          "0xe4da6f2e",
+          "0xf2fde38b"
+        ],
+        "removedSelectors": [
+          "0x0fea3806",
+          "0x28ad179b",
+          "0x43ae962b",
+          "0x463f99d6",
+          "0x8500fc87",
+          "0xa18735de",
+          "0xb0cddf03",
+          "0xd77cc0bf",
+          "0xece69692"
+        ],
+        "addedSelectors": [
+          "0x63083b4e"
+        ],
+        "knownRetainedSelectors": {
+          "0xe4da6f2e": "getScaledInputData(bytes,uint256)",
+          "0xad3cb1cc": "UPGRADE_INTERFACE_VERSION(); embedded5.0.0 is OZ upgrade-interface version, not helper semantic version"
+        },
+        "newStorageSlots": [
+          "0x9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300",
+          "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
+          "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+        ],
+        "newSloadCount": 9,
+        "newSstoreCount": 6,
+        "storageInterpretation": "Only Ownable, Initializable, EIP1967 implementation slots observed; no dynamic routing mapping reads/writes in the new runtime.",
+        "externalOperations": {
+          "CALL": 0,
+          "CALLCODE": 0,
+          "CREATE": 0,
+          "CREATE2": 0,
+          "SELFDESTRUCT": 0,
+          "STATICCALL": 1,
+          "DELEGATECALL": 1
+        },
+        "externalOperationInterpretation": "Sole STATICCALL validates proxiableUUID during owner-authorized UUPS upgrade; sole DELEGATECALL is upgrade initialization machinery. No token-transfer/external-router calls in helper."
+      },
+      "behaviorEvidence": {
+        "observedAt": "2026-10-23T10:31:18.781Z",
+        "readOnly": true,
+        "implementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+        "helperProxy": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+        "sourceVerified": false,
+        "networks": [
+          {
+            "chainId": 1,
+            "blockNumber": "26254695",
+            "blockHash": "0x7f1b2ef35ed9c10e2400c0c41659bd0386c9caa0fae4e158607c54a4d0a781fd",
+            "tests": [],
+            "routeComparisons": [
+              {
+                "newAmount": "919309171189402998",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "919309171189402998",
+                    "minReturnAmount": "917217",
+                    "scaledCalldataHash": "0xf379d59853c86f65db716f011007d18a5cd0196572bf7975dd5ae1574eeecf74",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "scaledCalldataHash": "0xf379d59853c86f65db716f011007d18a5cd0196572bf7975dd5ae1574eeecf74",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "919309171189402997",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "919309171189402997",
+                    "minReturnAmount": "917216",
+                    "scaledCalldataHash": "0xaf7e659e3fa55d502617144361231507f1e140b44f23ae6024f565e44608feab",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "scaledCalldataHash": "0xaf7e659e3fa55d502617144361231507f1e140b44f23ae6024f565e44608feab",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "919309171189402999",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "919309171189402999",
+                    "minReturnAmount": "917217",
+                    "scaledCalldataHash": "0xc619c8ad883e085ac691d4a371c10bb95c573783804ee8404c706d650e104ae1",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "scaledCalldataHash": "0xc619c8ad883e085ac691d4a371c10bb95c573783804ee8404c706d650e104ae1",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "919217240272284057",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "919217240272284057",
+                    "minReturnAmount": "917125",
+                    "scaledCalldataHash": "0x2e7ef5b18297ade7c328d032bcc5fb5bad367ebfafe1d0be1756722312a8b720",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "scaledCalldataHash": "0x2e7ef5b18297ade7c328d032bcc5fb5bad367ebfafe1d0be1756722312a8b720",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "919401102106521938",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "919401102106521938",
+                    "minReturnAmount": "917308",
+                    "scaledCalldataHash": "0x6f4aacade8c36c057179ada79b1ca56e9d06d25c3075945e903d0b86de33d468",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "scaledCalldataHash": "0x6f4aacade8c36c057179ada79b1ca56e9d06d25c3075945e903d0b86de33d468",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "459654585594701499",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "unscalable": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "matchesNew": true
+                  }
+                }
+              },
+              {
+                "newAmount": "1838618342378805996",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "unscalable": true
+                  }
+                },
+                "oldRuntimeAtCurrentProxyState": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "matchesNew": true
+                  }
+                }
+              }
+            ],
+            "codeHash": {
+              "ok": true,
+              "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+            },
+            "owner": {
+              "ok": true,
+              "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+            },
+            "upgradeInterfaceVersion": {
+              "ok": true,
+              "value": "5.0.0"
+            },
+            "proxyInitialize": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedOwnerChange": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedUpgrade": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "implementationInitialization": {
+              "ok": true,
+              "value": {
+                "acceptsInitialization": true,
+                "liveStateChanged": false
+              }
+            },
+            "oldImplementationInitialization": {
+              "ok": true,
+              "value": {
+                "acceptsInitialization": true,
+                "liveStateChanged": false
+              }
+            },
+            "malformed-0x": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "The contract function \"getScaledInputData\" reverted."
+              }
+            },
+            "malformed-0x12345678": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            },
+            "malformed-0x1234567800": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            },
+            "freshExitRoute": {
+              "ok": true,
+              "value": {
+                "quotedAtMs": 1792751481573,
+                "ptIn": "1014479",
+                "minLoanOut": "989156",
+                "executor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+              }
+            }
+          },
+          {
+            "chainId": 143,
+            "blockNumber": "115872423",
+            "blockHash": "0x227ccaac7623757ea4149cf7bcec7fc2625b8c7ea080ed8c02424ed1ea283256",
+            "tests": [],
+            "routeComparisons": [
+              {
+                "newAmount": "1019115",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "1019115",
+                    "minReturnAmount": "917104",
+                    "scaledCalldataHash": "0xfadb46aea37304cc49229183f9ac10a2170f3b69726cd944230787181569470e",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                }
+              },
+              {
+                "newAmount": "1019114",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "1019114",
+                    "minReturnAmount": "917103",
+                    "scaledCalldataHash": "0x4979af55dd380ccd8472d5ef27a9fa704d70fc8b321fcf592f5a57ac76f6a2f7",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                }
+              },
+              {
+                "newAmount": "1019116",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "1019116",
+                    "minReturnAmount": "917104",
+                    "scaledCalldataHash": "0x549376b1e47d2131b5769abb5053fb9f0988a88b9599592e2e8a5917629ded5b",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                }
+              },
+              {
+                "newAmount": "1019013",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "1019013",
+                    "minReturnAmount": "917012",
+                    "scaledCalldataHash": "0x7c8a3533d677be40c2c688f306ebbab6f879c6bfb2cdb903a630176c535db2de",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                }
+              },
+              {
+                "newAmount": "1019216",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": true,
+                    "unchangedReceiverTokensFeesAndFlags": true,
+                    "amount": "1019216",
+                    "minReturnAmount": "917194",
+                    "scaledCalldataHash": "0x8760c72e13799263295bbe604451b88e6f62c98e3c6e1d451dc75d9eb513a0a4",
+                    "sameProxyAndDirectImplementation": true
+                  }
+                }
+              },
+              {
+                "newAmount": "509557",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "unscalable": true
+                  }
+                }
+              },
+              {
+                "newAmount": "2038230",
+                "newHelper": {
+                  "ok": true,
+                  "value": {
+                    "success": false,
+                    "scaledCalldataHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+                    "unscalable": true
+                  }
+                }
+              }
+            ],
+            "codeHash": {
+              "ok": true,
+              "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+            },
+            "owner": {
+              "ok": true,
+              "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+            },
+            "upgradeInterfaceVersion": {
+              "ok": true,
+              "value": "5.0.0"
+            },
+            "proxyInitialize": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedOwnerChange": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedUpgrade": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "implementationInitialization": {
+              "ok": true,
+              "value": {
+                "acceptsInitialization": true,
+                "liveStateChanged": false
+              }
+            },
+            "malformed-0x": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "The contract function \"getScaledInputData\" reverted."
+              }
+            },
+            "malformed-0x12345678": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            },
+            "malformed-0x1234567800": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            },
+            "freshExitRoute": {
+              "ok": true,
+              "value": {
+                "quotedAtMs": 1792751484050,
+                "ptIn": "1019950",
+                "minLoanOut": "989021",
+                "executor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+              }
+            }
+          },
+          {
+            "chainId": 42161,
+            "blockNumber": "517506193",
+            "blockHash": "0x0345016aaae1abab075cc8a4727d0955d694419af921dcd44f552c1ef666bcc3",
+            "tests": [],
+            "routeComparisons": [],
+            "codeHash": {
+              "ok": true,
+              "value": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7"
+            },
+            "owner": {
+              "ok": true,
+              "value": "0xe46b993c9764D2969a05E3c0Cb2e50676eA66b19"
+            },
+            "upgradeInterfaceVersion": {
+              "ok": true,
+              "value": "5.0.0"
+            },
+            "proxyInitialize": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedOwnerChange": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "unauthorizedUpgrade": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "Execution reverted for an unknown reason."
+              }
+            },
+            "implementationInitialization": {
+              "ok": true,
+              "value": {
+                "acceptsInitialization": true,
+                "liveStateChanged": false
+              }
+            },
+            "malformed-0x": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "error": "The contract function \"getScaledInputData\" reverted."
+              }
+            },
+            "malformed-0x12345678": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            },
+            "malformed-0x1234567800": {
+              "ok": true,
+              "value": {
+                "rejected": true,
+                "successFlag": false
+              }
+            }
+          }
+        ]
+      },
+      "limitations": [
+        "This is not source reproduction or a complete audit of all DEX encodings and malformed inputs.",
+        "Fresh small ETH/Monad quote routes tested; current ARB helper authorization/hash tested, actual matured route execution remains for local fork proof.",
+        "Both prior and new direct implementation accept initialize() in eth_call. Proxy reinitialization/unauthorized owner/upgrade attempts reject. No live state changed.",
+        "Half/double requested amount rejected (boolfalse) for sampled exits in both old and new implementations; small \u00b11rawunit/\u00b11bp scaling succeeded.",
+        "No live signatures, broadcasts, configuration changes or transactions performed."
+      ],
+      "evidenceFiles": [
+        "behavior.json",
+        "behavior.mjs",
+        "behavior.log",
+        "eth.response",
+        "monad.response",
+        "base.response",
+        "new.explorer-runtime.hex",
+        "new.disassembly.txt",
+        "old.disassembly.txt"
+      ],
+      "sources": [
+        "https://etherscan.io/address/0x6d88e9296f51ebe4044a6f518b529c2b4861579a#code",
+        "https://monadscan.com/address/0x6d88e9296f51ebe4044a6f518b529c2b4861579a#code",
+        "https://basescan.org/address/0x6d88e9296f51ebe4044a6f518b529c2b4861579a#code",
+        "https://github.com/UncleGrandpa925/ks-helper-sc"
+      ]
+    }
+  },
+  "pinUpdate": "Only independently reviewed active Router facets, exact source-reproduced PendleSwap and bounded-reviewed Kyber helper implementation pins were replaced. Proxy/router/executor hashes, selectors, route tokens, aggregator, market identity and runtime policy scopes were not expanded.",
+  "preUpdateLivePreflight": {
+    "observedAt": "2026-10-23T10:21:55.027Z",
+    "sourceCommit": "570bf591ba94025c3c6c5a0e82f79db288a2c71c",
+    "readOnly": true,
+    "markets": [
+      {
+        "chainId": 1,
+        "marketId": "0x1e9d614631a7df0ec07fb05b2c8cb2491575fd1a63a33bf187a6afb295a4fc64",
+        "name": "PT-reUSD / USDC",
+        "rpcUrl": "https://ethereum-rpc.publicnode.com",
+        "blockNumber": "26254695",
+        "blockHash": "0x7f1b2ef35ed9c10e2400c0c41659bd0386c9caa0fae4e158607c54a4d0a781fd",
+        "blockTimestamp": "1792750907",
+        "blockUTC": "2026-10-23T10:21:47.000Z",
+        "expiry": "1796860800",
+        "expiryUTC": "2026-12-10T00:00:00.000Z",
+        "matured": false,
+        "pins": [
+          {
+            "name": "pendleRouter",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "expected": "0x6e7e96418259651300fbc9b9035c0613bfefc601ddbd840ab39a068ab3ee4293",
+            "observed": "0x6e7e96418259651300fbc9b9035c0613bfefc601ddbd840ab39a068ab3ee4293",
+            "ok": true
+          },
+          {
+            "name": "morpho",
+            "address": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+            "expected": "0xfa259fa317198f88f5fa3c119f06c066295dbcd47d715e0a30e1bcf94c02ef8c",
+            "observed": "0xfa259fa317198f88f5fa3c119f06c066295dbcd47d715e0a30e1bcf94c02ef8c",
+            "ok": true
+          },
+          {
+            "name": "generalAdapter1",
+            "address": "0x4A6c312ec70E8747a587EE860a0353cd42Be0aE0",
+            "expected": "0xf9cc71076c5b97dca248a8085a0faaad24a5768948474306a20e345a739dd74c",
+            "observed": "0xf9cc71076c5b97dca248a8085a0faaad24a5768948474306a20e345a739dd74c",
+            "ok": true
+          },
+          {
+            "name": "bundler3",
+            "address": "0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245",
+            "expected": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "observed": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "ok": true
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "expected": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+            "observed": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+            "ok": true
+          },
+          {
+            "name": "multicall3",
+            "address": "0xcA11bde05977b3631167028862bE2a173976CA11",
+            "expected": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "observed": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterRedeemImplementation",
+            "address": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "expected": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "observed": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterImplementation",
+            "address": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "expected": "0x5e98f3973c2fdabae1168b4afe928c16d4ca9d71803efeacd978fc3bb3898063",
+            "observed": "0x5e98f3973c2fdabae1168b4afe928c16d4ca9d71803efeacd978fc3bb3898063",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "expected": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+            "observed": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+            "ok": true
+          },
+          {
+            "name": "pendleSwapImplementation",
+            "address": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "expected": "0x521b6565b709376035cc10f036169a75e4e69a7cd837b8827d66dc170b800821",
+            "observed": "0x521b6565b709376035cc10f036169a75e4e69a7cd837b8827d66dc170b800821",
+            "ok": true
+          },
+          {
+            "name": "kyberRouter",
+            "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+            "expected": "0x06468e29bde518202bb725caad5eaaf8184c1b5338d8228e7c779248dbc9e2a3",
+            "observed": "0x06468e29bde518202bb725caad5eaaf8184c1b5338d8228e7c779248dbc9e2a3",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelperImplementation",
+            "address": "0x9B1F55B1f9A073E7285BD530473Ec3C780e371d6",
+            "expected": "0x2459f04017f1c08f8a5c39b6055e1c6aee37810f712d82c1a90bf520e2a75d70",
+            "observed": "0x2459f04017f1c08f8a5c39b6055e1c6aee37810f712d82c1a90bf520e2a75d70",
+            "ok": true
+          },
+          {
+            "name": "kyberExecutor",
+            "address": "0x8F10B468b06c6FD214B65F87778827F7D113f996",
+            "expected": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "observed": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "ok": true
+          },
+          {
+            "name": "mintFacet",
+            "address": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "expected": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "observed": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "ok": true
+          }
+        ],
+        "storage": [
+          {
+            "name": "0xc81f847a",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0xb820d981672246ed2ae2a03a3d77375d8c0576df8bfcece9761c680a952be441",
+            "expected": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x594a88cc",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x89ba60bec361b63cc61987f4256981640e7591ee7c9f24b02af2c6fb517cf783",
+            "expected": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x47f1de22",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x6734da2a1f646755e54dcb758d0c7e0fe931aba0c85863dd8c0a6bdec717cb9c",
+            "expected": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "observed": "0x00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea",
+            "liveImplementation": "0x22988295f144cec67b39cc437fac36a62792b7ea",
+            "liveCodeHash": "0x3a3fa12af0a1fe0e72116b7bdf6bed23b776a35c845528d97e8438ab230fc87e",
+            "liveCodeBytes": 17578,
+            "ok": false
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0x9B1F55B1f9A073E7285BD530473Ec3C780e371d6",
+            "observed": "0x0000000000000000000000006d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveImplementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveCodeHash": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7",
+            "liveCodeBytes": 11883,
+            "ok": false
+          },
+          {
+            "name": "mintFacet",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x7f86a9c321f3eb737fe8243595d7a235abf983d29bf98a292bb98f2856e4e47a",
+            "expected": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          }
+        ],
+        "identity": {
+          "ok": true,
+          "value": {
+            "tokens": [
+              "0x9487Bd5A3b16Ecb5F3184453E3ee75B800141648",
+              "0xeCfaFdC7741323a945A163ed068B5a3C43483957",
+              "0xA8bD3B21291AcE53927b35563fc80615919E63D7"
+            ],
+            "expiry": "1796860800",
+            "params": [
+              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+              "0xeCfaFdC7741323a945A163ed068B5a3C43483957",
+              "0x217d6DdCDB95112C51657F6270e8C079CFDB51f0",
+              "0x870aC11D48B15DB9a138Cf899d20F13F79Ba00BC",
+              "915000000000000000"
+            ],
+            "tokensIn": [
+              "0x5086bf358635B81D8C47C66d1C8b9E567Db70c72"
+            ],
+            "tokensOut": [
+              "0x5086bf358635B81D8C47C66d1C8b9E567Db70c72"
+            ],
+            "loanDecimals": 6,
+            "ptDecimals": 6,
+            "ytDecimals": 6,
+            "adapterBundler": "0x6566194141eefa99Af43Bb5Aa71460Ca2Dc90245",
+            "adapterMorpho": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+            "provenance": [
+              {
+                "factory": "0x27b1dAcd74688aF24a64BD3C9C1B143118740784",
+                "generation": "v1",
+                "valid": false
+              },
+              {
+                "factory": "0x1A6fCc85557BC4fB7B534ed835a03EF056552D52",
+                "generation": "V3",
+                "valid": false
+              },
+              {
+                "factory": "0x3d75Bd20C983edb5fD218A1b7e0024F1056c7A2F",
+                "generation": "V4",
+                "valid": false
+              },
+              {
+                "factory": "0x6fcf753f2C67b83f7B09746Bbc4FA0047b35D050",
+                "generation": "V5",
+                "valid": false
+              },
+              {
+                "factory": "0x6d247b1c044fA1E22e6B04fA9F71Baf99EB29A9f",
+                "generation": "V6",
+                "valid": true
+              }
+            ]
+          }
+        },
+        "accruedLiquidity": {
+          "ok": true,
+          "value": {
+            "totalSupplyAssets": "136928924639407",
+            "totalBorrowAssets": "123103370282479",
+            "availableLoanAssets": "13825554356928",
+            "lastUpdate": "1792750907",
+            "oraclePrice": "985402706527189656000000000000000000",
+            "loanDecimals": 6
+          }
+        },
+        "marketStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Pendle Router implementation changed for selector 0xc81f847a.'\n- 'The wallet loan-token balance is below the requested equity.'\n",
+          "details": null
+        },
+        "mintStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Pendle Router implementation changed for selector 0xc81f847a.'\n- 'The wallet loan-token balance is below the requested equity.'\n",
+          "details": null
+        },
+        "marketFreshQuote": {
+          "ok": true,
+          "value": {
+            "quotedAtMs": 1792750918412,
+            "expectedPtOut": "1014504",
+            "minPtOut": "1004358",
+            "kyberExecutor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+          }
+        },
+        "mintFreshQuote": {
+          "ok": true,
+          "value": {
+            "quotedAtMs": 1792750920041,
+            "expectedPtOut": "1000032",
+            "minPtOut": "990031",
+            "expectedPyOut": "1000032",
+            "minPyOut": "990031",
+            "kyberExecutor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+          }
+        }
+      },
+      {
+        "chainId": 143,
+        "marketId": "0x093bd94086b08a013c96dc0776ebf663e9300e742a2c14479211cc35da6c3439",
+        "name": "PT-USDat / USDC",
+        "rpcUrl": "https://rpc.monad.xyz",
+        "blockNumber": "115872423",
+        "blockHash": "0x227ccaac7623757ea4149cf7bcec7fc2625b8c7ea080ed8c02424ed1ea283256",
+        "blockTimestamp": "1792750922",
+        "blockUTC": "2026-10-23T10:22:02.000Z",
+        "expiry": "1799884800",
+        "expiryUTC": "2027-01-14T00:00:00.000Z",
+        "matured": false,
+        "pins": [
+          {
+            "name": "morpho",
+            "address": "0xD5D960E8C380B724a48AC59E2DfF1b2CB4a1eAee",
+            "expected": "0xb7a6b485eae3ae09fa451369d5001078c2b5a0a409b7a5908ff080b54f68acce",
+            "observed": "0xb7a6b485eae3ae09fa451369d5001078c2b5a0a409b7a5908ff080b54f68acce",
+            "ok": true
+          },
+          {
+            "name": "pendleRouter",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "expected": "0xede7d999cb3da0979eaa44b51d5688f7e4185eab224cac8c295c1702350a12ed",
+            "observed": "0xede7d999cb3da0979eaa44b51d5688f7e4185eab224cac8c295c1702350a12ed",
+            "ok": true
+          },
+          {
+            "name": "bundler3",
+            "address": "0x82b684483e844422FD339df0b67b3B111F02c66E",
+            "expected": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "observed": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "ok": true
+          },
+          {
+            "name": "generalAdapter1",
+            "address": "0x725AB8CAd931BCb80Fdbf10955a806765cCe00e5",
+            "expected": "0xc33e1de8456b2194f397dccb67f24290a8a5d2db896c892c42a7087196f45b08",
+            "observed": "0xc33e1de8456b2194f397dccb67f24290a8a5d2db896c892c42a7087196f45b08",
+            "ok": true
+          },
+          {
+            "name": "multicall3",
+            "address": "0xcA11bde05977b3631167028862bE2a173976CA11",
+            "expected": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "observed": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterImplementation",
+            "address": "0xbb0Dd79794e58795b08b599297ec55a6Afb6AB58",
+            "expected": "0x1f4fbfa10c4493836243d3325e486dd3e241cee5e715d00b68540ab8eed76181",
+            "observed": "0x1f4fbfa10c4493836243d3325e486dd3e241cee5e715d00b68540ab8eed76181",
+            "ok": true
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "expected": "0x692d6f336da9d107e0eeb1d7844190b769d97c75ca4fe0d8f3ba655bb8eea8fa",
+            "observed": "0x692d6f336da9d107e0eeb1d7844190b769d97c75ca4fe0d8f3ba655bb8eea8fa",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterRedeemImplementation",
+            "address": "0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97",
+            "expected": "0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8",
+            "observed": "0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "expected": "0xf85045d69d752902ce737bdff5a43b7d6db74ca39adf10a3df44464069236bb5",
+            "observed": "0xf85045d69d752902ce737bdff5a43b7d6db74ca39adf10a3df44464069236bb5",
+            "ok": true
+          },
+          {
+            "name": "kyberRouter",
+            "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+            "expected": "0x73055c10f463ef7d44c444ccae0b71ab4cacaf67aedbad2cd8af639d53cc6316",
+            "observed": "0x73055c10f463ef7d44c444ccae0b71ab4cacaf67aedbad2cd8af639d53cc6316",
+            "ok": true
+          },
+          {
+            "name": "pendleSwapImplementation",
+            "address": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "expected": "0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c",
+            "observed": "0xb7dcc0884f8143f8aa926a54bd57a044039d9b350ad1f0a1c83261cfde4c8b3c",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelperImplementation",
+            "address": "0xDAA210258d04a841b3D54Eb29F31bac83e0D4458",
+            "expected": "0x98ca3d842914566cfea5d3fa72df98a466ae944703c26200cc2766e71969e3e3",
+            "observed": "0x98ca3d842914566cfea5d3fa72df98a466ae944703c26200cc2766e71969e3e3",
+            "ok": true
+          },
+          {
+            "name": "kyberExecutor",
+            "address": "0x8F10B468b06c6FD214B65F87778827F7D113f996",
+            "expected": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "observed": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "ok": true
+          },
+          {
+            "name": "mintFacet",
+            "address": "0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97",
+            "expected": "0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8",
+            "observed": "0x8ed5e9bf05f39a1050fba75d81e29fc1dd8e0072e93c7205c595b9955b4ff9c8",
+            "ok": true
+          }
+        ],
+        "storage": [
+          {
+            "name": "0xc81f847a",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0xb820d981672246ed2ae2a03a3d77375d8c0576df8bfcece9761c680a952be441",
+            "expected": "0xbb0Dd79794e58795b08b599297ec55a6Afb6AB58",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x594a88cc",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x89ba60bec361b63cc61987f4256981640e7591ee7c9f24b02af2c6fb517cf783",
+            "expected": "0xbb0Dd79794e58795b08b599297ec55a6Afb6AB58",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x47f1de22",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x6734da2a1f646755e54dcb758d0c7e0fe931aba0c85863dd8c0a6bdec717cb9c",
+            "expected": "0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "observed": "0x00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea",
+            "liveImplementation": "0x22988295f144cec67b39cc437fac36a62792b7ea",
+            "liveCodeHash": "0xb0e1c1e9d33e0a3537dfc864d42fb51348d414a92b0845fbada2faddcdd6248a",
+            "liveCodeBytes": 17578,
+            "ok": false
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0xDAA210258d04a841b3D54Eb29F31bac83e0D4458",
+            "observed": "0x0000000000000000000000006d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveImplementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveCodeHash": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7",
+            "liveCodeBytes": 11883,
+            "ok": false
+          },
+          {
+            "name": "mintFacet",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x7f86a9c321f3eb737fe8243595d7a235abf983d29bf98a292bb98f2856e4e47a",
+            "expected": "0xac1700293346b0bEFC71bCB7E14Bf1c38a5c2a97",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          }
+        ],
+        "identity": {
+          "ok": true,
+          "value": {
+            "tokens": [
+              "0x0898C3346275e79dB4892feB1C18875eC154F274",
+              "0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147",
+              "0x5aff25c86C7Cb739e554BE8904B32047738B7440"
+            ],
+            "expiry": "1799884800",
+            "params": [
+              "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+              "0xa08A69aB9Dd3B04D0992BC7aFb2c0b907bbdc147",
+              "0x597921a5b5aD74A0Bf573fD7B58F80c383DCdAB2",
+              "0x09475a3D6eA8c314c592b1a3799bDE044E2F400F",
+              "915000000000000000"
+            ],
+            "tokensIn": [
+              "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF"
+            ],
+            "tokensOut": [
+              "0x0Bb150DFa86EA5d7742F07FEfCD8E8edA81D64eF"
+            ],
+            "loanDecimals": 6,
+            "ptDecimals": 6,
+            "ytDecimals": 6,
+            "adapterBundler": "0x82b684483e844422FD339df0b67b3B111F02c66E",
+            "adapterMorpho": "0xD5D960E8C380B724a48AC59E2DfF1b2CB4a1eAee",
+            "provenance": [
+              {
+                "factory": "0xA3cb62a49b66eB2536cf6F3C7AC82293784888A3",
+                "generation": "V6",
+                "valid": true
+              }
+            ]
+          }
+        },
+        "accruedLiquidity": {
+          "ok": true,
+          "value": {
+            "totalSupplyAssets": "30377239516099",
+            "totalBorrowAssets": "27692653583954",
+            "availableLoanAssets": "2684585932145",
+            "lastUpdate": "1792750922",
+            "oraclePrice": "979957560389279369000000000000000000",
+            "loanDecimals": 6
+          }
+        },
+        "marketStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'The RPC could not complete the pinned looping contract-state reads. No wallet action was taken; retry once.'\n- 'The wallet loan-token balance is below the requested equity.'\n",
+          "details": null
+        },
+        "mintStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Pendle Router implementation changed for selector 0xc81f847a.'\n- 'The wallet loan-token balance is below the requested equity.'\n",
+          "details": null
+        },
+        "marketFreshQuote": {
+          "ok": true,
+          "value": {
+            "quotedAtMs": 1792750926221,
+            "expectedPtOut": "1019950",
+            "minPtOut": "1009750",
+            "kyberExecutor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+          }
+        },
+        "mintFreshQuote": {
+          "ok": true,
+          "value": {
+            "quotedAtMs": 1792750926749,
+            "expectedPtOut": "999919",
+            "minPtOut": "989919",
+            "expectedPyOut": "999919",
+            "minPyOut": "989919",
+            "kyberExecutor": "0x8F10B468b06c6FD214B65F87778827F7D113f996"
+          }
+        }
+      },
+      {
+        "chainId": 42161,
+        "marketId": "0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985",
+        "name": "PT-USDai / USDC",
+        "rpcUrl": "https://arb1.arbitrum.io/rpc",
+        "blockNumber": "517506193",
+        "blockHash": "0x0345016aaae1abab075cc8a4727d0955d694419af921dcd44f552c1ef666bcc3",
+        "blockTimestamp": "1792750926",
+        "blockUTC": "2026-10-23T10:22:06.000Z",
+        "expiry": "1792022400",
+        "expiryUTC": "2026-10-15T00:00:00.000Z",
+        "matured": true,
+        "pins": [
+          {
+            "name": "morpho",
+            "address": "0x6c247b1F6182318877311737BaC0844bAa518F5e",
+            "expected": "0xd2bb64e51bc71ff5ce00ae89eab643e65fda6fc59f4ab8c367241c4bedf8acf5",
+            "observed": "0xd2bb64e51bc71ff5ce00ae89eab643e65fda6fc59f4ab8c367241c4bedf8acf5",
+            "ok": true
+          },
+          {
+            "name": "bundler3",
+            "address": "0x1FA4431bC113D308beE1d46B0e98Cb805FB48C13",
+            "expected": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "observed": "0xd3912f2b89d1e2848544ca398d337f59950ffb9ecc38a7bd644063fa094c8454",
+            "ok": true
+          },
+          {
+            "name": "generalAdapter1",
+            "address": "0x9954aFB60BB5A222714c478ac86990F221788B88",
+            "expected": "0xdbe426ef0ae7a487da9c6ba392089dad8cb1438943b8fff71279bc7d669bdbb2",
+            "observed": "0xdbe426ef0ae7a487da9c6ba392089dad8cb1438943b8fff71279bc7d669bdbb2",
+            "ok": true
+          },
+          {
+            "name": "pendleRouter",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "expected": "0x6e7e96418259651300fbc9b9035c0613bfefc601ddbd840ab39a068ab3ee4293",
+            "observed": "0x6e7e96418259651300fbc9b9035c0613bfefc601ddbd840ab39a068ab3ee4293",
+            "ok": true
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "expected": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+            "observed": "0x114e0fcd5f3bdf77cbeefc2f92930a8d648fe71f3ba30b23248bde2507c2f266",
+            "ok": true
+          },
+          {
+            "name": "multicall3",
+            "address": "0xcA11bde05977b3631167028862bE2a173976CA11",
+            "expected": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "observed": "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterImplementation",
+            "address": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "expected": "0x5e98f3973c2fdabae1168b4afe928c16d4ca9d71803efeacd978fc3bb3898063",
+            "observed": "0x5e98f3973c2fdabae1168b4afe928c16d4ca9d71803efeacd978fc3bb3898063",
+            "ok": true
+          },
+          {
+            "name": "pendleRouterRedeemImplementation",
+            "address": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "expected": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "observed": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "expected": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+            "observed": "0x3053204d96844dbfcb9105716424d3bdc66be454cf3898a8c7523996bf626649",
+            "ok": true
+          },
+          {
+            "name": "pendleSwapImplementation",
+            "address": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "expected": "0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df",
+            "observed": "0x548b83374be8f48a0e4d3868213e4751390db681a8c32e9a61474f0555fd70df",
+            "ok": true
+          },
+          {
+            "name": "kyberRouter",
+            "address": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+            "expected": "0x7c53f923286b51431195fc137a16cb9461662b5ae2476353979a52daa527aeaa",
+            "observed": "0x7c53f923286b51431195fc137a16cb9461662b5ae2476353979a52daa527aeaa",
+            "ok": true
+          },
+          {
+            "name": "kyberScalingHelperImplementation",
+            "address": "0x4D1723E3141Ba1973B50F85724C459Ae1Ff02EA3",
+            "expected": "0xd2987684fa5b47381bc16a0683189a7d8fb09db75bbe5879de0392b530409fb0",
+            "observed": "0xd2987684fa5b47381bc16a0683189a7d8fb09db75bbe5879de0392b530409fb0",
+            "ok": true
+          },
+          {
+            "name": "kyberExecutor",
+            "address": "0x8F10B468b06c6FD214B65F87778827F7D113f996",
+            "expected": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "observed": "0xc3fe18bd9e1e31adecfcaba58177f3d796c3028e7d53a628e321e18295e10682",
+            "ok": true
+          },
+          {
+            "name": "mintFacet",
+            "address": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "expected": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "observed": "0x24634730bd528871bc7aada351e5332505c9a51746535b15f377b9978372aed9",
+            "ok": true
+          }
+        ],
+        "storage": [
+          {
+            "name": "0xc81f847a",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0xb820d981672246ed2ae2a03a3d77375d8c0576df8bfcece9761c680a952be441",
+            "expected": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x594a88cc",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x89ba60bec361b63cc61987f4256981640e7591ee7c9f24b02af2c6fb517cf783",
+            "expected": "0xd8D200d9A713A1c71cF1e7F694B14E5F1D948b15",
+            "observed": "0x0000000000000000000000009d215290f43366bbceff40a79fbac9dd23325379",
+            "liveImplementation": "0x9d215290f43366bbceff40a79fbac9dd23325379",
+            "liveCodeHash": "0x8d15c4f2b99c6b24daa0f2383c0cfd998879b89b36e9359b18345fc9e7686333",
+            "liveCodeBytes": 18379,
+            "ok": false
+          },
+          {
+            "name": "0x47f1de22",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x6734da2a1f646755e54dcb758d0c7e0fe931aba0c85863dd8c0a6bdec717cb9c",
+            "expected": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          },
+          {
+            "name": "pendleSwap",
+            "address": "0xd4F480965D2347d421F1bEC7F545682E5Ec2151D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0xD14feb6Aaf8650BbfcC8aBEc299B249a80FE7C78",
+            "observed": "0x00000000000000000000000022988295f144cec67b39cc437fac36a62792b7ea",
+            "liveImplementation": "0x22988295f144cec67b39cc437fac36a62792b7ea",
+            "liveCodeHash": "0x16bec77a008c20d998d828aa1908221da056d9be0e0be74fe798cedaccc848ee",
+            "liveCodeBytes": 17578,
+            "ok": false
+          },
+          {
+            "name": "kyberScalingHelper",
+            "address": "0x2f577A41BeC1BE1152AeEA12e73b7391d15f655D",
+            "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+            "expected": "0x4D1723E3141Ba1973B50F85724C459Ae1Ff02EA3",
+            "observed": "0x0000000000000000000000006d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveImplementation": "0x6d88e9296f51ebe4044a6f518b529c2b4861579a",
+            "liveCodeHash": "0x5ff59fe19edf071a52ac11969d2675e709c4443918f6f42eec7b5764fd60e5b7",
+            "liveCodeBytes": 11883,
+            "ok": false
+          },
+          {
+            "name": "mintFacet",
+            "address": "0x888888888889758F76e7103c6CbF23ABbF58F946",
+            "slot": "0x7f86a9c321f3eb737fe8243595d7a235abf983d29bf98a292bb98f2856e4e47a",
+            "expected": "0x373Dba2055Ad40cb4815148bC47cd1DC16e92E44",
+            "observed": "0x0000000000000000000000001266261289d815650a6bcdb308766be36efa8149",
+            "liveImplementation": "0x1266261289d815650a6bcdb308766be36efa8149",
+            "liveCodeHash": "0xa38c335d383c1ac060df1f3f4687917a6da673bbf6e37a3b5241b49760194d6d",
+            "liveCodeBytes": 24309,
+            "ok": false
+          }
+        ],
+        "identity": {
+          "ok": true,
+          "value": {
+            "tokens": [
+              "0x5edCBC20Cac67AdC2e724d4348Ff85132B085b82",
+              "0xC9d24aD0bB25F34098e226a8C5192Dea7bacccaE",
+              "0xAF67341456151Ab8c270E0962966092181c2Eb80"
+            ],
+            "expiry": "1792022400",
+            "params": [
+              "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+              "0xC9d24aD0bB25F34098e226a8C5192Dea7bacccaE",
+              "0xaAe5194036306A14B6bFE51A255001bd75F315b1",
+              "0x66F30587FB8D4206918deb78ecA7d5eBbafD06DA",
+              "915000000000000000"
+            ],
+            "tokensIn": [
+              "0x46850aD61C2B7d64d08c9C754F45254596696984",
+              "0x0A1a1A107E45b7Ced86833863f482BC5f4ed82EF"
+            ],
+            "tokensOut": [
+              "0x46850aD61C2B7d64d08c9C754F45254596696984",
+              "0x0A1a1A107E45b7Ced86833863f482BC5f4ed82EF"
+            ],
+            "loanDecimals": 6,
+            "ptDecimals": 18,
+            "ytDecimals": 18,
+            "adapterBundler": "0x1FA4431bC113D308beE1d46B0e98Cb805FB48C13",
+            "adapterMorpho": "0x6c247b1F6182318877311737BaC0844bAa518F5e",
+            "provenance": [
+              {
+                "factory": "0xf5a7De2D276dbda3EEf1b62A9E718EFf4d29dDC8",
+                "generation": "v1",
+                "valid": false
+              },
+              {
+                "factory": "0x2FCb47B58350cD377f94d3821e7373Df60bD9Ced",
+                "generation": "V3",
+                "valid": false
+              },
+              {
+                "factory": "0xd9f5e9589016da862D2aBcE980A5A5B99A94f3E8",
+                "generation": "V4",
+                "valid": false
+              },
+              {
+                "factory": "0xd29e76c6F15ada0150D10A1D3f45aCCD2098283B",
+                "generation": "V5",
+                "valid": false
+              },
+              {
+                "factory": "0x49F2f7002669E0e4425Fa0203975625Ab4af3143",
+                "generation": "V6",
+                "valid": true
+              }
+            ]
+          }
+        },
+        "accruedLiquidity": {
+          "ok": true,
+          "value": {
+            "totalSupplyAssets": "24204736060",
+            "totalBorrowAssets": "22633021440",
+            "availableLoanAssets": "1571714620",
+            "lastUpdate": "1792750926",
+            "oraclePrice": "1000000000000000000000000",
+            "loanDecimals": 6
+          }
+        },
+        "marketStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Pendle Router implementation changed for selector 0xc81f847a.'\n- 'The Pendle market has matured; new looping actions are disabled.'\n",
+          "details": null
+        },
+        "mintStaticProductionPreflight": {
+          "ok": false,
+          "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Pendle Router implementation changed for selector 0xc81f847a.'\n- 'The Pendle market has matured; new looping actions are disabled.'\n",
+          "details": null
+        },
+        "publicPositions": [
+          {
+            "holder": "0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8",
+            "position": [
+              "0",
+              "5004316419",
+              "879774324111372325"
+            ]
+          },
+          {
+            "holder": "0xBAC70E2De3D883fcDc3b6e2e0841ea8bC067B4f5",
+            "position": [
+              "0",
+              "519317095444",
+              "581011534527345000"
+            ]
+          }
+        ],
+        "maturedExitPreview": {
+          "ok": false,
+          "error": "Pendle Router implementation changed for selector 0xc81f847a.",
+          "details": null
+        }
+      }
+    ]
+  },
+  "forkProofs": [
+    {
+      "chain": "Ethereum",
+      "mode": "market",
+      "blockNumber": "26254758",
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "localAnvilOnly": true,
+      "passed": true,
+      "operations": [
+        "signed-entry",
+        "signed-increase",
+        "signed-partial-decrease",
+        "signed-full-exit",
+        "direct-rescue",
+        "signed-post-expiry-exit"
+      ],
+      "exitNeedScale": true,
+      "swapFlowAssertions": [
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "196823",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "225339588507650323",
+            "preexistingDustSwept": "9",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "1304085703824350087",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "1372443504124122282",
+            "preexistingDustSwept": "9",
+            "transactionInputSwept": "0"
+          }
+        ]
+      ],
+      "log": "eth-market-fork.log",
+      "logSha256": "dab99324e51d9fe1e456ed1ad9940495f3da938b552a11c593617d16e8701662"
+    },
+    {
+      "chain": "Monad",
+      "mode": "market",
+      "blockNumber": "115874921",
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "localAnvilOnly": true,
+      "passed": true,
+      "operations": [
+        "signed-entry",
+        "signed-increase",
+        "signed-partial-decrease",
+        "signed-full-exit",
+        "direct-rescue",
+        "signed-post-expiry-exit"
+      ],
+      "exitNeedScale": true,
+      "swapFlowAssertions": [
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "196726",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "249801",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "1445458",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "1529924",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ]
+      ],
+      "log": "monad-market-fork.log",
+      "logSha256": "eeff8343f5ba955830a50f8011bee35af1a9ba86eadf607f7c456fb59084c30d"
+    },
+    {
+      "chain": "Ethereum",
+      "mode": "mint",
+      "blockNumber": "26254763",
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "localAnvilOnly": true,
+      "passed": true,
+      "operations": [
+        "signed-entry",
+        "signed-increase",
+        "signed-partial-decrease",
+        "signed-full-exit",
+        "direct-rescue",
+        "signed-post-expiry-exit"
+      ],
+      "exitNeedScale": true,
+      "swapFlowAssertions": [
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "190686",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "223436702433710122",
+            "preexistingDustSwept": "9",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "1278651061197176874",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x5086bf358635b81d8c47c66d1c8b9e567db70c72",
+            "amountIn": "1352805900209407652",
+            "preexistingDustSwept": "9",
+            "transactionInputSwept": "0"
+          }
+        ]
+      ],
+      "log": "eth-mint-fork.log",
+      "logSha256": "ad3c977393d888e673760e7a7aae9900557ff3e1b89d4530658afd404f3e2658"
+    },
+    {
+      "chain": "Monad",
+      "mode": "mint",
+      "blockNumber": "115875086",
+      "fixtureEquityBaseUnits": "1000000",
+      "fixtureDebtBaseUnits": "500000",
+      "localAnvilOnly": true,
+      "passed": true,
+      "operations": [
+        "signed-entry",
+        "signed-increase",
+        "signed-partial-decrease",
+        "signed-full-exit",
+        "direct-rescue",
+        "signed-post-expiry-exit"
+      ],
+      "exitNeedScale": true,
+      "swapFlowAssertions": [
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "188317",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "246910",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "1406813",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+            "amountIn": "1500000",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ],
+        [
+          {
+            "token": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef",
+            "amountIn": "1499878",
+            "preexistingDustSwept": "0",
+            "transactionInputSwept": "0"
+          }
+        ]
+      ],
+      "log": "monad-mint-fork.log",
+      "logSha256": "2bcc27ad7b4b1929248ecd4653e7ee4c76c249202acffc7b2d18e57dd2153513"
+    }
+  ],
+  "arbitrumManagementProof": {
+    "observedAt": "2026-10-23T10:36:50.938Z",
+    "sourceBlock": "517509161",
+    "sourceBlockHash": "0x8af86c8e7b914b535919f79b0ee2d0e5256c7169bdc3e9dde2056966f8e091a1",
+    "sourceTimestamp": "1792751788",
+    "owner": "0x51FDbC5ca4949eEC514232e13B9d4ED091e5A8A8",
+    "marketId": "0x97cb4b88a7a5e8e9c039b106374124e642395437ffc0ef93f2799343ad022985",
+    "borrowedShares": "5004316419",
+    "collateral": "879774324111372325",
+    "exitKind": "redeem-matured-pt",
+    "returnedLoanAssets": "874372",
+    "minimumReturnedLoanAssets": "865523",
+    "rescueSteps": [
+      "approve-exact-repayment",
+      "repay-exact-shares",
+      "clear-morpho-allowance-after",
+      "withdraw-exact-collateral"
+    ],
+    "fixture": "actual public position; local impersonation and native gas only",
+    "signedAuthorizationWrapperExercised": false,
+    "debtAndCollateralZero": true,
+    "tokenAndDebtShareConservation": true,
+    "authorizationsAndAllowancesCleared": true,
+    "swapInputConservation": [
+      {
+        "token": "0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef",
+        "amountIn": "879774324111372325",
+        "preexistingDustSwept": "0",
+        "transactionInputSwept": "0"
+      }
+    ]
+  },
+  "proofLimitations": [
+    "Fork accounts and transactions were local Anvil only. These proofs establish the tested exact market identities/routes and 1 USDC equity / 0.5 USDC debt active fixtures, not arbitrary token routes or trade sizes.",
+    "Mint increases were exercised as compiler regression coverage; runtime Mint increase remains disabled.",
+    "The genuine Arbitrum public owner was impersonated locally; the signed authorization wrapper was not exercised in that management fixture.",
+    "Kyber helper implementation source remains unverified despite pinned binary, bounded behavior comparison, access-control checks and successful actual scaled-exit forks.",
+    "No production wallet transaction, funding or broadcast occurred."
+  ],
+  "exactInputObservation": "All five fresh fork proofs spent declared transaction input and observed zero transaction input swept. Ethereum post-expiry redemption observed 9 raw underlying units already present in PendleSwap before the fixture action transferred to the fixed receiver; actual input flow and recipient delta independently reconciled.",
+  "validation": {
+    "loopingExecutionRegression": "passed",
+    "loopingMintRuntimePolicyRegression": "passed",
+    "loopingForkHarnessAndInputConservationRegression": "passed",
+    "loopingLiveCanarySafetyChecks": 82,
+    "loopingMarketManifestRegression": "passed",
+    "lint": "passed",
+    "whitespace": "passed",
+    "freshForkProofs": 5,
+    "allProofsLocalOnly": true,
+    "rootOwnsFinalCleanCI": true
+  }
+}

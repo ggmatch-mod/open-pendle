@@ -33,6 +33,7 @@ import PositionsPage from './pages/PositionsPage'
 import ProtocolStatusPage from './pages/ProtocolStatusPage'
 import AboutPage from './pages/AboutPage'
 import QuickStartPage from './pages/QuickStartPage'
+import PortfolioPage from './pages/PortfolioPage'
 import { useActiveChain } from './lib/hooks'
 import { isChainAddressRoute, routeChainId } from './lib/routes'
 import { markAppReady } from './lib/preloadRecovery'
@@ -110,6 +111,7 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/quickstart" element={<QuickStartPage />} />
       <Route path="/explore" element={<ExplorePage />} />
+      <Route path="/portfolio" element={<PortfolioPage />} />
       <Route
         path="/alerts"
         element={
@@ -164,8 +166,9 @@ export default function App() {
             <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
               {[
                 { to: '/explore', label: 'Explore' },
+                { to: '/portfolio', label: 'Portfolio' },
                 { to: '/looping', label: 'Looping' },
-                { to: '/alerts', label: 'Alerts' },
+                { to: '/alerts', label: 'Action Center' },
                 { to: '/positions', label: 'Positions' },
                 { to: '/create', label: 'Create' },
               ].map((item) => (

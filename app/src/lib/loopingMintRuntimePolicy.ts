@@ -1,13 +1,10 @@
 import type { Hex } from 'viem'
 
 export const LOOPING_MINT_RUNTIME_POLICY_PATH =
-  '/looping-mint-execution-policy.v1.json' as const
+  '/looping-mint-execution-policy.v2.json' as const
 export const LOOPING_MINT_RUNTIME_POLICY_SCHEMA =
-  'openpendle.looping-mint-execution-policy.v1' as const
+  'openpendle.looping-mint-execution-policy.v2' as const
 export const LOOPING_MINT_RUNTIME_POLICY_TIMEOUT_MS = 4_000
-export const LOOPING_MINT_RUNTIME_POLICY_MAX_VALIDITY_MS =
-  7 * 24 * 60 * 60 * 1_000
-export const LOOPING_MINT_RUNTIME_POLICY_MIN_REMAINING_MS = 30_000
 export const LOOPING_MINT_RUNTIME_POLICY_MAX_MARKETS = 32
 
 export type LoopingMintRuntimeAction = 'entry' | 'increase'
@@ -19,7 +16,6 @@ export interface LoopingMintRuntimeMarket {
 
 export interface LoopingMintRuntimeCapability {
   enabled: boolean
-  validUntil: string | null
   markets: readonly Readonly<LoopingMintRuntimeMarket>[]
 }
 
@@ -94,11 +90,10 @@ function parseRuntimeMarket(value: unknown): Readonly<LoopingMintRuntimeMarket> 
 
 function parseCapability(
   value: unknown,
-  now: number,
 ): Readonly<LoopingMintRuntimeCapability> {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, ['enabled', 'validUntil', 'markets']) ||
+    !hasExactKeys(value, ['enabled', 'markets']) ||
     typeof value.enabled !== 'boolean' ||
     !Array.isArray(value.markets) ||
     value.markets.length > LOOPING_MINT_RUNTIME_POLICY_MAX_MARKETS
@@ -112,38 +107,16 @@ function parseCapability(
   )
   if (uniqueMarkets.size !== markets.length) invalidPolicy()
 
-  if (!value.enabled) {
-    if (value.validUntil !== null || markets.length !== 0) invalidPolicy()
-  } else {
-    if (
-      typeof value.validUntil !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(
-        value.validUntil,
-      ) ||
-      markets.length === 0
-    ) {
-      invalidPolicy()
-    }
-    const validUntilMs = Date.parse(value.validUntil)
-    if (
-      !Number.isFinite(validUntilMs) ||
-      validUntilMs - now < LOOPING_MINT_RUNTIME_POLICY_MIN_REMAINING_MS ||
-      validUntilMs - now > LOOPING_MINT_RUNTIME_POLICY_MAX_VALIDITY_MS
-    ) {
-      fail('The live looping Mint policy is expired or too long-lived, so Mint Mode is paused.')
-    }
-  }
+  if (value.enabled ? markets.length === 0 : markets.length !== 0) invalidPolicy()
 
   return Object.freeze({
     enabled: value.enabled,
-    validUntil: value.validUntil as string | null,
     markets: Object.freeze(markets),
   })
 }
 
 function parseRuntimePolicy(
   value: unknown,
-  now: number,
 ): Readonly<LoopingMintRuntimePolicy> {
   if (
     !isRecord(value) ||
@@ -160,8 +133,8 @@ function parseRuntimePolicy(
     schema: LOOPING_MINT_RUNTIME_POLICY_SCHEMA,
     revision: value.revision as number,
     mint: Object.freeze({
-      entry: parseCapability(value.mint.entry, now),
-      increase: parseCapability(value.mint.increase, now),
+      entry: parseCapability(value.mint.entry),
+      increase: parseCapability(value.mint.increase),
     }),
   })
 }
@@ -239,10 +212,17 @@ export async function assertLoopingMintRuntimeActionEnabled({
     `${requestStartedAt.toString(36)}-${policyRequestSequence.toString(36)}`,
   )
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error('The live looping policy request timed out.')
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
 
   try {
-    const response = await fetchPolicy(policyUrl, {
+    const response = await Promise.race([fetchPolicy(policyUrl, {
       method: 'GET',
       headers: { accept: 'application/json' },
       cache: 'no-store',
@@ -250,7 +230,7 @@ export async function assertLoopingMintRuntimeActionEnabled({
       redirect: 'error',
       referrerPolicy: 'no-referrer',
       signal: controller.signal,
-    })
+    }), deadline])
     if (response.status !== 200 || response.redirected || response.url === '') {
       invalidPolicy()
     }
@@ -265,7 +245,7 @@ export async function assertLoopingMintRuntimeActionEnabled({
     if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) {
       invalidPolicy()
     }
-    const body = await response.text()
+    const body = await Promise.race([response.text(), deadline])
     if (body.length === 0 || body.length > 8_192) invalidPolicy()
 
     let decoded: unknown
@@ -285,7 +265,7 @@ export async function assertLoopingMintRuntimeActionEnabled({
       fail('The live looping Mint policy is unavailable, so Mint Mode is paused.')
     }
 
-    const policy = parseRuntimePolicy(decoded, checkedAt)
+    const policy = parseRuntimePolicy(decoded)
     const capability = policy.mint[action]
     if (!capability.enabled) {
       fail(`Looping Mint ${actionLabel(action)} is currently paused by OpenPendle.`)
@@ -301,8 +281,8 @@ export async function assertLoopingMintRuntimeActionEnabled({
     return policy
   } catch (error) {
     if (error instanceof LoopingMintRuntimePolicyError) throw error
-    fail('The live looping Mint policy could not be verified, so Mint Mode is paused.', error)
+    return fail('The live looping Mint policy could not be verified, so Mint Mode is paused.', error)
   } finally {
-    clearTimeout(timeoutId)
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   }
 }

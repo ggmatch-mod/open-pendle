@@ -197,8 +197,12 @@ export function PositionsCard({
   // Raw-first conversion so sy.decimals ≠ assetDecimals cannot skew the ≈ line:
   // SY raw × exchangeRate (1e18-scaled SY→asset) yields RAW asset units, which
   // are then formatted at assetDecimals.
-  const interestAssetRaw = (positions.ytClaimableInterestSy * sy.exchangeRate) / 10n ** 18n
-  const interestAsset = Number(formatUnits(interestAssetRaw, sy.assetDecimals))
+  const interestAssetRaw = sy.exchangeRate > 0n
+    ? (positions.ytClaimableInterestSy * sy.exchangeRate) / 10n ** 18n
+    : undefined
+  const interestAsset = interestAssetRaw === undefined
+    ? undefined
+    : Number(formatUnits(interestAssetRaw, sy.assetDecimals))
   const assetLabel = sy.assetSymbol ? clampLabel(sy.assetSymbol) : 'asset'
 
   const claimOnDone = () => {
@@ -260,10 +264,10 @@ export function PositionsCard({
                 <span className="text-faint">YT interest:</span>{' '}
                 {formatAmount(positions.ytClaimableInterestSy, sy.decimals)}{' '}
                 {clampLabel(sy.symbol, 16)}{' '}
-                <span className="text-faint">
-                  (≈ {Number.isFinite(interestAsset) ? interestAsset.toLocaleString('en-US', { maximumFractionDigits: 4 }) : '—'}{' '}
+                {interestAsset !== undefined && Number.isFinite(interestAsset) ? <span className="text-faint">
+                  (≈ {interestAsset.toLocaleString('en-US', { maximumFractionDigits: 4 })}{' '}
                   {assetLabel} terms)
-                </span>
+                </span> : <span className="text-faint">(asset conversion unavailable)</span>}
               </p>
             ) : (
               <p className="text-xs text-faint">No YT interest accrued.</p>

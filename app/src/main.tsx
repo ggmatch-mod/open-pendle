@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@rainbow-me/rainbowkit/styles.css'
 import './index.css'
 import App from './App.tsx'
+import BorosApp from './boros/BorosApp.tsx'
 import { wagmiConfig } from './lib/wagmi.ts'
 import { installPreloadRecovery } from './lib/preloadRecovery.ts'
 import { ThemeProvider } from './theme/ThemeProvider'
@@ -14,6 +15,10 @@ import { StartupErrorBoundary } from './components/StartupErrorBoundary.tsx'
 
 const queryClient = new QueryClient()
 installPreloadRecovery()
+
+const isBorosSurface =
+  window.location.hostname.toLowerCase() === 'boros.openpendle.com' ||
+  (import.meta.env.DEV && new URLSearchParams(window.location.search).get('surface') === 'boros')
 
 const rootElement = document.getElementById('root')!
 if (rootElement.dataset.openpendleMounted !== 'true') {
@@ -29,7 +34,7 @@ if (rootElement.dataset.openpendleMounted !== 'true') {
                 <ThemedRainbowKit>
                   {/* HashRouter: IPFS/static-host friendly — no server-side rewrites needed. */}
                   <HashRouter>
-                    <App />
+                    {isBorosSurface ? <BorosApp /> : <App />}
                   </HashRouter>
                 </ThemedRainbowKit>
               </QueryClientProvider>

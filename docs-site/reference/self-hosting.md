@@ -31,7 +31,7 @@ To maintain Explore independently of upstream releases:
 ```sh
 cd open-pendle/app
 npm run index:factory-markets
-npm run check:factory-markets:complete
+npm run check:factory-markets:fresh
 npm run build
 ```
 
@@ -45,7 +45,7 @@ The generator scans the recognized factory lineage and writes `public/catalog/fa
 - `ARBITRUM_RPC_URL`
 - an Etherscan-compatible `<NETWORK>_LOG_API_URL` where appropriate
 
-Provider URLs can contain credentials; store them in the scheduler's secret configuration, not the repository. Inspect completeness, errors, quarantined logs, and indexed-through metadata before publishing. The upstream workflow keeps the last-known-complete artifact when a refresh is partial.
+Provider URLs can contain credentials; store them in the scheduler's secret configuration, not the repository. Inspect completeness, errors, quarantined logs, and indexed-through metadata before publishing. The freshness check requires complete coverage and indexed heads no more than 48 hours old. The upstream workflow keeps the last-known-complete artifact when a refresh is partial. Branch dispatches upload a validated artifact for review; only main publishes a changed snapshot.
 
 Without a refresh, users can still load a recognized market directly by address, but new markets may be absent from Explore and PT/YT mapping until the next snapshot.
 
@@ -150,14 +150,16 @@ Self-hosting does not automatically enable executable Looping. New entry and lev
 
 - the build-time `VITE_LOOPING_EXECUTION_BETA_ENABLED` flag;
 - an exact market in the reviewed execution registry;
-- a fresh, enabled, same-origin `app/public/looping-execution-policy.v1.json` entry for that chain and Morpho market ID; and
+- a fresh, enabled, same-origin `app/public/looping-execution-policy.v2.json` entry for that chain and Morpho market ID; and
 - live contract, route, position, risk, and unsigned-simulation checks.
 
-Mint entry and Mint leverage increases require all of those controls plus `VITE_LOOPING_MINT_BETA_ENABLED=true` and the matching capability in `app/public/looping-mint-execution-policy.v1.json`. Both policies are fetched without cache and fail closed on redirects, the wrong content type, invalid structure, expiry, excessive validity, or an unlisted market.
+Mint entry and Mint leverage increases require all of those controls plus `VITE_LOOPING_MINT_BETA_ENABLED=true` and the matching capability in `app/public/looping-mint-execution-policy.v2.json`. Both policies use strict v2 schemas with only `enabled` and `markets` per capability. They have no expiration date and are fetched without cache before sensitive wallet steps. Retrieval failure, redirects, the wrong content type, invalid structure, disabled capabilities, and an unlisted market all fail closed.
 
-OpenPendle's main Cloudflare deployment enables Market entry and exit plus Mint entry with time-bounded policies; Mint increases remain disabled. Cloudflare previews force all looping write flags off. Self-hosted builds remain disabled by default. Renew or disable an enabled policy before its seven-day limit, and serve both JSON files with the headers in `public/_headers`.
+OpenPendle's main Cloudflare build enables the entry, Mint, and exit flags; the runtime policies independently control exactly which reviewed markets may enter. Mint increases remain disabled in the committed production policy. Cloudflare previews force all looping write flags off. Self-hosted builds remain disabled by default. To pause a capability, publish `enabled: false` with an empty `markets` array and increment its revision. Serve both JSON files with the headers in `public/_headers`.
 
-For loopback Vite testing only, enable both the base and Mint entry build flags, then choose either `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<Morpho market id>`. The dev server then serves a one-hour Mint policy for the selected scope; the reviewed registry still blocks unreviewed markets. These two local-policy variables are mutually exclusive and production builds ignore them; the base entry policy must still be fresh and cover the market.
+For loopback Vite testing only, enable both the base and Mint entry build flags, then choose either `OPENPENDLE_LOCAL_MINT_POLICY_ALL=true` or `OPENPENDLE_LOCAL_MINT_POLICY_MARKET=<chainId>:<Morpho market id>`. The dev server then serves a non-expiring Mint policy for the selected scope; the reviewed registry still blocks unreviewed markets. These two local-policy variables are mutually exclusive and production builds ignore them; the base entry policy must still be enabled and cover the market.
+
+The original `.v1.json` URLs remain disabled, empty compatibility files. Cached v1 clients therefore pause new risk until reloaded onto v2. Keep those files and their no-store headers when deploying v2. Policy authorization has no date limit; market maturity, quote freshness, signature deadlines, code pins, and live simulation checks still apply.
 
 Leverage decreases and full exit use the separate `VITE_LOOPING_EXIT_BETA_ENABLED` build flag. Recovery is independent of the entry policy, so pausing new risk does not by itself remove permission cleanup or direct rescue.
 

@@ -161,15 +161,22 @@ type GuideCard = {
 const GUIDE_CARDS: GuideCard[] = [
   {
     description:
+      'Value current PT, YT and LP holdings, review maturities, then build a liquidity-aware PT allocation.',
+    primaryLabel: 'Open Portfolio OS',
+    title: 'Monitor and allocate',
+    to: '/portfolio',
+  },
+  {
+    description:
       'Leverage a PT against a Morpho market and compare looped APY and liquidation distance first.',
     primaryLabel: 'Open Looping',
     title: 'Loop a Pendle PT',
     to: '/looping',
   },
   {
-    description: "See which pools' fixed yields moved most in the last 24 hours.",
-    primaryLabel: 'View alerts',
-    title: 'Spot fixed-yield moves',
+    description: 'Review wallet maturities, claims, transactions, orders and followed yield moves in one queue.',
+    primaryLabel: 'Open Action Center',
+    title: 'See what needs attention',
     to: '/alerts',
   },
   {

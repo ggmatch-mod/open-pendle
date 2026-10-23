@@ -21,6 +21,12 @@ export default withMermaid(
     lastUpdated: true,
     ignoreDeadLinks: false,
 
+    vite: {
+      // Mermaid imports this CommonJS module from its ESM chunks. Prebundle
+      // it so development serves the same default-export interop as builds.
+      optimizeDeps: { include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'] },
+    },
+
     head: [
       ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
       ['meta', { name: 'theme-color', content: '#6366F1' }],

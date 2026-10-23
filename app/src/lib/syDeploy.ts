@@ -168,7 +168,7 @@ export function isBasicTemplate(_template: SyTemplateId): boolean {
  * Whether a token's screen genuinely PASSED for an unseeded SY-only deploy of a
  * basic template (PLAN §5 M7 line 230). Passing requires a clean fee-on-transfer
  * verdict ('ok', i.e. the state-override probe actually ran and delivered a full
- * transfer) AND rebasing that is not 'suspected'. An 'unknown' FOT verdict
+ * transfer) AND a clean rebasing verdict. An 'unknown' screening verdict
  * (state overrides unsupported / no balance slot found) does NOT pass — the
  * unseeded path silently under-collateralizes on an FOT/rebasing SY, and unlike
  * the combined deploy+seed flow there is no seeding revert to catch it.
@@ -181,7 +181,7 @@ export function screenPassedForUnseededSyOnly(probe: {
   feeOnTransfer: ScreenVerdict
   rebasing: ScreenVerdict
 }): boolean {
-  return probe.feeOnTransfer === 'ok' && probe.rebasing !== 'suspected'
+  return probe.feeOnTransfer === 'ok' && probe.rebasing === 'ok'
 }
 
 /**
@@ -770,7 +770,9 @@ const DEPLOYED_SY_TOPIC0 =
 function decodeOneDeployedSy(log: {
   topics?: readonly string[]
   data?: string
+  address?: string
 }): Address | undefined {
+  if (log.address?.toLowerCase() !== SY_FACTORY.toLowerCase()) return undefined
   const topics = log.topics
   if (!topics || topics.length === 0) return undefined
   if (topics[0]?.toLowerCase() !== DEPLOYED_SY_TOPIC0) return undefined
@@ -803,8 +805,9 @@ export function decodeSyDeployResult(_logs: readonly unknown[]): SyDeployResult 
   // Combined flow: a MarketDeployment log is also present — reuse deploy.ts.
   const market = decodeDeploymentResult(_logs)
   if (market) {
+    if (market.sy.toLowerCase() !== sy.toLowerCase()) return undefined
     return {
-      // Prefer the SY from MarketDeployment (identical); both are the same SY.
+      // Both trusted factory/helper events must identify the same SY.
       sy: market.sy,
       market: market.market,
       pt: market.pt,

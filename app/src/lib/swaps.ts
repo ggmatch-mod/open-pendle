@@ -370,6 +370,7 @@ export function estimatePostTradeProportion(
   action: 'buy' | 'sell',
   amountPyApprox: bigint,
 ): number {
+  if (snapshot.sy.exchangeRate <= 0n) return NaN
   const addsPt = (side === 'yt' && action === 'buy') || (side === 'pt' && action === 'sell')
   let totalPt = snapshot.state.totalPt + (addsPt ? amountPyApprox : -amountPyApprox)
   if (totalPt < 0n) totalPt = 0n

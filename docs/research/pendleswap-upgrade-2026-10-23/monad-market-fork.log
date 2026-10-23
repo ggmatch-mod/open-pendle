@@ -1,0 +1,46 @@
+
+> openpendle@0.0.0 test:looping-fork:monad
+> node --experimental-strip-types ../fork-tests/scripts/run-looping-fork.mjs --chain monad --compiler-only --initial-usdc 1 --loop-usdc 0.5
+
+TypeScript compiler fork proof
+  Local Anvil: http://127.0.0.1:18546
+  Fresh Monad block: 115874921
+  Acquisition mode: market
+  Collateral decimals: 6
+  Yield-token decimals: 6
+  Loan-token balance slot: 9
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1335268, padded 1835848
+  compiled signed entry exact-input sweep proof: [{"token":"0x754704bc059f8c67012fed69bc8a327a5aafb603","amountIn":"1500000","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-entry-0xa3c9dc0f1e4050d7755183d5f899a7c480c4cccf8ed0b0504009895e1e054d2e.json
+  compiled signed leverage increase gas: estimate 927184, padded 1305339
+  compiled signed leverage increase exact-input sweep proof: [{"token":"0x754704bc059f8c67012fed69bc8a327a5aafb603","amountIn":"196726","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-leverage-increase-0xe13017ca839a4b4d6f20d7a7a8e5cc1977223ae974bb3e9cb7a62e1d5b604f78.json
+  compiled signed partial leverage decrease gas: estimate 937369, padded 1318579
+  compiled signed partial leverage decrease exact-input sweep proof: [{"token":"0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef","amountIn":"249801","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-partial-leverage-decrease-0xb605b3e0bf85633fe33eb4eebc6f2b47837cd4e32be4b1e840230a68b9e0484a.json
+  compiled signed exit gas: estimate 854042, padded 1210254
+  compiled signed exit exact-input sweep proof: [{"token":"0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef","amountIn":"1445458","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-exit-0xcbc9c97a08d5f89dae7c6605050bdad4af3fa4776ce41ecdce09570b33274eac.json
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1335280, padded 1835864
+  compiled signed entry exact-input sweep proof: [{"token":"0x754704bc059f8c67012fed69bc8a327a5aafb603","amountIn":"1500000","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-entry-0x924dc5b1154e657012b27d43289b02ece486e2174e7c7f6fdce884080693cb0f.json
+  compiled rescue approve-exact-repayment gas: estimate 55819, padded 172564
+  compiled rescue repay-exact-shares gas: estimate 75707, padded 198419
+  compiled rescue clear-morpho-allowance-after gas: estimate 38411, padded 149934
+  compiled rescue withdraw-exact-collateral gas: estimate 77549, padded 200813
+  exact adapter approval gas: estimate 55807, padded 172549
+  compiled signed entry gas: estimate 1335280, padded 1835864
+  compiled signed entry exact-input sweep proof: [{"token":"0x754704bc059f8c67012fed69bc8a327a5aafb603","amountIn":"1500000","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-entry-0x66c966a0848079456193bb072c4a1f9bc3e100cf6d4e130b4d8be313850726b4.json
+  compiled signed exit gas: estimate 841913, padded 1194486
+  compiled signed exit exact-input sweep proof: [{"token":"0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef","amountIn":"1529924","preexistingDustSwept":"0","transactionInputSwept":"0"}]
+  Redacted fork call trace: /private/tmp/openpendle-upgrade-2026-10-23/traces/143-compiled-signed-exit-0x15d66b5cddb345159b83cf53ff9c9052ad42e009d88fa6b90ff3bbbccd98d453.json
+  Signed entry calls: 10
+  Increase leverage: 1500366768107486572 -> 1697299482875440736 WAD (6 calls)
+  Partial decrease: 1697299482875440736 -> 1458145142017007553 WAD (5 calls)
+  Signed exit calls: 5
+  Re-prepared rescue: approve-exact-repayment -> repay-exact-shares -> clear-morpho-allowance-after -> withdraw-exact-collateral
+  Post-expiry signed exit: redeem-matured-pt at 1799884801 with 500000 loan-token base units borrowed (5 calls)
+TypeScript-compiled market entry, leverage increase, partial decrease, exit, rescue, and post-expiry exit passed on the Monad fork

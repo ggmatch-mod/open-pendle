@@ -45,3 +45,13 @@
 
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+/looping-execution-policy.v2.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cloudflare-CDN-Cache-Control: no-store
+  CDN-Cache-Control: no-store
+
+/looping-mint-execution-policy.v2.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cloudflare-CDN-Cache-Control: no-store
+  CDN-Cache-Control: no-store

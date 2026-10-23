@@ -16,7 +16,7 @@ export interface LoopingBuildEnvironment {
 
 export const OPENPENDLE_CLOUDFLARE_HOST = 'open-pendle.pages.dev'
 export const LOOPING_MINT_RUNTIME_POLICY_PATH =
-  '/looping-mint-execution-policy.v1.json'
+  '/looping-mint-execution-policy.v2.json'
 export const LOCAL_LOOPING_MINT_POLICY_MAX_MARKETS = 32
 
 export interface LocalLoopingMintPolicyMarket {
@@ -136,11 +136,8 @@ function localLoopingMintPolicyPlugin(
           next()
           return
         }
-        const validUntil =
-          new Date(Date.now() + 60 * 60 * 1_000).toISOString()
         const capability = {
           enabled: true,
-          validUntil,
           markets,
         }
         response.statusCode = 200
@@ -153,7 +150,7 @@ function localLoopingMintPolicyPlugin(
           'no-store, no-cache, must-revalidate, max-age=0',
         )
         response.end(JSON.stringify({
-          schema: 'openpendle.looping-mint-execution-policy.v1',
+          schema: 'openpendle.looping-mint-execution-policy.v2',
           revision: 1,
           mint: {
             entry: capability,

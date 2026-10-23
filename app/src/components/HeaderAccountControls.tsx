@@ -80,7 +80,7 @@ function ProfilePanel({
           className="flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-fg no-underline hover:bg-surface-2"
         >
           <span aria-hidden className="w-4 text-center text-accent-ink">↕</span>
-          Yield alerts
+          Action Center
         </Link>
       </nav>
 

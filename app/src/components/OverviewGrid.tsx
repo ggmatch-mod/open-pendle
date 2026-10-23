@@ -41,7 +41,9 @@ function Stat({
 export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
   const { metrics, sy, expiry, isExpired } = snapshot
   const assetSymbol = sy.assetSymbol ? clampLabel(sy.assetSymbol) : 'asset'
-  const proportionPct = Math.min(Math.max(metrics.ptProportion, 0), 1) * 100
+  const proportionPct = Number.isFinite(metrics.ptProportion)
+    ? Math.min(Math.max(metrics.ptProportion, 0), 1) * 100
+    : undefined
 
   return (
     <div className="space-y-4">
@@ -119,10 +121,10 @@ export function OverviewGrid({ snapshot }: { snapshot: MarketSnapshot }) {
             {formatPercent(metrics.ptProportion, 1)}
           </span>
           <span className="block h-1.5 min-w-[60px] flex-1 overflow-hidden rounded-full bg-surface-2">
-            <span
+            {proportionPct !== undefined && <span
               className="block h-full rounded-full bg-accent/80"
               style={{ width: `${proportionPct}%` }}
-            />
+            />}
           </span>
         </div>
       </div>

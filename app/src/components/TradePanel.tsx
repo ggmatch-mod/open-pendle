@@ -173,6 +173,7 @@ export function TradePanel({
   // price-weighted) on purpose — YT swaps move an equivalent PT face amount
   // through the pool, so face size is what stresses the proportion cap.
   const largeTradeRatio = useMemo((): number | undefined => {
+    if (sy.exchangeRate <= 0n) return undefined
     const tvl = snapshot.metrics.tvlAsset
     if (!Number.isFinite(tvl) || tvl <= 0) return undefined
     let faceAsset: number | undefined
@@ -210,6 +211,7 @@ export function TradePanel({
   // YT out (pre-quote SY fallback: payValue/ytPrice, guarding tiny prices);
   // PT sells use the input amount directly.
   const projectedProportion = useMemo((): number | undefined => {
+    if (sy.exchangeRate <= 0n) return undefined
     const capRisk = (action === 'buy' && side === 'yt') || (action === 'sell' && side === 'pt')
     if (!capRisk) return undefined
     let amountPyApprox: bigint | undefined
@@ -225,7 +227,8 @@ export function TradePanel({
       }
     }
     if (amountPyApprox === undefined || amountPyApprox <= 0n) return undefined
-    return estimatePostTradeProportion(snapshot, side, action, amountPyApprox)
+    const proportion = estimatePostTradeProportion(snapshot, side, action, amountPyApprox)
+    return Number.isFinite(proportion) ? proportion : undefined
   }, [action, side, amount, quote, choiceIsSy, snapshot, sy.exchangeRate])
   const capBlocked = projectedProportion !== undefined && projectedProportion > PROPORTION_CAP
 

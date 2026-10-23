@@ -55,10 +55,16 @@ import {
   savePool,
   subscribeRegistry,
 } from './registry'
+import {
+  actionActivityLabelForFunction,
+  recordActionActivity,
+  updateActionActivityStatus,
+} from './actionCenterStorage'
 
 const CLASSIFY_DEBOUNCE_MS = 400
 const MARKET_STALE_TIME_MS = 15_000
 const POSITIONS_STALE_TIME_MS = 12_000
+const ALL_POSITIONS_REFRESH_INTERVAL_MS = 60_000
 /** localStorage key: 'infinite' opts in to infinite approvals (exact-amount default, PLAN §3.4). */
 const APPROVAL_MODE_STORAGE_KEY = 'openpendle.approvals'
 
@@ -557,6 +563,8 @@ export function useAllPositions(): {
     queryFn: () => loadAggregatedPositionTargets(savedTargets, clients, user as Address),
     enabled: enabled && savedTargets.length > 0,
     staleTime: POSITIONS_STALE_TIME_MS,
+    refetchInterval: ALL_POSITIONS_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
     retry: 1,
   })
 
@@ -565,6 +573,8 @@ export function useAllPositions(): {
     queryFn: () => fetchOfficialPositionDiscovery(user as Address),
     enabled,
     staleTime: POSITIONS_STALE_TIME_MS,
+    refetchInterval: ALL_POSITIONS_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
     retry: 1,
   })
 
@@ -599,6 +609,8 @@ export function useAllPositions(): {
       officialDiscoveryQuery.status === 'success' &&
       officialOnlyTargets.length > 0,
     staleTime: POSITIONS_STALE_TIME_MS,
+    refetchInterval: ALL_POSITIONS_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
     retry: 1,
   })
 
@@ -905,6 +917,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
   const [simulatedOut, setSimulatedOut] = useState<bigint | undefined>(undefined)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined)
   const [txChainId, setTxChainId] = useState<SupportedChainId | undefined>(undefined)
+  const [txActivityId, setTxActivityId] = useState<string | undefined>(undefined)
   useTrackTransactionPhase(phase)
   const [pendingApproval, setPendingApproval] = useState<ApprovalNeed | undefined>(undefined)
   // True only for a genuine on-chain revert (sim ok:false / receipt reverted),
@@ -1024,6 +1037,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setSimulatedOut(undefined)
     setTxHash(undefined)
     setTxChainId(undefined)
+    setTxActivityId(undefined)
     setPendingApproval(undefined)
     setReverted(false)
     const activePlan = planRef.current
@@ -1080,6 +1094,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     void (async () => {
       /** True when reset() released the latch mid-send — abandon silently. */
       const released = (): boolean => latchRef.current?.id !== latch.id
+      let approvalActivityId: string | undefined
       try {
         const infinite =
           typeof localStorage !== 'undefined' &&
@@ -1087,6 +1102,21 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         const hash = await writeContractAsync(
           toWriteRequest(buildApproveCall(need, infinite), preparedChainId),
         )
+        approvalActivityId = `approval:${preparedChainId}:${hash.toLowerCase()}`
+        setTxHash(hash)
+        setTxChainId(preparedChainId)
+        setTxActivityId(approvalActivityId)
+        recordActionActivity({
+          id: approvalActivityId,
+          owner: user,
+          chainId: preparedChainId,
+          kind: 'approval',
+          label: 'Token approval',
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          hash,
+        })
         const replaced: {
           current?: { reason: ReplacementReason; hash: `0x${string}` }
         } = {}
@@ -1096,6 +1126,14 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
             replaced.current = {
               reason: replacement.reason,
               hash: replacement.transaction.hash,
+            }
+            if (approvalActivityId !== undefined) {
+              updateActionActivityStatus(
+                user,
+                approvalActivityId,
+                replacement.reason === 'repriced' ? 'pending' : 'cancelled',
+                { hash: replacement.transaction.hash },
+              )
             }
           },
         })
@@ -1109,11 +1147,17 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           return
         }
         if (receipt.status !== 'success') {
+          if (approvalActivityId !== undefined) {
+            updateActionActivityStatus(user, approvalActivityId, 'failed')
+          }
           setError(
             'Approval transaction reverted on-chain — this token may require resetting the allowance to 0 first.',
           )
           setPhase('failed')
           return
+        }
+        if (approvalActivityId !== undefined) {
+          updateActionActivityStatus(user, approvalActivityId, 'confirmed')
         }
         // Approval mined — re-arm the pipeline for a fresh allowance check +
         // binding simulation against the CURRENT plan/wallet (this also picks
@@ -1123,6 +1167,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         if (released()) return
         latchRef.current = null
         if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          if (approvalActivityId !== undefined) {
+            updateActionActivityStatus(user, approvalActivityId, 'unconfirmed')
+          }
           setError(
             'Approval is still pending — no receipt yet. Check the explorer before approving again.',
           )
@@ -1144,6 +1191,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
             setPhase('needs-approval')
           }
           return
+        }
+        if (approvalActivityId !== undefined) {
+          updateActionActivityStatus(user, approvalActivityId, 'failed')
         }
         setError(decodePendleError(err))
         setPhase('failed')
@@ -1173,9 +1223,23 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     void (async () => {
       /** True when reset() released the latch mid-send — abandon silently. */
       const released = (): boolean => latchRef.current?.id !== latch.id
+      let activityId: string | undefined
       try {
         const hash = await writeContractAsync(toWriteRequest(activePlan.call, preparedChainId))
         if (released()) return
+        activityId = `transaction:${preparedChainId}:${hash.toLowerCase()}`
+        setTxActivityId(activityId)
+        recordActionActivity({
+          id: activityId,
+          owner: user as Address,
+          chainId: preparedChainId,
+          kind: 'transaction',
+          label: actionActivityLabelForFunction(activePlan.call.functionName),
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          hash,
+        })
         setTxHash(hash)
         setPhase('pending')
         // viem follows replacements by default and resolves with the
@@ -1197,6 +1261,14 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
             if (latchRef.current?.id === latch.id) {
               setTxHash(replacement.transaction.hash)
             }
+            if (activityId !== undefined && user !== undefined) {
+              updateActionActivityStatus(
+                user,
+                activityId,
+                replacement.reason === 'repriced' ? 'pending' : 'cancelled',
+                { hash: replacement.transaction.hash },
+              )
+            }
           },
         })
         if (released()) return
@@ -1213,6 +1285,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           return
         }
         if (receipt.status === 'success') {
+          if (activityId !== undefined && user !== undefined) {
+            updateActionActivityStatus(user, activityId, 'confirmed')
+          }
           // Stay latched through 'confirmed': the Done + tx-link state must
           // survive plan churn (e.g. the positions refetch below nulling a
           // Max-amount plan). Only reset() (Done/Retry) releases the latch.
@@ -1228,6 +1303,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           void queryClient.invalidateQueries({ queryKey: ['swap-quote'] })
         } else {
           latchRef.current = null
+          if (activityId !== undefined && user !== undefined) {
+            updateActionActivityStatus(user, activityId, 'failed')
+          }
           // Signed tx mined but reverted — a genuine on-chain revert.
           setReverted(true)
           setError('Transaction reverted on-chain — no tokens moved (gas was spent).')
@@ -1237,6 +1315,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
         if (released()) return
         latchRef.current = null
         if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          if (activityId !== undefined && user !== undefined) {
+            updateActionActivityStatus(user, activityId, 'unconfirmed')
+          }
           // Broadcast and still pending past viem's wait window. This is NOT a
           // revert: offering Retry here would have the user sign a second
           // identical transaction at a higher nonce, and both would mine.
@@ -1263,6 +1344,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           }
           return
         }
+        if (activityId !== undefined && user !== undefined) {
+          updateActionActivityStatus(user, activityId, 'failed')
+        }
         setError(decodePendleError(err))
         setPhase('failed')
       }
@@ -1284,6 +1368,9 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
       try {
         const receipt = await client.waitForTransactionReceipt({ hash })
         if (receipt.status === 'success') {
+          if (txActivityId !== undefined && user !== undefined) {
+            updateActionActivityStatus(user, txActivityId, 'confirmed')
+          }
           setPhase('confirmed')
           void queryClient.invalidateQueries({ queryKey: ['positions'] })
           void queryClient.invalidateQueries({ queryKey: ['all-positions'] })
@@ -1294,22 +1381,31 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
           void queryClient.invalidateQueries({ queryKey: ['swap-quote'] })
           return
         }
+        if (txActivityId !== undefined && user !== undefined) {
+          updateActionActivityStatus(user, txActivityId, 'failed')
+        }
         setReverted(true)
         setError('Transaction reverted on-chain — no tokens moved (gas was spent).')
         setPhase('failed')
       } catch (err) {
         if (err instanceof WaitForTransactionReceiptTimeoutError) {
+          if (txActivityId !== undefined && user !== undefined) {
+            updateActionActivityStatus(user, txActivityId, 'unconfirmed')
+          }
           setError(
             'Still pending — no receipt yet. It may still confirm; check the explorer and do not resend.',
           )
           setPhase('unconfirmed')
           return
         }
+        if (txActivityId !== undefined && user !== undefined) {
+          updateActionActivityStatus(user, txActivityId, 'unconfirmed')
+        }
         setError(decodePendleError(err))
         setPhase('unconfirmed')
       }
     })()
-  }, [phase, client, txHash, queryClient])
+  }, [phase, client, txHash, txActivityId, user, queryClient])
 
   const reset = useCallback(() => {
     runRef.current++
@@ -1320,6 +1416,7 @@ export function useActionFlow(plan?: import('./types').ActionPlan | null): {
     setSimulatedOut(undefined)
     setTxHash(undefined)
     setTxChainId(undefined)
+    setTxActivityId(undefined)
     setPendingApproval(undefined)
     setReverted(false)
     // Re-arm the pipeline: with a plan still set, the effect immediately
