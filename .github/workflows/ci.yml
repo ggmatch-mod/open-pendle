@@ -33,6 +33,7 @@ jobs:
       - run: npm run check:action-center
       - run: npm run check:boros-hedge
       - run: npm run check:deployment-safety
+      - run: npm run check:oracle-sy
       - run: npm run check:limit-orders
       - run: npm run check:looping
       - run: npm run check:looping-adjustment-math
@@ -71,6 +72,20 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run docs:build
 
+  oracle-sy-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Test Shift oracle and receipt accounting
+        run: forge test --root contracts/oracle-sy
+      - name: Check reproducible browser deployment artifact
+        run: node app/scripts/build-oracle-sy.mjs --check
+
   fork-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -92,6 +107,9 @@ jobs:
       - name: Run the non-looping Arbitrum fork suite
         run: forge test --fork-url "$OPENPENDLE_ARB_RPC_URL" --no-match-path test/LoopingFork.t.sol -vv
         working-directory: fork-tests
+      - name: Verify Shift oracle SYs against real Pendle contracts on a Base fork
+        run: npm run test:oracle-sy-fork
+        working-directory: app
       - name: Run the current Arbitrum matured-loop management fixture
         run: npm run test:looping-fork:arbitrum-maturity
         working-directory: app

@@ -1,6 +1,8 @@
 # Creating an SY
 
-A [Standardized Yield (SY)](/concepts/how-pendle-works#stage-1-standardize-the-yield-source) gives Pendle a common deposit, redemption, and accounting interface for a yield-bearing asset. OpenPendle can deploy one of seven templates registered in Pendle's common SY factory.
+A [Standardized Yield (SY)](/concepts/how-pendle-works#stage-1-standardize-the-yield-source) gives Pendle a common deposit, redemption, and accounting interface for a yield-bearing asset. OpenPendle can deploy one of seven templates registered in Pendle's common SY factory, or an oracle-based SY for a same-chain Shift V1 or V2 receipt.
+
+For Shift receipts, select **Shift oracle SY** in Create SY. See [Shift oracle SY](./shift-oracle-sy) for the deployment steps and reporter requirements.
 
 ::: warning Review the contract configuration
 Factory provenance does not validate the asset, adapter, owner choice, or economic design. A malformed or privileged SY can put every market built on it at risk.
@@ -12,7 +14,7 @@ Factory provenance does not validate the asset, adapter, owner choice, or econom
 | --- | --- |
 | `PendleCommonSYFactory` | `0x466CeD3b33045Ea986B2f306C8D0aA8067961CF8` |
 
-The factory and templates are Pendle contracts. OpenPendle supplies the chosen template ID and encoded configuration; it deploys no OpenPendle-authored contract.
+The seven factory templates are Pendle contracts. OpenPendle supplies their template ID and encoded configuration. The separate Shift oracle option deploys new OpenPendle contracts based on pinned Pendle SY source; it does not use the common SY factory and does not inherit an audit of its new code.
 
 ## Asset screening
 

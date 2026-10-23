@@ -17,7 +17,7 @@ Pendle's contracts are permissionless: anyone can deploy an SY adapter, create a
 - **PT looping:** compare exact Pendle PT/Morpho matches, then use Market Mode to buy PT or Mint Mode to mint PT+YT, supply only PT as collateral, and keep YT in your wallet. New entry is scoped to reviewed Ethereum reUSD/USDC and Monad USDat/USDC markets. Existing Arbitrum and matured Monad positions retain management and recovery paths. Mint leverage increases remain disabled.
 - **PT limit orders:** gasless order placement inside markets that Pendle's live limit-order support service approves; approvals, settlement, and cancellations use Pendle's Limit Router.
 - **Boros prototype:** a separate, read-only BTC funding-hedge preview with market pagination, refreshing simulations, visible data age, and unknown-fee handling. It does not execute a hedge or establish account-specific margin readiness. For local review, open `http://localhost:5173/?surface=boros` in the development server.
-- **Create pools & SY adapters** from the browser via Pendle's own deployed helper contracts (zero custom contracts of our own).
+- **Create pools & SY adapters** from the browser. Standard templates and pool creation use Pendle's deployed helpers; the **Shift oracle SY** option deploys a new immutable oracle and SY for same-chain Shift V1/V2 receipts, with principal measured in the vault's accounting asset and share-price growth allocated to YT.
 - **Remember pools** locally (per-pool, per-chain) — stored only in your browser, with a dedicated saved-pools view and an undo on forget.
 - **Protocol Status & Contracts** page — each chain's live Pendle wiring + fee parameters, resolved on-chain; plus a top ticker of live Pendle metrics (DefiLlama + CoinGecko).
 - **Light/dark theme**, and injected-wallet connect (MetaMask, Rabby, Brave — no WalletConnect).
@@ -44,6 +44,8 @@ Looping's same-origin v2 policies have no expiration date. They are fetched with
 
 This is experimental software for a permissionless protocol. Use at your own risk; it comes with no warranty.
 
+The Shift oracle SY route is new, unaudited integration code, not a registered Pendle factory template. V1 uses its pinned TVL feed timestamp; V2 requires ongoing attestations from the designated NAV reporter. Points distribution remains Shift's separate responsibility. See the [launch guide](docs-site/create/shift-oracle-sy.md) for supported receipts, controls, loss risks, and asynchronous redemption limits.
+
 ## Run it locally
 
 Requires Node 22+.
@@ -69,15 +71,16 @@ OpenPendle never hardcodes Pendle's governance-mutable parameters. It resolves e
 | `app/` | The frontend (Vite 8 + React 19 + TypeScript, wagmi/viem, RainbowKit, Tailwind v4) |
 | `app/scripts/` | Node fork-test harnesses, protocol/address checks, and the factory-market snapshot generator |
 | `fork-tests/` | Foundry fork tests against live Pendle contracts |
+| `contracts/oracle-sy/` | Immutable Shift receipt SY and NAV oracle, pinned dependencies, and unit/fork tests |
 | `docs/research/` | Fork-tested protocol research digest + multichain address books |
 | `PLAN.md` | Architecture notes + roadmap |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). In short: it's a static Vite app in `app/`, run on Node 22, keep `npm run build` and `npm run lint` green, and don't add a request-time backend or custom smart contracts without an explicit architecture decision. On-chain actions call Pendle's deployed contracts directly; signed limit orders first go to Pendle's hosted service and settle later through its Limit Router.
+See [CONTRIBUTING.md](CONTRIBUTING.md). In short: it's a static Vite app in `app/`, run on Node 22, keep `npm run build` and `npm run lint` green, and don't add a request-time backend or further custom smart contracts without an explicit architecture decision. The documented Shift oracle SY launcher is the narrow custom-contract exception; other on-chain actions call Pendle's deployed contracts directly. Signed limit orders first go to Pendle's hosted service and settle later through its Limit Router.
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). OpenPendle is a copyleft public good. The app calls Pendle's deployed contracts with hand-written ABIs and vendors no Pendle contract source. Dependencies retain their respective licenses.
+[GPL-3.0-or-later](LICENSE). OpenPendle is a copyleft public good. The app calls Pendle's deployed contracts with hand-written ABIs. The Shift oracle SY project vendors a pinned Pendle SY dependency closure and OpenZeppelin dependencies; provenance, modifications, and licenses are recorded in [vendor/PROVENANCE.md](contracts/oracle-sy/vendor/PROVENANCE.md). Dependencies retain their respective licenses.
 
 Built by [ggmxbt](https://x.com/ggmxbt).

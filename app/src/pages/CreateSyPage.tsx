@@ -57,7 +57,7 @@ import {
   syOnlyDeployNeedsOverride,
   templateInfo,
 } from '../lib/syDeploy'
-import { useActionFlow, useAssetProbe } from '../lib/hooks'
+import { useActionFlow, useAssetProbe, useTransactionInFlight } from '../lib/hooks'
 import { PENDLE_GOVERNANCE } from '../lib/addresses'
 import { PageHeader } from '../components/PageHeader'
 import { AmountInput } from '../components/AmountInput'
@@ -68,6 +68,7 @@ import { parseAmount } from '../components/parseAmount'
 import { useDocumentTitle } from '../components/useDocumentTitle'
 import { PoolParamEducation } from '../components/create/PoolParamEducation'
 import { SyDeploySuccess } from '../components/create/SyDeploySuccess'
+import { OracleSyForm } from '../components/create/OracleSyForm'
 import {
   useExpiryDivisor,
   useTokenBalance,
@@ -243,6 +244,47 @@ function VerdictPill({ label, verdict }: { label: string; verdict: 'ok' | 'suspe
 
 export default function CreateSyPage() {
   useDocumentTitle('Create an SY')
+  const [kind, setKind] = useState<'standard' | 'shift-oracle'>('standard')
+  const transactionInFlight = useTransactionInFlight()
+
+  return (
+    <div className="mx-auto max-w-[760px] pb-8">
+      <PageHeader
+        back
+        title="Create an SY"
+        lede="Wrap a yield-bearing token as a Pendle SY. Choose a standard template or separate a Shift receipt's vault yield from its principal."
+      />
+      <div role="tablist" aria-label="SY type" className="mb-5 grid grid-cols-2 gap-2 rounded-xl border border-hairline bg-surface p-1.5">
+        {([
+          ['standard', 'Standard templates'],
+          ['shift-oracle', 'Shift oracle SY'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            id={`sy-tab-${value}`}
+            role="tab"
+            aria-selected={kind === value}
+            aria-controls={`sy-panel-${value}`}
+            type="button"
+            disabled={transactionInFlight}
+            onClick={() => setKind(value)}
+            className={`rounded-lg px-3 py-2.5 text-sm font-medium disabled:cursor-wait ${kind === value ? 'bg-bg-2 text-accent-ink' : 'text-muted hover:text-fg'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div id="sy-panel-standard" role="tabpanel" aria-labelledby="sy-tab-standard" hidden={kind !== 'standard'}>
+        <StandardSyForm />
+      </div>
+      <div id="sy-panel-shift-oracle" role="tabpanel" aria-labelledby="sy-tab-shift-oracle" hidden={kind !== 'shift-oracle'}>
+        <OracleSyForm />
+      </div>
+    </div>
+  )
+}
+
+function StandardSyForm() {
   const { address: user } = useAccount()
 
   // --- asset input + probe ---
@@ -599,13 +641,7 @@ export default function CreateSyPage() {
   const actionLabel = mode === 'sy-only' ? 'deploy SY' : 'deploy SY + pool'
 
   return (
-    <div className="mx-auto max-w-[760px] pb-8">
-      <PageHeader
-        back
-        title="Create an SY"
-        lede="Wrap a yield-bearing ERC-20 or ERC-4626 vault as a Pendle SY — optionally with a pool in the same transaction. A wallet is only needed to deploy."
-      />
-      <div className="space-y-5">
+    <div className="space-y-5">
 
       {flow.phase === 'confirmed' && flow.txHash ? (
         <SyDeploySuccess txHash={flow.txHash} upgradeable={upgradeable} />
@@ -1186,7 +1222,6 @@ export default function CreateSyPage() {
           <TxStatus flow={flow} />
         </div>
       </Section>
-      </div>
     </div>
   )
 }

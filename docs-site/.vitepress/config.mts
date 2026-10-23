@@ -99,6 +99,7 @@ export default withMermaid(
           items: [
             { text: 'Overview', link: '/create/overview' },
             { text: 'Creating an SY', link: '/create/standardized-yield' },
+            { text: 'Shift oracle SY', link: '/create/shift-oracle-sy' },
             { text: 'Deploying the market', link: '/create/deploying-a-market' },
             { text: 'Initializing the oracle', link: '/create/price-oracle' },
             { text: 'Pool incentives', link: '/create/incentives' },
