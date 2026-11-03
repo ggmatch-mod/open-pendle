@@ -24,19 +24,19 @@
       42161
     ],
     "totalChains": 6,
-    "marketCount": 1018,
+    "marketCount": 1019,
     "quarantinedLogCount": 0
   },
   "chains": [
     {
       "chainId": 1,
       "complete": true,
-      "indexedThrough": 26327079,
-      "indexedThroughHash": "0xa67e0f96f1cd4a6e55e68b18a2e6fc653b6fb5ac134326b85cf5b23d09485423",
-      "indexedThroughTimestamp": 1793622275,
+      "indexedThrough": 26334101,
+      "indexedThroughHash": "0x8450047d4e14aa0220737a59bb85510c7b71ec6355d5e1b2d1340f9ed9ed22df",
+      "indexedThroughTimestamp": 1793706803,
       "reorgAnchor": {
-        "blockNumber": 26326824,
-        "blockHash": "0x50f1e2e870e8b4e31c766e85155cf1a685f8bb1a41be7aa84e03e7246848eee8"
+        "blockNumber": 26333846,
+        "blockHash": "0x443ce65b98382a26b8e2d7ea477b0b96c6bc9aaa3bda1924ab47f3f05fe65c96"
       },
       "factories": [
         {
@@ -45,7 +45,7 @@
           "eventVersion": "v1",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 26327079,
+          "indexedThrough": 26334101,
           "logCount": 38
         },
         {
@@ -54,7 +54,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 26327079,
+          "indexedThrough": 26334101,
           "logCount": 56
         },
         {
@@ -63,7 +63,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 26327079,
+          "indexedThrough": 26334101,
           "logCount": 13
         },
         {
@@ -72,7 +72,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 26327079,
+          "indexedThrough": 26334101,
           "logCount": 335
         },
         {
@@ -81,7 +81,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 26327079,
+          "indexedThrough": 26334101,
           "logCount": 222
         }
       ],
@@ -14038,12 +14038,12 @@
     {
       "chainId": 56,
       "complete": true,
-      "indexedThrough": 131241111,
-      "indexedThroughHash": "0x4373a93ad9d31c92c1531317aad64271a63a1af5c111313e709ef8fd9d91a5fe",
-      "indexedThroughTimestamp": 1793622575,
+      "indexedThrough": 131428968,
+      "indexedThroughHash": "0xa275d344e8341250b8bfd537bf36ae163c5484f8fd921656b6658246720b9828",
+      "indexedThroughTimestamp": 1793707133,
       "reorgAnchor": {
-        "blockNumber": 131240856,
-        "blockHash": "0x6969d62c0fd56924600c654e5a470afb7f27387676a56accb9915b15b483d2b0"
+        "blockNumber": 131428713,
+        "blockHash": "0xfb32e035658da772231d45c78d6ff8252de9da09983e4f1186f77e19d1083ffa"
       },
       "factories": [
         {
@@ -14052,7 +14052,7 @@
           "eventVersion": "v1",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 131241111,
+          "indexedThrough": 131428968,
           "logCount": 3
         },
         {
@@ -14061,7 +14061,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 131241111,
+          "indexedThrough": 131428968,
           "logCount": 2
         },
         {
@@ -14070,7 +14070,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 131241111,
+          "indexedThrough": 131428968,
           "logCount": 2
         },
         {
@@ -14079,7 +14079,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 131241111,
+          "indexedThrough": 131428968,
           "logCount": 32
         },
         {
@@ -14088,7 +14088,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 131241111,
+          "indexedThrough": 131428968,
           "logCount": 18
         }
       ],
@@ -15298,12 +15298,12 @@
     {
       "chainId": 143,
       "complete": true,
-      "indexedThrough": 118756284,
-      "indexedThroughHash": "0x7fd26ef82145e8f809b57618148ef7ce25e8a57256ae09b53a35c09e29c86338",
-      "indexedThroughTimestamp": 1793622615,
+      "indexedThrough": 119035813,
+      "indexedThroughHash": "0xe3f7a295f776b86a60423d4e7eabcf5a841ec0d1dc4b387f90ecfdc3079803d9",
+      "indexedThroughTimestamp": 1793707165,
       "reorgAnchor": {
-        "blockNumber": 118756029,
-        "blockHash": "0x1750eeff2e97380a0525b8ae663011c53b1b788bf9e4fa09ca18ef51a1854623"
+        "blockNumber": 119035558,
+        "blockHash": "0xfd28ccc7f39773cce3a33c803ac1145935916219ed0c4a846298b97aeb6e3a29"
       },
       "factories": [
         {
@@ -15312,7 +15312,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 118756284,
+          "indexedThrough": 119035813,
           "logCount": 23
         }
       ],
@@ -15808,12 +15808,12 @@
     {
       "chainId": 8453,
       "complete": true,
-      "indexedThrough": 53416526,
-      "indexedThroughHash": "0x37a13ae52ea19bee80040679572c85be3153a6ab0ab486b7a1be84868b46ebd0",
-      "indexedThroughTimestamp": 1793622399,
+      "indexedThrough": 53458804,
+      "indexedThroughHash": "0xbbe3fb00c251d84ab7c5c9572cb235779e78bb478f6951beb877bc6f22d7718f",
+      "indexedThroughTimestamp": 1793706955,
       "reorgAnchor": {
-        "blockNumber": 53416271,
-        "blockHash": "0x037b09471bdffebf78840fdd996e5aab393c2db69648f5f1fccac67a01acfd0a"
+        "blockNumber": 53458549,
+        "blockHash": "0x9c5b70e8d6f7580974ea8748855da769925f7a305219e9898ffc54d0b867e8bc"
       },
       "factories": [
         {
@@ -15822,7 +15822,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 22350352,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 53416526,
+          "indexedThrough": 53458804,
           "logCount": 48
         },
         {
@@ -15831,11 +15831,11 @@
           "eventVersion": "v3+",
           "deploymentBlock": 37206684,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 53416526,
-          "logCount": 34
+          "indexedThrough": 53458804,
+          "logCount": 35
         }
       ],
-      "marketCount": 82,
+      "marketCount": 83,
       "quarantinedLogCount": 0,
       "errors": [],
       "markets": [
@@ -17560,18 +17560,39 @@
           "yt": "0x438ce3f1c11ae7397c8323a85ee5e405ae907b02",
           "sy": "0x10c5e7711eaddc1b6b64e40ef1976fc462666409",
           "createdAt": 1793619389
+        },
+        {
+          "key": "8453:0x84ae54e6bd6ae227ed3c116b08622b2101c852f1",
+          "chainId": 8453,
+          "address": "0x84ae54e6bd6ae227ed3c116b08622b2101c852f1",
+          "pt": "0x5813fd80edace5b8569de313642b2927587d351c",
+          "factory": "0x81e80a50e56d10c501ff17b5fe2f662bd9ea4590",
+          "factoryGeneration": "V6",
+          "eventVersion": "v3+",
+          "blockNumber": 53448389,
+          "blockHash": "0x528ee239359fd6142ebed623e38ff66166700befd82614ed71dd74e90045e706",
+          "transactionHash": "0x98e0c8c725d574aa9c80d997d2a294c803bfe53722cdb54d5add6df9012b567f",
+          "logIndex": 602,
+          "scalarRoot": "33049250106992112655",
+          "initialAnchor": "1024452145729620404",
+          "lnFeeRateRoot": "5982071677547463",
+          "name": "PLP USDe 28FEB2027",
+          "expiry": 1803772800,
+          "yt": "0xe6c2e2e0c735e9c44dfc76af72bfa80ae8aac1cf",
+          "sy": "0xfcce4882d0cc7c742ffe3c2682df57e09acf9567",
+          "createdAt": 1793686125
         }
       ]
     },
     {
       "chainId": 9745,
       "complete": true,
-      "indexedThrough": 36677413,
-      "indexedThroughHash": "0x73f5dfefcd684c1559bfe4db219d1f9c8b1351bcea8b689ccb8f8fb515610a49",
-      "indexedThroughTimestamp": 1793619874,
+      "indexedThrough": 36764463,
+      "indexedThroughHash": "0xd63cac7372e03e83ec0cdc675d082339e36c2df0d32a106c62011e5a5ed50011",
+      "indexedThroughTimestamp": 1793707177,
       "reorgAnchor": {
-        "blockNumber": 36677158,
-        "blockHash": "0x35c3dcf380ce1a06e574c62f881fb64966c992e23c23fe029881261b59a9c723"
+        "blockNumber": 36764208,
+        "blockHash": "0xd598e2e8677feb801f05771a9e81bb7291dd559b1d965e7244e57a7f7c4ba43e"
       },
       "factories": [
         {
@@ -17580,7 +17601,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 1887344,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 36677413,
+          "indexedThrough": 36764463,
           "logCount": 19
         },
         {
@@ -17589,7 +17610,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 4278863,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 36677413,
+          "indexedThrough": 36764463,
           "logCount": 19
         }
       ],
@@ -18400,12 +18421,12 @@
     {
       "chainId": 42161,
       "complete": true,
-      "indexedThrough": 520567111,
-      "indexedThroughHash": "0x7ca76b785f776a1eec2c85b3dabdfde35a68ad3fedf4fa7812eed4acc2d785cf",
-      "indexedThroughTimestamp": 1793622657,
+      "indexedThrough": 520866693,
+      "indexedThroughHash": "0x1984ab714acf18e7706e008eae53bb9423704706b262f839f40ec2e7122daebb",
+      "indexedThroughTimestamp": 1793707239,
       "reorgAnchor": {
-        "blockNumber": 520566856,
-        "blockHash": "0x9bb7a40fee4bb3cfb631babc102db56d985bbff542161e667dc44d285a7e0b86"
+        "blockNumber": 520866438,
+        "blockHash": "0xdb1d85a020d625eedde12de459817ad58c544ab2717dc54ae1cc85167d5f18ea"
       },
       "factories": [
         {
@@ -18414,7 +18435,7 @@
           "eventVersion": "v1",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 520567111,
+          "indexedThrough": 520866693,
           "logCount": 27
         },
         {
@@ -18423,7 +18444,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 520567111,
+          "indexedThrough": 520866693,
           "logCount": 40
         },
         {
@@ -18432,7 +18453,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 520567111,
+          "indexedThrough": 520866693,
           "logCount": 3
         },
         {
@@ -18441,7 +18462,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 520567111,
+          "indexedThrough": 520866693,
           "logCount": 52
         },
         {
@@ -18450,7 +18471,7 @@
           "eventVersion": "v3+",
           "deploymentBlock": 0,
           "startBlockSource": "checkpoint",
-          "indexedThrough": 520567111,
+          "indexedThrough": 520866693,
           "logCount": 32
         }
       ],
